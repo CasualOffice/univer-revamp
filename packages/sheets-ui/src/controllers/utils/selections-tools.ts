@@ -95,33 +95,70 @@ export function isThisColSelected(
 }
 
 /**
+ * Memo of (selections-array → per-index lookup maps), keyed weakly so a
+ * replaced selections array is collected without explicit invalidation.
+ *
+ * The original `.find()` walked every selection per call — with ctrl-click
+ * patterns producing 50+ selections, a header click paid O(N). The maps
+ * here trade O(K) initial build (K = number of indices covered by ROW/
+ * COLUMN-type selections, typically the row/column count of the range)
+ * for O(1) lookups on subsequent calls against the same selections
+ * reference.
+ *
+ * Why a WeakMap and not state on a service: the function's contract is
+ * stateless — selections come in as a parameter from various sites
+ * (`getCurrentSelections()`, test fixtures, etc.). A WeakMap keyed on
+ * the array reference lets us cache derived state without entangling
+ * lifecycle with any specific selection service.
+ */
+interface IndexedSelections {
+    rowIndex: Map<number, ISelectionWithStyle>;
+    colIndex: Map<number, ISelectionWithStyle>;
+}
+const _selectionIndexCache = new WeakMap<Readonly<ISelectionWithStyle[]>, IndexedSelections>();
+
+function _getOrBuildSelectionIndex(selections: Readonly<ISelectionWithStyle[]>): IndexedSelections {
+    let cached = _selectionIndexCache.get(selections);
+    if (cached) return cached;
+    const rowIndex = new Map<number, ISelectionWithStyle>();
+    const colIndex = new Map<number, ISelectionWithStyle>();
+    for (const sel of selections) {
+        const range = sel.range;
+        const rangeType = range.rangeType;
+        // Match the original .find() filter: ALL and NORMAL ranges never
+        // match a row/column header click — only pure ROW or COLUMN ranges
+        // do. Anything else is skipped entirely.
+        if (rangeType === RANGE_TYPE.ROW) {
+            for (let i = range.startRow; i <= range.endRow; i++) {
+                // First-wins semantics — matches Array.prototype.find().
+                if (!rowIndex.has(i)) rowIndex.set(i, sel);
+            }
+        } else if (rangeType === RANGE_TYPE.COLUMN) {
+            for (let i = range.startColumn; i <= range.endColumn; i++) {
+                if (!colIndex.has(i)) colIndex.set(i, sel);
+            }
+        }
+    }
+    cached = { rowIndex, colIndex };
+    _selectionIndexCache.set(selections, cached);
+    return cached;
+}
+
+/**
  * Detect this row/col is in selections.
  * @param selections
  * @param indexOfRowCol
  * @param rowOrCol
- * @returns boolean
+ * @returns the matched selection (same object reference as `selections`
+ * contained, for downstream identity checks), or undefined.
  */
 export function matchedSelectionByRowColIndex(
     selections: Readonly<ISelectionWithStyle[]>,
     indexOfRowCol: number,
     rowOrCol: RANGE_TYPE.ROW | RANGE_TYPE.COLUMN
 ): Nullable<ISelectionWithStyle> {
-    const matchSelectionData = selections.find((sel) => {
-        const range = sel.range;
-        const { startRow: startRowOfCurrSel, endRow: endRowOfCurrSel, startColumn: startColumnOfCurrSel, endColumn: endColumnOfCurrSel, rangeType: rangeTypeOfCurrSelection } = range;
-
-        if (rangeTypeOfCurrSelection === RANGE_TYPE.ALL || rangeTypeOfCurrSelection === RANGE_TYPE.NORMAL) return false;
-
-        if (rangeTypeOfCurrSelection === rowOrCol) {
-            if (rowOrCol === RANGE_TYPE.COLUMN && startColumnOfCurrSel <= indexOfRowCol && indexOfRowCol <= endColumnOfCurrSel) {
-                return true;
-            }
-            if (rowOrCol === RANGE_TYPE.ROW && startRowOfCurrSel <= indexOfRowCol && indexOfRowCol <= endRowOfCurrSel) {
-                return true;
-            }
-        }
-        return false;
-    });
-
-    return matchSelectionData;
+    const { rowIndex, colIndex } = _getOrBuildSelectionIndex(selections);
+    return rowOrCol === RANGE_TYPE.ROW
+        ? rowIndex.get(indexOfRowCol)
+        : colIndex.get(indexOfRowCol);
 }

@@ -84,6 +84,35 @@ describe('selections tools', () => {
         expect(matchedSelectionByRowColIndex(selections, 1, RANGE_TYPE.COLUMN)).toBeUndefined();
     });
 
+    // First-wins ordering: when two ROW-type selections cover the same
+    // row index, the one earlier in the selections array must be the one
+    // returned — matching the behaviour of Array.prototype.find(). This
+    // guards the indexed-lookup path from drifting from the linear-scan
+    // semantics it replaced.
+    it('returns the first matching selection when multiple selections cover the same index', () => {
+        const selections = [
+            { range: { startRow: 0, endRow: 5, startColumn: 0, endColumn: 999, rangeType: RANGE_TYPE.ROW } },
+            { range: { startRow: 3, endRow: 8, startColumn: 0, endColumn: 999, rangeType: RANGE_TYPE.ROW } },
+            { range: { startRow: 0, endRow: 999, startColumn: 1, endColumn: 4, rangeType: RANGE_TYPE.COLUMN } },
+            { range: { startRow: 0, endRow: 999, startColumn: 3, endColumn: 6, rangeType: RANGE_TYPE.COLUMN } },
+        ] as any;
+
+        // Rows 3-5 are covered by both selections[0] and selections[1] —
+        // the earlier one wins.
+        expect(matchedSelectionByRowColIndex(selections, 4, RANGE_TYPE.ROW)).toBe(selections[0]);
+        // Row 7 only sits inside selections[1].
+        expect(matchedSelectionByRowColIndex(selections, 7, RANGE_TYPE.ROW)).toBe(selections[1]);
+        // Columns 3-4 are covered by both selections[2] and selections[3].
+        expect(matchedSelectionByRowColIndex(selections, 3, RANGE_TYPE.COLUMN)).toBe(selections[2]);
+        expect(matchedSelectionByRowColIndex(selections, 6, RANGE_TYPE.COLUMN)).toBe(selections[3]);
+
+        // Repeat calls against the same array must hit the cache and
+        // still return identical references (the cached map stores the
+        // original sel objects, not copies).
+        expect(matchedSelectionByRowColIndex(selections, 4, RANGE_TYPE.ROW)).toBe(selections[0]);
+        expect(matchedSelectionByRowColIndex(selections, 3, RANGE_TYPE.COLUMN)).toBe(selections[2]);
+    });
+
     it('computes disabled state from sheet/range/interceptor situations', () => {
         const workbook$ = new BehaviorSubject<any>(null);
         const selectionMoveEnd$ = new BehaviorSubject<any>(null);
