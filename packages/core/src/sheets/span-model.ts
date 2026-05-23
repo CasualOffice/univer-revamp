@@ -19,6 +19,17 @@ import { LRUMap, Rectangle, Tools } from '../shared';
 import { Disposable } from '../shared/lifecycle';
 import { RANGE_TYPE } from './typedef';
 
+// Row-bucket size for the merge-range index. Each NORMAL-type merge is
+// recorded under every bucket its row span touches; a query for visible
+// rows [startRow..endRow] walks only the buckets in that range and the
+// always-check list (special-type merges), avoiding a full O(N) scan
+// of _mergeData on every viewport update.
+//
+// 64 picked empirically: small enough that scroll deltas rarely span
+// > 1-2 buckets (typical viewport height is 25-40 rows), large enough
+// that init bucket-count stays bounded for sheets with very tall merges.
+const MERGE_INDEX_BUCKET_ROWS = 64;
+
 export class SpanModel extends Disposable {
     /**
      * @property Cache for RANGE_TYPE.NORMAL
@@ -54,6 +65,19 @@ export class SpanModel extends Disposable {
      */
     private _mergeData: IRange[];
 
+    /**
+     * Row-indexed bucket of merge indices for NORMAL-type merges only.
+     * Built once at init; queried by `getMergedCellRange` to skip merges
+     * outside the requested row span.
+     */
+    private _mergeRowBuckets: Map<number, number[]> = new Map();
+    /**
+     * Indices that need to be checked regardless of query row range
+     * (ROW / COLUMN / ALL types). Walked on every query but typically
+     * small.
+     */
+    private _alwaysCheckIndices: number[] = [];
+
     private _rangeMap: LRUMap<string, number[]> = new LRUMap<string, number[]>(50000);
 
     constructor(mergeData: IRange[]) {
@@ -75,6 +99,8 @@ export class SpanModel extends Disposable {
         this._rangeMap.clear();
         this._hasColumn = false;
         this._hasRow = false;
+        this._mergeRowBuckets.clear();
+        this._alwaysCheckIndices.length = 0;
     }
 
     private _createCache(mergeData: IRange[]) {
@@ -83,14 +109,31 @@ export class SpanModel extends Disposable {
             const { rangeType } = range;
             if (rangeType === RANGE_TYPE.ROW) {
                 this._createRowCache(range, index);
+                this._alwaysCheckIndices.push(index);
             } else if (rangeType === RANGE_TYPE.COLUMN) {
                 this._createColumnCache(range, index);
+                this._alwaysCheckIndices.push(index);
             } else if (rangeType === RANGE_TYPE.ALL) {
                 this._createCellAllCache(index);
+                this._alwaysCheckIndices.push(index);
             } else {
                 this._createCellCache(range, index);
+                this._addToRowBuckets(range, index);
             }
             index++;
+        }
+    }
+
+    private _addToRowBuckets(range: IRange, index: number) {
+        const firstBucket = Math.floor(range.startRow / MERGE_INDEX_BUCKET_ROWS);
+        const lastBucket = Math.floor(range.endRow / MERGE_INDEX_BUCKET_ROWS);
+        for (let b = firstBucket; b <= lastBucket; b++) {
+            let bucket = this._mergeRowBuckets.get(b);
+            if (!bucket) {
+                bucket = [];
+                this._mergeRowBuckets.set(b, bucket);
+            }
+            bucket.push(index);
         }
     }
 
@@ -191,28 +234,62 @@ export class SpanModel extends Disposable {
     }
 
     public getMergedCellRange(startRow: number, startColumn: number, endRow: number, endColumn: number) {
-        const ranges: IRange[] = [];
-
         const key = `${startRow}-${startColumn}-${endRow}-${endColumn}`;
         if (this._rangeMap.has(key)) {
             return this._getRangeFromCache(key);
         }
-        let index = 0;
+
+        const target = { startRow, endRow, startColumn, endColumn };
+        const ranges: IRange[] = [];
         const indexes: number[] = [];
-        for (const range of this._mergeData || []) {
-            if (Rectangle.intersects(range, {
-                startRow,
-                endRow,
-                startColumn,
-                endColumn,
-            })) {
-                ranges.push({
-                    ...range,
-                });
-                indexes.push(index);
-            }
-            index++;
+        const mergeData = this._mergeData;
+        if (!mergeData || mergeData.length === 0) {
+            this._rangeMap.set(key, indexes);
+            return ranges;
         }
+
+        // K-way merge across the always-check list and the row buckets
+        // touching [startRow..endRow]. Each source is index-ascending by
+        // construction (`_createCache` pushes in `index++` order), so a
+        // single `lastSeen` cursor dedupes correctly without a Set.
+        // Output is index-ascending — matching the original linear scan
+        // so downstream order assumptions and the `_rangeMap` LRU cache
+        // store the same shape as before this change.
+        const firstBucket = Math.floor(startRow / MERGE_INDEX_BUCKET_ROWS);
+        const lastBucket = Math.floor(endRow / MERGE_INDEX_BUCKET_ROWS);
+        const sourceCount = lastBucket - firstBucket + 2; // +1 for always-check
+        const sources: Array<number[] | undefined> = new Array(sourceCount);
+        const cursors: number[] = new Array(sourceCount).fill(0);
+        sources[0] = this._alwaysCheckIndices;
+        for (let b = firstBucket; b <= lastBucket; b++) {
+            sources[b - firstBucket + 1] = this._mergeRowBuckets.get(b);
+        }
+
+        let lastSeen = -1;
+        while (true) {
+            let minIdx = Infinity;
+            let minSource = -1;
+            for (let si = 0; si < sources.length; si++) {
+                const list = sources[si];
+                if (!list) continue;
+                while (cursors[si] < list.length && list[cursors[si]] <= lastSeen) {
+                    cursors[si]++;
+                }
+                if (cursors[si] < list.length && list[cursors[si]] < minIdx) {
+                    minIdx = list[cursors[si]];
+                    minSource = si;
+                }
+            }
+            if (minSource === -1) break;
+            cursors[minSource]++;
+            lastSeen = minIdx;
+            const range = mergeData[minIdx];
+            if (Rectangle.intersects(range, target)) {
+                ranges.push({ ...range });
+                indexes.push(minIdx);
+            }
+        }
+
         this._rangeMap.set(key, indexes);
         return ranges;
     }
