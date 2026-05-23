@@ -21,7 +21,11 @@ describe('font cache', () => {
     beforeEach(() => {
         (FontCache as any)._globalFontMeasureCache = new Map();
         (FontCache as any)._fontDataMap = new Map();
-        (FontCache as any)._getTextHeightCache = {};
+        // _getTextHeightCache is now a Map (was a plain object) so the
+        // DOM-fallback cache can be bounded the same way the measure
+        // cache is. Test resets keep parity with the new internal shape.
+        (FontCache as any)._getTextHeightCache = new Map();
+        (FontCache as any)._measureCacheSize = 0;
         (FontCache as any)._context = null;
     });
 
@@ -62,6 +66,63 @@ describe('font cache', () => {
         expect(FontCache.getFontMeasureCache('12px Arial', 'B')).toBeTruthy();
         expect(FontCache.clearFontMeasureCache('12px Arial/B')).toBe(true);
         expect(FontCache.clearFontMeasureCache('12px Arial')).toBe(true);
+    });
+
+    it('automatically evicts measure cache entries once the internal cap is exceeded', () => {
+        // The internal cap is 50_000; reach in and shrink it so the
+        // test runs in milliseconds while exercising the same code path.
+        const originalCap = (FontCache as any)._MEASURE_CACHE_CAP;
+        Object.defineProperty(FontCache, '_MEASURE_CACHE_CAP', { value: 8, configurable: true });
+        try {
+            for (let i = 0; i < 12; i++) {
+                FontCache.setFontMeasureCache('12px Arial', `k-${i}`, {
+                    width: i,
+                    fontBoundingBoxAscent: 1,
+                    fontBoundingBoxDescent: 1,
+                    actualBoundingBoxAscent: 1,
+                    actualBoundingBoxDescent: 1,
+                });
+            }
+            // Insert #9 (i=8, zero-indexed) crosses the cap (size > 8),
+            // triggering auto-eviction down to half — bucket should have
+            // ≤ cap/2 + (the last few inserts after the eviction).
+            expect((FontCache as any)._measureCacheSize).toBeLessThanOrEqual(originalCap);
+            expect((FontCache as any)._measureCacheSize).toBeLessThan(12);
+        } finally {
+            Object.defineProperty(FontCache, '_MEASURE_CACHE_CAP', { value: originalCap, configurable: true });
+        }
+    });
+
+    it('LRU-bumps measure cache entries on read so eviction targets cold ones', () => {
+        // Pre-seed two entries; read the first to bump it; then evict.
+        // The bumped entry should survive over the un-bumped one because
+        // it was moved to the end of the iteration order.
+        FontCache.setFontMeasureCache('12px Arial', 'COLD', {
+            width: 1,
+            fontBoundingBoxAscent: 1,
+            fontBoundingBoxDescent: 1,
+            actualBoundingBoxAscent: 1,
+            actualBoundingBoxDescent: 1,
+        });
+        FontCache.setFontMeasureCache('12px Arial', 'HOT', {
+            width: 2,
+            fontBoundingBoxAscent: 1,
+            fontBoundingBoxDescent: 1,
+            actualBoundingBoxAscent: 1,
+            actualBoundingBoxDescent: 1,
+        });
+        // Insertion order is [COLD, HOT]. Read HOT to bump it to the
+        // end → order becomes [COLD, HOT] (HOT already last) — so first
+        // bump COLD too and then HOT, leaving HOT freshest.
+        FontCache.getFontMeasureCache('12px Arial', 'COLD'); // → [HOT, COLD]
+        FontCache.getFontMeasureCache('12px Arial', 'HOT'); // → [COLD, HOT]
+        // _clearMeasureCache walks from the front and stops when the
+        // running index exceeds `limit`, so it deletes `limit + 1`
+        // entries. Pass 0 to delete exactly one (the front-most = COLD).
+        const bucket = (FontCache as any)._globalFontMeasureCache.get('12px Arial') as Map<string, unknown>;
+        (FontCache as any)._clearMeasureCache(0, bucket);
+        expect(bucket.has('HOT')).toBe(true);
+        expect(bucket.has('COLD')).toBe(false);
     });
 
     it('auto-cleans overflow cache and computes baseline offsets', () => {

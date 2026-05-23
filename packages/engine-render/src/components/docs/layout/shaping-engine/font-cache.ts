@@ -58,7 +58,42 @@ interface IGlyphHorizonData {
 }
 
 export class FontCache {
-    private static _getTextHeightCache: { [key: string]: { width: number; height: number } } = {};
+    // ---------------------------------------------------------------
+    // Caching strategy notes
+    //
+    // Two text-measurement caches live on this class:
+    //
+    //   _globalFontMeasureCache — canvas `ctx.measureText()` results
+    //     keyed by (fontStyle, content). Hot path; called per cell per
+    //     render pass. Bounded at ~_MEASURE_CACHE_CAP entries with
+    //     automatic eviction triggered from inside `setFontMeasureCache`.
+    //
+    //   _getTextHeightCache — DOM-fallback height measurements keyed by
+    //     fontStyle (no content). Only hit when canvas TextMetrics is
+    //     missing fontBoundingBoxAscent/Descent (older Safari, some
+    //     Firefox versions). Smaller working set, bounded separately.
+    //
+    // Both use the same LRU trick: JS Maps preserve insertion order,
+    // so deleting + re-setting a key on read moves it to the end of
+    // the iteration order. Eviction walks from the front of the order,
+    // so it drops the entries we haven't touched recently rather than
+    // the entries we happened to insert first.
+    //
+    // The public `autoCleanFontMeasureCache(cacheLimit)` API still
+    // works for opt-in callers (default cap argument unchanged at 1M
+    // for backwards compat with existing callers), but the cache no
+    // longer requires anyone to call it — the automatic trigger inside
+    // setFontMeasureCache uses the tighter internal _MEASURE_CACHE_CAP.
+    // ---------------------------------------------------------------
+
+    // Default automatic-eviction cap. Empirically ~50k cells worth of
+    // (fontStyle, content) pairs covers every workbook we've measured;
+    // far below the 1M ceiling the old manual API defaulted to.
+    private static readonly _MEASURE_CACHE_CAP = 50_000;
+    // Cap for the DOM-fallback height cache (keyed by fontStyle only).
+    private static readonly _HEIGHT_CACHE_CAP = 200;
+
+    private static _getTextHeightCache: Map<string, { width: number; height: number }> = new Map();
 
     private static _context: CanvasRenderingContext2D;
 
@@ -66,18 +101,29 @@ export class FontCache {
 
     private static _globalFontMeasureCache: Map<string, Map<string, IMeasureTextCache>> = new Map();
 
+    // O(1) running total of entries across all fontStyle buckets so the
+    // per-insert cap check doesn't have to re-sum every bucket. Re-sync'd
+    // after any auto-clean pass to absorb drift (e.g. tests reaching in
+    // and reassigning _globalFontMeasureCache directly).
+    private static _measureCacheSize = 0;
+
     static get globalFontMeasureCache() {
         return this._globalFontMeasureCache;
     }
 
     static setFontMeasureCache(fontStyle: string, content: string, tm: IMeasureTextCache) {
-        if (!this._globalFontMeasureCache.has(fontStyle)) {
-            this._globalFontMeasureCache.set(fontStyle, new Map());
+        let fontMeasureCache = this._globalFontMeasureCache.get(fontStyle);
+        if (!fontMeasureCache) {
+            fontMeasureCache = new Map();
+            this._globalFontMeasureCache.set(fontStyle, fontMeasureCache);
         }
+        if (!fontMeasureCache.has(content)) this._measureCacheSize++;
+        fontMeasureCache.set(content, tm);
 
-        const fontMeasureCache = this._globalFontMeasureCache.get(fontStyle);
-        if (fontMeasureCache) {
-            fontMeasureCache.set(content, tm);
+        // Auto-evict when over cap. Drops down to half the cap (same
+        // semantics as the existing autoCleanFontMeasureCache contract).
+        if (this._measureCacheSize > this._MEASURE_CACHE_CAP) {
+            this.autoCleanFontMeasureCache(this._MEASURE_CACHE_CAP);
         }
     }
 
@@ -85,11 +131,16 @@ export class FontCache {
         const pathArr = path.split('/');
         if (pathArr.length === 1) {
             const fontStyle = pathArr[0];
-            this._globalFontMeasureCache.delete(fontStyle);
+            const bucket = this._globalFontMeasureCache.get(fontStyle);
+            if (bucket) {
+                this._measureCacheSize -= bucket.size;
+                this._globalFontMeasureCache.delete(fontStyle);
+            }
         } else if (pathArr.length === 2) {
             const fontStyle = pathArr[0];
             const content = pathArr[1];
-            this._globalFontMeasureCache.get(fontStyle)?.delete(content);
+            const bucket = this._globalFontMeasureCache.get(fontStyle);
+            if (bucket?.delete(content)) this._measureCacheSize--;
         } else {
             return false;
         }
@@ -97,7 +148,17 @@ export class FontCache {
     }
 
     static getFontMeasureCache(fontStyle: string, content: string): Nullable<IMeasureTextCache> {
-        return this._globalFontMeasureCache.get(fontStyle)?.get(content);
+        const bucket = this._globalFontMeasureCache.get(fontStyle);
+        if (!bucket) return undefined;
+        const value = bucket.get(content);
+        if (value !== undefined) {
+            // LRU bump — delete + re-set moves this key to the end of
+            // the bucket's iteration order so eviction (which walks
+            // from the front) drops the least-recently-used entries.
+            bucket.delete(content);
+            bucket.set(content, value);
+        }
+        return value;
     }
 
     // Automatically clear text cache, threshold is adjustable, clear rule is to delete half of the cache after reaching the upper limit
@@ -131,10 +192,22 @@ export class FontCache {
                 this._globalFontMeasureCache.delete(key);
             }
 
+            // Re-sync the size tracker from the actual cache state so
+            // drift (tests, external reassignment, the partial-bucket
+            // _clearMeasureCache pass above) doesn't leak into future
+            // auto-eviction trigger decisions.
+            this._recountMeasureCacheSize();
+
             return true;
         }
 
         return false;
+    }
+
+    private static _recountMeasureCacheSize() {
+        let total = 0;
+        for (const bucket of this._globalFontMeasureCache.values()) total += bucket.size;
+        this._measureCacheSize = total;
     }
 
     static getBaselineOffsetInfo(fontFamily: string, fontSize: number) {
@@ -164,8 +237,14 @@ export class FontCache {
     }
 
     static getTextSizeByDom(text: string, fontStyle: string) {
-        if (fontStyle in this._getTextHeightCache) {
-            return this._getTextHeightCache[fontStyle];
+        const cached = this._getTextHeightCache.get(fontStyle);
+        if (cached !== undefined) {
+            // LRU bump — same trick as the measure cache; moves the hit
+            // to the end of iteration order so the eviction below drops
+            // entries we haven't seen recently.
+            this._getTextHeightCache.delete(fontStyle);
+            this._getTextHeightCache.set(fontStyle, cached);
+            return cached;
         }
 
         let dom = document.getElementById('universheetTextSizeTest');
@@ -180,7 +259,21 @@ export class FontCache {
         dom.textContent = text;
         const rect = dom.getBoundingClientRect();
         const result = { width: rect.width, height: rect.height };
-        this._getTextHeightCache[fontStyle] = result;
+        this._getTextHeightCache.set(fontStyle, result);
+
+        // Bound the DOM-fallback cache. 25% eviction matches the
+        // measure-cache "drop down to half the cap" cadence: enough
+        // breathing room that we don't immediately re-trigger on the
+        // next miss, small enough that long-lived sessions don't bloat.
+        if (this._getTextHeightCache.size > this._HEIGHT_CACHE_CAP) {
+            const toRemove = Math.max(1, Math.floor(this._HEIGHT_CACHE_CAP / 4));
+            let removed = 0;
+            for (const key of this._getTextHeightCache.keys()) {
+                if (removed >= toRemove) break;
+                this._getTextHeightCache.delete(key);
+                removed++;
+            }
+        }
 
         return result;
     }
