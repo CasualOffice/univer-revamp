@@ -15,44 +15,53 @@
  */
 
 import type { ICommand } from '@univerjs/core';
-import type { SlideDataModel } from '@univerjs/slides';
-import { CommandType, IUniverInstanceService, UniverInstanceType } from '@univerjs/core';
+import type { IPageElement, SlideDataModel } from '@univerjs/slides';
+import type { ISlideDeleteElementMutationParams, ISlideInsertElementMutationParams } from '../mutations/element.mutation';
+import { CommandType, ICommandService, IUndoRedoService, IUniverInstanceService, UniverInstanceType } from '@univerjs/core';
 import { DRAWING_IMAGE_ALLOW_IMAGE_LIST, getImageSize, IImageIoService } from '@univerjs/drawing';
 import { PageElementType } from '@univerjs/slides';
 import { ILocalFileService } from '@univerjs/ui';
 import { CanvasView } from '../../controllers/canvas-view';
+import { SlideDeleteElementMutation, SlideInsertElementMutation } from '../mutations/element.mutation';
 
+// File picker → image io → IPageElement synthesis happens here (same as
+// before). The state-changing piece — page.pageElements[imageId] = data +
+// updatePage — moves to SlideInsertElementMutation so it broadcasts on the
+// collab bus. Inverse for undo is SlideDeleteElementMutation against the
+// new image id.
+// eslint-disable-next-line ts/no-empty-object-type
 export const InsertSlideFloatImageCommand: ICommand<{}> = {
     id: 'slide.command.insert-float-image',
     type: CommandType.COMMAND,
-    handler: async (accessor, params) => {
-        const univerInstanceService = accessor.get(IUniverInstanceService);
-        const unitId = univerInstanceService.getCurrentUnitOfType(UniverInstanceType.UNIVER_SLIDE)?.getUnitId();
+    handler: async (accessor) => {
+        const commandService = accessor.get(ICommandService);
+        const undoRedoService = accessor.get(IUndoRedoService);
+        const instances = accessor.get(IUniverInstanceService);
+        const unitId = instances.getCurrentUnitOfType(UniverInstanceType.UNIVER_SLIDE)?.getUnitId();
         if (!unitId) return false;
 
-        const fileOpenerService = accessor.get(ILocalFileService);
-        const files = await fileOpenerService.openFile({
+        const files = await accessor.get(ILocalFileService).openFile({
             multiple: true,
-            accept: DRAWING_IMAGE_ALLOW_IMAGE_LIST.map((image) => `.${image.replace('image/', '')}`).join(','),
+            accept: DRAWING_IMAGE_ALLOW_IMAGE_LIST.map((img) => `.${img.replace('image/', '')}`).join(','),
         });
         if (files.length !== 1) return false;
 
-        const imageIoService = accessor.get(IImageIoService);
-        const imageParam = await imageIoService.saveImage(files[0]);
+        const imageParam = await accessor.get(IImageIoService).saveImage(files[0]);
         if (!imageParam) return false;
 
         const { imageId, imageSourceType, source, base64Cache } = imageParam;
         const { width, height, image } = await getImageSize(base64Cache || '');
 
-        const slideData = univerInstanceService.getUnit<SlideDataModel>(unitId);
-        if (!slideData) return false;
+        const model = instances.getUnit<SlideDataModel>(unitId);
+        if (!model) return false;
+        const activePage = model.getActivePage();
+        if (!activePage) return false;
 
-        const activePage = slideData.getActivePage()!;
-        const elements = Object.values(activePage.pageElements);
-        const maxIndex = (elements?.length) ? Math.max(...elements.map((element) => element.zIndex)) : 20;
-        const data = {
+        const existing = Object.values(activePage.pageElements);
+        const maxZIndex = existing.length ? Math.max(...existing.map((e) => e.zIndex)) : 20;
+        const element: IPageElement = {
             id: imageId,
-            zIndex: maxIndex + 1,
+            zIndex: maxZIndex + 1,
             left: 0,
             top: 0,
             width,
@@ -67,17 +76,33 @@ export const InsertSlideFloatImageCommand: ICommand<{}> = {
                     source,
                     base64Cache,
                     image,
-                },
+                    // eslint-disable-next-line ts/no-explicit-any
+                } as any,
             },
         };
-        activePage.pageElements[imageId] = data;
-        slideData.updatePage(activePage.id, activePage);
+
+        const insertParams: ISlideInsertElementMutationParams = {
+            unitId,
+            pageId: activePage.id,
+            element,
+        };
+        const ok = commandService.syncExecuteCommand(SlideInsertElementMutation.id, insertParams);
+        if (!ok) return false;
 
         const canvasView = accessor.get(CanvasView);
-        const sceneObject = canvasView.createObjectToPage(data, activePage.id, unitId);
-        if (sceneObject) {
-            canvasView.setObjectActiveByPage(sceneObject, activePage.id, unitId);
-        }
+        const sceneObject = canvasView.createObjectToPage(element, activePage.id, unitId);
+        if (sceneObject) canvasView.setObjectActiveByPage(sceneObject, activePage.id, unitId);
+
+        const deleteParams: ISlideDeleteElementMutationParams = {
+            unitId,
+            pageId: activePage.id,
+            elementId: imageId,
+        };
+        undoRedoService.pushUndoRedo({
+            unitID: unitId,
+            undoMutations: [{ id: SlideDeleteElementMutation.id, params: deleteParams }],
+            redoMutations: [{ id: SlideInsertElementMutation.id, params: insertParams }],
+        });
 
         return true;
     },

@@ -15,49 +15,86 @@
  */
 
 import type { IAccessor, ICommand } from '@univerjs/core';
-import type { SlideDataModel } from '@univerjs/slides';
-import { CommandType, generateRandomId, ICommandService, IUniverInstanceService, LocaleService } from '@univerjs/core';
+import type { IPageElement, SlideDataModel } from '@univerjs/slides';
+import type { ISlideDeleteElementMutationParams, ISlideInsertElementMutationParams } from '../mutations/element.mutation';
+import { CommandType, generateRandomId, ICommandService, IUndoRedoService, IUniverInstanceService, LocaleService } from '@univerjs/core';
 import { ObjectType } from '@univerjs/engine-render';
 import { BasicShapes, PageElementType } from '@univerjs/slides';
 import { ISidebarService } from '@univerjs/ui';
 import { COMPONENT_SLIDE_SIDEBAR } from '../../components/sidebar/Sidebar';
 import { CanvasView } from '../../controllers/canvas-view';
+import { SlideDeleteElementMutation, SlideInsertElementMutation } from '../mutations/element.mutation';
 
 export interface IInsertShapeOperationParams {
     unitId: string;
-};
+}
+
+// Common path: synthesize the shape element, dispatch SlideInsertElementMutation,
+// optimistically paint on the originator's canvas, push the (delete, insert)
+// pair to undo/redo. Each variant (rect / ellipse) supplies its own element
+// factory; everything else is shared.
+function insertShape(
+    accessor: IAccessor,
+    unitId: string | undefined,
+    buildElement: (id: string, zIndex: number) => IPageElement
+): boolean {
+    if (!unitId) return false;
+    const commandService = accessor.get(ICommandService);
+    const undoRedoService = accessor.get(IUndoRedoService);
+    const instances = accessor.get(IUniverInstanceService);
+    const model = instances.getUnit<SlideDataModel>(unitId);
+    if (!model) return false;
+    const activePage = model.getActivePage();
+    if (!activePage) return false;
+
+    const elementId = generateRandomId(6);
+    const existing = Object.values(activePage.pageElements);
+    const maxZIndex = existing.length ? Math.max(...existing.map((e) => e.zIndex)) : 20;
+    const element = buildElement(elementId, maxZIndex + 1);
+
+    const insertParams: ISlideInsertElementMutationParams = {
+        unitId,
+        pageId: activePage.id,
+        element,
+    };
+    const ok = commandService.syncExecuteCommand(SlideInsertElementMutation.id, insertParams);
+    if (!ok) return false;
+
+    const canvasview = accessor.get(CanvasView);
+    const sceneObject = canvasview.createObjectToPage(element, activePage.id, unitId);
+    if (sceneObject) canvasview.setObjectActiveByPage(sceneObject, activePage.id, unitId);
+
+    const deleteParams: ISlideDeleteElementMutationParams = {
+        unitId,
+        pageId: activePage.id,
+        elementId,
+    };
+    undoRedoService.pushUndoRedo({
+        unitID: unitId,
+        undoMutations: [{ id: SlideDeleteElementMutation.id, params: deleteParams }],
+        redoMutations: [{ id: SlideInsertElementMutation.id, params: insertParams }],
+    });
+
+    return true;
+}
 
 export const InsertSlideShapeRectangleCommand: ICommand = {
     id: 'slide.command.insert-float-shape.rectangle',
     type: CommandType.COMMAND,
-    handler: async (accessor: IAccessor) => {
+    handler: (accessor: IAccessor) => {
+        const unitId = accessor.get(IUniverInstanceService).getFocusedUnit()?.getUnitId();
         const commandService = accessor.get(ICommandService);
-        const instanceService = accessor.get(IUniverInstanceService);
-        const unitId = instanceService.getFocusedUnit()?.getUnitId();
-        return commandService.executeCommand(InsertSlideShapeRectangleOperation.id, { unitId });
+        return commandService.syncExecuteCommand(InsertSlideShapeRectangleOperation.id, { unitId });
     },
 };
 
 export const InsertSlideShapeRectangleOperation: ICommand<IInsertShapeOperationParams> = {
     id: 'slide.operation.insert-float-shape.rectangle',
-    type: CommandType.OPERATION,
-    handler: async (accessor, params: IInsertShapeOperationParams) => {
-        const id = generateRandomId(6);
-
-        const univerInstanceService = accessor.get(IUniverInstanceService);
-        // const slideData = univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE);
-
-        const unitId = params.unitId;
-        const slideData = univerInstanceService.getUnit<SlideDataModel>(unitId);
-
-        if (!slideData) return false;
-
-        const activePage = slideData.getActivePage()!;
-        const elements = Object.values(activePage.pageElements);
-        const maxIndex = (elements?.length) ? Math.max(...elements.map((element) => element.zIndex)) : 20;
-        const data = {
+    type: CommandType.COMMAND,
+    handler: (accessor, params) =>
+        insertShape(accessor, params?.unitId, (id, zIndex) => ({
             id,
-            zIndex: maxIndex + 1,
+            zIndex,
             left: 378,
             top: 142,
             width: 250,
@@ -69,23 +106,10 @@ export const InsertSlideShapeRectangleOperation: ICommand<IInsertShapeOperationP
                 shapeType: BasicShapes.Rect,
                 text: '',
                 shapeProperties: {
-                    shapeBackgroundFill: {
-                        rgb: 'rgb(0,0,255)',
-                    },
+                    shapeBackgroundFill: { rgb: 'rgb(0,0,255)' },
                 },
             },
-        };
-        activePage.pageElements[id] = data;
-        slideData.updatePage(activePage.id, activePage);
-
-        const canvasview = accessor.get(CanvasView);
-        const sceneObject = canvasview.createObjectToPage(data, activePage.id, unitId);
-        if (sceneObject) {
-            canvasview.setObjectActiveByPage(sceneObject, activePage.id, unitId);
-        }
-
-        return true;
-    },
+        })),
 };
 
 export interface IToggleSlideEditSidebarOperation {
@@ -134,34 +158,20 @@ export const ToggleSlideEditSidebarOperation: ICommand = {
 export const InsertSlideShapeEllipseCommand: ICommand = {
     id: 'slide.command.insert-float-shape.ellipse',
     type: CommandType.COMMAND,
-    handler: async (accessor: IAccessor) => {
+    handler: (accessor: IAccessor) => {
+        const unitId = accessor.get(IUniverInstanceService).getFocusedUnit()?.getUnitId();
         const commandService = accessor.get(ICommandService);
-        const instanceService = accessor.get(IUniverInstanceService);
-        const unitId = instanceService.getFocusedUnit()?.getUnitId();
-        return commandService.executeCommand(InsertSlideShapeEllipseOperation.id, { unitId });
+        return commandService.syncExecuteCommand(InsertSlideShapeEllipseOperation.id, { unitId });
     },
 };
 
 export const InsertSlideShapeEllipseOperation: ICommand<IInsertShapeOperationParams> = {
     id: 'slide.operation.insert-float-shape.ellipse',
-    type: CommandType.OPERATION,
-    handler: async (accessor, params: IInsertShapeOperationParams) => {
-        const id = generateRandomId(6);
-
-        const univerInstanceService = accessor.get(IUniverInstanceService);
-        // const slideData = univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE);
-
-        const unitId = params.unitId;
-        const slideData = univerInstanceService.getUnit<SlideDataModel>(unitId);
-
-        if (!slideData) return false;
-
-        const activePage = slideData.getActivePage()!;
-        const elements = Object.values(activePage.pageElements);
-        const maxIndex = (elements?.length) ? Math.max(...elements.map((element) => element.zIndex)) : 20;
-        const data = {
+    type: CommandType.COMMAND,
+    handler: (accessor, params) =>
+        insertShape(accessor, params?.unitId, (id, zIndex) => ({
             id,
-            zIndex: maxIndex + 1,
+            zIndex,
             left: 378,
             top: 142,
             width: 250,
@@ -174,21 +184,8 @@ export const InsertSlideShapeEllipseOperation: ICommand<IInsertShapeOperationPar
                 text: '',
                 shapeProperties: {
                     radius: 100,
-                    shapeBackgroundFill: {
-                        rgb: 'rgb(0,0,255)',
-                    },
+                    shapeBackgroundFill: { rgb: 'rgb(0,0,255)' },
                 },
             },
-        };
-        activePage.pageElements[id] = data;
-        slideData.updatePage(activePage.id, activePage);
-
-        const canvasview = accessor.get(CanvasView);
-        const sceneObject = canvasview.createObjectToPage(data, activePage.id, unitId);
-        if (sceneObject) {
-            canvasview.setObjectActiveByPage(sceneObject, activePage.id, unitId);
-        }
-
-        return true;
-    },
+        })),
 };
