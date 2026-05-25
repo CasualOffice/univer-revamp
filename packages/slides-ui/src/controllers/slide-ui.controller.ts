@@ -17,6 +17,7 @@
 import { Disposable, ICommandService, Inject, Injector } from '@univerjs/core';
 import { GraphIcon, TextIcon } from '@univerjs/icons';
 import { BuiltInUIPart, ComponentManager, connectInjector, IMenuManagerService, IShortcutService, IUIPartsService } from '@univerjs/ui';
+import { SlideDeleteElementMutation, SlideInsertElementMutation } from '../commands/mutations/element.mutation';
 import { ActivateSlidePageOperation } from '../commands/operations/activate.operation';
 import { AppendSlideOperation } from '../commands/operations/append-slide.operation';
 import { DeleteSlideElementOperation } from '../commands/operations/delete-element.operation';
@@ -82,6 +83,13 @@ export class SlidesUIController extends Disposable {
             ToggleSlideEditSidebarOperation,
             DeleteSlideElementOperation,
             UpdateSlideElementOperation,
+
+            // mutations — the collab wire format. ICommandService
+            // .onMutationExecutedForCollab fires only for CommandType.MUTATION
+            // commands, so anything that mutates persisted snapshot state
+            // must land here.
+            SlideInsertElementMutation,
+            SlideDeleteElementMutation,
 
             // commands for editor
             SetTextEditArrowOperation,
