@@ -88,11 +88,17 @@ describe('SlideDataModel', () => {
         });
         expect(slide.getPageSize()).toEqual({ width: 960, height: 540 });
         expect(slide.getActivePage()?.id).toBe('page-1');
-        expect(slide.getRev()).toBe(0);
 
+        // Rev tracking — matches Workbook semantics. Starts at 1, incrementRev
+        // bumps by one, setRev replaces. Wire format for collab uses this.
+        expect(slide.getRev()).toBe(1);
         slide.incrementRev();
-        slide.setRev(5);
-        expect(slide.getRev()).toBe(0);
+        expect(slide.getRev()).toBe(2);
+        slide.incrementRev();
+        expect(slide.getRev()).toBe(3);
+        slide.setRev(42);
+        expect(slide.getRev()).toBe(42);
+        expect(slide.getSnapshot().rev).toBe(42);
 
         slide.setActivePage(slide.getPage('page-2')!);
         expect(slide.getActivePage()?.id).toBe('page-2');
