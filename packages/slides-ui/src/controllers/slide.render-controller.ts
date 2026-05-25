@@ -120,7 +120,18 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
         });
     }
 
-    private _scrollToCenter() {
+    /**
+     * Scroll the slide viewport so the active slide is centered. Public
+     * because external code (Office shell, presenter mode, window resize
+     * handlers) needs to re-center when the host's chrome layout shifts.
+     * The original `_scrollToCenter` was wired to a one-shot subscriber on
+     * `engine.onTransformChange$` — if the engine's first reported
+     * transform arrived before the canvas had its final size (which is
+     * common when the page is wrapped in a flex/grid chrome that lays
+     * out asynchronously), the math ran with stale canvasWidth and the
+     * slide ended up off-center, requiring the user to scroll manually.
+     */
+    scrollToCenter() {
         const mainScene = this._currentRender()?.scene;
         const viewMain = mainScene?.getViewport(SLIDE_KEY.VIEW);
         const getCenterPositionViewPort = this._getCenterPositionViewPort(mainScene);
@@ -133,6 +144,11 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
             x,
             y,
         });
+    }
+
+    /** @deprecated use scrollToCenter(). Kept temporarily for internal callers. */
+    private _scrollToCenter() {
+        this.scrollToCenter();
     }
 
     private _currentRender() {
