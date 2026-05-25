@@ -147,7 +147,13 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
      * @param mainScene
      */
     private _createSlide(mainScene: Scene) {
-        const model = this._univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE)!;
+        // Use this render controller's bound unit, NOT the globally-focused
+        // unit. getCurrentUnitOfType() returns null in the window between
+        // disposeUnit() and the next createUnit() — hot-swapping a deck or
+        // multi-deck mounts would race and throw a non-null-assertion
+        // TypeError on .getPageSize(). _addNewRender() already guarded on
+        // the renderContext unit being non-null, so this is safe.
+        const model = this._getCurrUnitModel();
 
         const { width: sceneWidth, height: sceneHeight } = mainScene;
 
@@ -173,7 +179,9 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
     }
 
     private _addBackgroundRect(scene: Scene, fill: IColorStyle) {
-        const model = this._univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE)!;
+        // Same fix as _createSlide — bind to renderContext.unit, not the
+        // global focused unit, to avoid the disposeUnit/createUnit race.
+        const model = this._getCurrUnitModel();
 
         const pageSize = model.getPageSize();
 
