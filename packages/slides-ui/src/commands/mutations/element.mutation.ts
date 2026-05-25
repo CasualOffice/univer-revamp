@@ -146,6 +146,34 @@ export const SlideInsertPageMutation: IMutation<ISlideInsertPageMutationParams> 
     },
 };
 
+export interface ISlideUpdatePageMutationParams {
+    unitId: string;
+    pageId: string;
+    /** Partial page-level fields to merge in (background fill, color scheme, title, description). */
+    patch: Partial<ISlidePage> & Record<string, unknown>;
+}
+
+export const SlideUpdatePageMutation: IMutation<ISlideUpdatePageMutationParams> = {
+    id: 'slide.mutation.update-page',
+    type: CommandType.MUTATION,
+    handler: (accessor, params) => {
+        if (!params) return false;
+        const instances = accessor.get(IUniverInstanceService);
+        const model = instances.getUnit<SlideDataModel>(params.unitId);
+        if (!model) return false;
+        const page = model.getPage(params.pageId);
+        if (!page) return false;
+
+        // Merge a shallow patch of page-level fields. pageElements (the
+        // big object map) is left alone — element changes go through
+        // SlideUpdateElementMutation.
+        const merged = merge(page, params.patch) as ISlidePage;
+        model.updatePage(params.pageId, merged);
+        model.incrementRev();
+        return true;
+    },
+};
+
 export interface ISlideDeletePageMutationParams {
     unitId: string;
     pageId: string;

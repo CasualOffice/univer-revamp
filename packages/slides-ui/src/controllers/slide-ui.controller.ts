@@ -23,6 +23,7 @@ import {
     SlideInsertElementMutation,
     SlideInsertPageMutation,
     SlideUpdateElementMutation,
+    SlideUpdatePageMutation,
 } from '../commands/mutations/element.mutation';
 import { ActivateSlidePageOperation } from '../commands/operations/activate.operation';
 import { AppendSlideOperation } from '../commands/operations/append-slide.operation';
@@ -99,6 +100,7 @@ export class SlidesUIController extends Disposable {
             SlideUpdateElementMutation,
             SlideInsertPageMutation,
             SlideDeletePageMutation,
+            SlideUpdatePageMutation,
 
             // commands for editor
             SetTextEditArrowOperation,
