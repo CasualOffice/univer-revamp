@@ -151,9 +151,14 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
         // unit. getCurrentUnitOfType() returns null in the window between
         // disposeUnit() and the next createUnit() — hot-swapping a deck or
         // multi-deck mounts would race and throw a non-null-assertion
-        // TypeError on .getPageSize(). _addNewRender() already guarded on
-        // the renderContext unit being non-null, so this is safe.
+        // TypeError on .getPageSize().
         const model = this._getCurrUnitModel();
+        if (!model) {
+            // _addNewRender() already guarded; return a zero-sized stub so
+            // the caller's mainComponent assignment is well-typed but does
+            // not paint.
+            return new Slide(SLIDE_KEY.COMPONENT, { left: 0, top: 0, width: 0, height: 0, zIndex: 10 });
+        }
 
         const { width: sceneWidth, height: sceneHeight } = mainScene;
 
@@ -182,6 +187,7 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
         // Same fix as _createSlide — bind to renderContext.unit, not the
         // global focused unit, to avoid the disposeUnit/createUnit race.
         const model = this._getCurrUnitModel();
+        if (!model) return;
 
         const pageSize = model.getPageSize();
 
