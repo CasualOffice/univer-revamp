@@ -35,6 +35,11 @@ import type { ShapeType } from '../enum/prst-geom-type';
 
 export interface ISlideData extends IReferenceSource {
     id: string; // unit id
+    /**
+     * Revision of this slide deck. Used in collaborative editing. Starts from one.
+     * @ignore
+     */
+    rev?: number;
     locale?: LocaleType;
     title: string;
     pageSize: ISize;
