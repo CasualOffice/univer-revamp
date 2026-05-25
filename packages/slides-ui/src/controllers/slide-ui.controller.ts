@@ -28,6 +28,7 @@ import {
 import { ActivateSlidePageOperation } from '../commands/operations/activate.operation';
 import { AppendSlideOperation } from '../commands/operations/append-slide.operation';
 import { DeleteSlideElementOperation } from '../commands/operations/delete-element.operation';
+import { SlideDeleteSlideCommand, SlideDuplicateSlideCommand } from '../commands/operations/duplicate-slide.operation';
 import { InsertSlideFloatImageCommand } from '../commands/operations/insert-image.operation';
 import { InsertSlideShapeEllipseCommand, InsertSlideShapeEllipseOperation, InsertSlideShapeRectangleCommand, InsertSlideShapeRectangleOperation, ToggleSlideEditSidebarOperation } from '../commands/operations/insert-shape.operation';
 import { SlideAddTextCommand, SlideAddTextOperation } from '../commands/operations/insert-text.operation';
@@ -90,6 +91,8 @@ export class SlidesUIController extends Disposable {
             ToggleSlideEditSidebarOperation,
             DeleteSlideElementOperation,
             UpdateSlideElementOperation,
+            SlideDuplicateSlideCommand,
+            SlideDeleteSlideCommand,
 
             // mutations — the collab wire format. ICommandService
             // .onMutationExecutedForCollab fires only for CommandType.MUTATION
