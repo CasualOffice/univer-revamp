@@ -15,30 +15,70 @@
  */
 
 import type { ICommand } from '@univerjs/core';
-import type { SlideDataModel } from '@univerjs/slides';
-import { CommandType, IUniverInstanceService, merge } from '@univerjs/core';
+import type { IPageElement, SlideDataModel } from '@univerjs/slides';
+import type { ISlideUpdateElementMutationParams } from '../mutations/element.mutation';
+import { CommandType, ICommandService, IUndoRedoService, IUniverInstanceService } from '@univerjs/core';
+import { SlideUpdateElementMutation } from '../mutations/element.mutation';
 
 export interface IUpdateElementOperationParams {
     unitId: string;
     oKey: string;
-    props: Record<string, any>;
+    props: Partial<IPageElement> & Record<string, unknown>;
 };
 
+// Public command. Captures the element's previous state to build the inverse
+// mutation, then dispatches the forward mutation through ICommandService so
+// it broadcasts to collab peers and lands in undo/redo.
+//
+// Naming kept as `UpdateSlideElementOperation` for backwards compatibility
+// with callers (drag/resize handlers) that already reference this id —
+// `slide.operation.update-element`. The CommandType is now COMMAND (was
+// OPERATION); the state-changing piece moves to SlideUpdateElementMutation.
 export const UpdateSlideElementOperation: ICommand<IUpdateElementOperationParams> = {
     id: 'slide.operation.update-element',
-    type: CommandType.OPERATION,
-    handler: (accessor, params: IUpdateElementOperationParams) => {
-        const { oKey, props } = params!;
-        const univerInstanceService = accessor.get(IUniverInstanceService);
-        // const slideData = univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE);
+    type: CommandType.COMMAND,
+    handler: (accessor, params) => {
+        if (!params) return false;
+        const { oKey, props, unitId } = params;
+        const commandService = accessor.get(ICommandService);
+        const undoRedoService = accessor.get(IUndoRedoService);
+        const instances = accessor.get(IUniverInstanceService);
 
-        const unitId = params?.unitId;
-        const slideData = univerInstanceService.getUnit<SlideDataModel>(unitId);
-        if (!slideData) return false;
+        const model = instances.getUnit<SlideDataModel>(unitId);
+        if (!model) return false;
 
-        const activePage = slideData.getActivePage()!;
-        activePage.pageElements[oKey] = merge(activePage.pageElements[oKey], props);
-        slideData.updatePage(activePage.id, activePage);
+        const activePage = model.getActivePage();
+        if (!activePage) return false;
+
+        const before = activePage.pageElements[oKey];
+        if (!before) return false;
+        // Shallow copy is sufficient for the inverse — the mutation `merge`s
+        // recursively, so restoring the captured snapshot recreates the prior
+        // state. Deep clone would be defensive but unnecessary; nested objects
+        // are not mutated in place by the mutation handler.
+        const beforeProps = { ...before };
+
+        const forward: ISlideUpdateElementMutationParams = {
+            unitId,
+            pageId: activePage.id,
+            elementId: oKey,
+            props,
+        };
+        const inverse: ISlideUpdateElementMutationParams = {
+            unitId,
+            pageId: activePage.id,
+            elementId: oKey,
+            props: beforeProps,
+        };
+
+        const ok = commandService.syncExecuteCommand(SlideUpdateElementMutation.id, forward);
+        if (!ok) return false;
+
+        undoRedoService.pushUndoRedo({
+            unitID: unitId,
+            undoMutations: [{ id: SlideUpdateElementMutation.id, params: inverse }],
+            redoMutations: [{ id: SlideUpdateElementMutation.id, params: forward }],
+        });
 
         return true;
     },

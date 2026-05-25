@@ -17,7 +17,13 @@
 import { Disposable, ICommandService, Inject, Injector } from '@univerjs/core';
 import { GraphIcon, TextIcon } from '@univerjs/icons';
 import { BuiltInUIPart, ComponentManager, connectInjector, IMenuManagerService, IShortcutService, IUIPartsService } from '@univerjs/ui';
-import { SlideDeleteElementMutation, SlideInsertElementMutation } from '../commands/mutations/element.mutation';
+import {
+    SlideDeleteElementMutation,
+    SlideDeletePageMutation,
+    SlideInsertElementMutation,
+    SlideInsertPageMutation,
+    SlideUpdateElementMutation,
+} from '../commands/mutations/element.mutation';
 import { ActivateSlidePageOperation } from '../commands/operations/activate.operation';
 import { AppendSlideOperation } from '../commands/operations/append-slide.operation';
 import { DeleteSlideElementOperation } from '../commands/operations/delete-element.operation';
@@ -90,6 +96,9 @@ export class SlidesUIController extends Disposable {
             // must land here.
             SlideInsertElementMutation,
             SlideDeleteElementMutation,
+            SlideUpdateElementMutation,
+            SlideInsertPageMutation,
+            SlideDeletePageMutation,
 
             // commands for editor
             SetTextEditArrowOperation,

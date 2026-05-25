@@ -14,30 +14,68 @@
  * limitations under the License.
  */
 
-import type { IOperation } from '@univerjs/core';
+import type { ICommand } from '@univerjs/core';
 import type { SlideDataModel } from '@univerjs/slides';
-import { CommandType, IUniverInstanceService } from '@univerjs/core';
+import type { ISlideDeletePageMutationParams, ISlideInsertPageMutationParams } from '../mutations/element.mutation';
 
+import { CommandType, ICommandService, IUndoRedoService, IUniverInstanceService } from '@univerjs/core';
 import { CanvasView } from '../../controllers/canvas-view';
+import { SlideDeletePageMutation, SlideInsertPageMutation } from '../mutations/element.mutation';
 
 export interface IAppendSlideOperationParams {
     unitId: string;
 }
 
-export const AppendSlideOperation: IOperation<IAppendSlideOperationParams> = {
+// The COMMAND layer mints the new page id (so all peers agree on it via the
+// broadcast payload), then routes through SlideInsertPageMutation. Inverse
+// is SlideDeletePageMutation for undo support. The canvas hint
+// (createPageScene + slide.addPageScene) runs on the originator via
+// CanvasView.appendPage; peers re-render through the renderer's own
+// subscription path.
+export const AppendSlideOperation: ICommand<IAppendSlideOperationParams> = {
     id: 'slide.operation.append-slide',
-    type: CommandType.OPERATION,
-    handler: (accessor, params: IAppendSlideOperationParams) => {
-        const unitId = params.unitId;
-        const univerInstanceService = accessor.get(IUniverInstanceService);
-        // const slideData = univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE);
+    type: CommandType.COMMAND,
+    handler: (accessor, params) => {
+        if (!params?.unitId) return false;
+        const commandService = accessor.get(ICommandService);
+        const undoRedoService = accessor.get(IUndoRedoService);
+        const instances = accessor.get(IUniverInstanceService);
 
-        const slideData = univerInstanceService.getUnit<SlideDataModel>(unitId);
+        const model = instances.getUnit<SlideDataModel>(params.unitId);
+        if (!model) return false;
 
-        if (!slideData) return false;
+        // Mint the new page via the model's helper so id/defaults match the
+        // shape the rest of slides-ui already produces.
+        const newPage = model.getBlankPage();
 
+        const insertParams: ISlideInsertPageMutationParams = {
+            unitId: params.unitId,
+            page: newPage,
+            // omit index — appends at end, which is what the previous
+            // operation semantics produced.
+        };
+        const deleteParams: ISlideDeletePageMutationParams = {
+            unitId: params.unitId,
+            pageId: newPage.id,
+        };
+
+        const ok = commandService.syncExecuteCommand(SlideInsertPageMutation.id, insertParams);
+        if (!ok) return false;
+
+        // Canvas hint — create the page scene on the originator's renderer.
+        // CanvasView.appendPage takes a single unitId arg and internally
+        // pulls the most recent page off the model. We bypass that and
+        // poke the renderer's slide controller directly via the public
+        // canvas-view path so the page we just inserted is the one
+        // rendered, even if other mutations land between.
         const canvasView = accessor.get(CanvasView);
-        canvasView.appendPage(unitId);
+        canvasView.appendPage(params.unitId);
+
+        undoRedoService.pushUndoRedo({
+            unitID: params.unitId,
+            undoMutations: [{ id: SlideDeletePageMutation.id, params: deleteParams }],
+            redoMutations: [{ id: SlideInsertPageMutation.id, params: insertParams }],
+        });
 
         return true;
     },

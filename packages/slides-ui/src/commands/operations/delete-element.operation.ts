@@ -16,36 +16,61 @@
 
 import type { ICommand } from '@univerjs/core';
 import type { SlideDataModel } from '@univerjs/slides';
-import { CommandType, IUniverInstanceService } from '@univerjs/core';
+import type { ISlideDeleteElementMutationParams, ISlideInsertElementMutationParams } from '../mutations/element.mutation';
+import { CommandType, ICommandService, IUndoRedoService, IUniverInstanceService } from '@univerjs/core';
 import { CanvasView } from '../../controllers/canvas-view';
+import { SlideDeleteElementMutation, SlideInsertElementMutation } from '../mutations/element.mutation';
 
 export interface IDeleteElementOperationParams {
     unitId: string;
     id: string;
 };
 
+// Captures the element about to be deleted so the inverse (insert) can
+// restore it. Goes through SlideDeleteElementMutation → broadcast + undo
+// stack. The canvas hint runs on the originator; peers re-render via the
+// renderer's own subscription path.
 export const DeleteSlideElementOperation: ICommand<IDeleteElementOperationParams> = {
     id: 'slide.operation.delete-element',
-    type: CommandType.OPERATION,
+    type: CommandType.COMMAND,
     handler: (accessor, params) => {
-        if (!params?.id) return false;
+        if (!params?.id || !params.unitId) return false;
 
-        const unitId = params.unitId;
-        const univerInstanceService = accessor.get(IUniverInstanceService);
-        // const slideData = univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE);
+        const commandService = accessor.get(ICommandService);
+        const undoRedoService = accessor.get(IUndoRedoService);
+        const instances = accessor.get(IUniverInstanceService);
 
-        const slideData = univerInstanceService.getUnit<SlideDataModel>(unitId);
+        const model = instances.getUnit<SlideDataModel>(params.unitId);
+        if (!model) return false;
 
-        if (!slideData) return false;
+        const activePage = model.getActivePage();
+        if (!activePage) return false;
 
-        const activePage = slideData.getActivePage()!;
+        const element = activePage.pageElements[params.id];
+        if (!element) return false;
 
-        delete activePage.pageElements[params.id];
+        const deleteParams: ISlideDeleteElementMutationParams = {
+            unitId: params.unitId,
+            pageId: activePage.id,
+            elementId: params.id,
+        };
+        const insertParams: ISlideInsertElementMutationParams = {
+            unitId: params.unitId,
+            pageId: activePage.id,
+            element: { ...element },
+        };
 
-        slideData.updatePage(activePage.id, activePage);
+        const ok = commandService.syncExecuteCommand(SlideDeleteElementMutation.id, deleteParams);
+        if (!ok) return false;
 
         const canvasview = accessor.get(CanvasView);
-        canvasview.removeObjectById(params.id, activePage.id, unitId);
+        canvasview.removeObjectById(params.id, activePage.id, params.unitId);
+
+        undoRedoService.pushUndoRedo({
+            unitID: params.unitId,
+            undoMutations: [{ id: SlideInsertElementMutation.id, params: insertParams }],
+            redoMutations: [{ id: SlideDeleteElementMutation.id, params: deleteParams }],
+        });
 
         return true;
     },
