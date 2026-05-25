@@ -272,17 +272,22 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
     }
 
     /**
-     * SlideDataModel is UnitModel
+     * SlideDataModel is UnitModel for this render context. Returns null if
+     * the context has been torn down (disposeUnit) — callers must guard
+     * before invoking any model method. Pre-fix this was an unchecked cast
+     * that handed back null masquerading as SlideDataModel, which threw
+     * NPEs in event listeners that fired after dispose (e.g. the
+     * onTransformChange→setTimeout(createThumbs, 300) hook).
      */
-    private _getCurrUnitModel() {
-        // return this._univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE)!;
-
-        return this._renderContext.unit as SlideDataModel;
+    private _getCurrUnitModel(): SlideDataModel | null {
+        const unit = this._renderContext.unit;
+        return unit ? (unit as SlideDataModel) : null;
     }
 
     activePage(_pageId?: string) {
         let pageId = _pageId;
         const model = this._getCurrUnitModel();
+        if (!model) return;
         let page: Nullable<ISlidePage>;
         if (pageId) {
             page = model.getPage(pageId);
@@ -319,6 +324,7 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
 
     createThumbs() {
         const slideDataModel = this._getCurrUnitModel();
+        if (!slideDataModel) return;
         const pageOrder = slideDataModel.getPageOrder();
 
         const render = this._currentRender();
@@ -449,6 +455,7 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
 
     appendPage() {
         const model = this._getCurrUnitModel();
+        if (!model) return;
         const page = model.getBlankPage();
         const render = this._currentRender();
 
