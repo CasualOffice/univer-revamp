@@ -227,9 +227,13 @@ export class InputManager extends Disposable {
         const currentObject = this._getObjectAtPos(evt.offsetX, evt.offsetY);
         const isStop = currentObject?.triggerMouseWheel(evt);
 
-        // for doc
+        // `getMainViewport()` returns undefined for scenes whose viewports
+        // are registered under non-main keys — slides registers under
+        // SLIDE_KEY.VIEW, not the "main" key, and pre-patch this line threw
+        // "Cannot read properties of undefined (reading 'onMouseWheel$')"
+        // on every wheel event over the slide canvas.
         const viewportMain = this._scene.getMainViewport();
-        viewportMain.onMouseWheel$.emitEvent(evt);
+        viewportMain?.onMouseWheel$.emitEvent(evt);
 
         if (!isStop && this._shouldDispatchEventToScene(currentObject)) {
             this._scene.onMouseWheel$.emitEvent(evt);
