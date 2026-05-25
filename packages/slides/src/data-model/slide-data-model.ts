@@ -66,15 +66,15 @@ export class SlideDataModel extends UnitModel<ISlideData, UniverInstanceType.UNI
     }
 
     override getRev(): number {
-        return 0; // TODO@jikkai: slide has not implement collaborative editing yet
+        return this._snapshot.rev ?? 1; // revision starts from one, matching Workbook
     }
 
     override incrementRev(): void {
-        // do nothing
+        this._snapshot.rev = this.getRev() + 1;
     }
 
-    override setRev(_rev: number): void {
-        // do nothing
+    override setRev(rev: number): void {
+        this._snapshot.rev = rev;
     }
 
     getSnapshot() {
