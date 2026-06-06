@@ -145,10 +145,12 @@ export class SheetsTableUiService extends Disposable {
         const map = new Map<string, number>();
         let allItemsCount = 0;
         for (let row = startRow; row <= endRow; row++) {
-            const isFiltered = worksheet.isRowFiltered(row);
-            if (isFiltered) {
-                continue;
-            }
+            // PATCH(casual-sheets): originally skipped rows where
+            // `worksheet.isRowFiltered(row)` is true, which includes rows
+            // hidden by THIS column's own filter — so reopening the
+            // dropdown lost the values that were filtered out. Walk every
+            // row so users can re-check previously-unchecked values,
+            // matching Excel + Google Sheets.
             let stringItem = this._sheetTableService.getCellValueWithConditionType(worksheet, row, column) as string;
 
             if (stringItem === undefined) {
