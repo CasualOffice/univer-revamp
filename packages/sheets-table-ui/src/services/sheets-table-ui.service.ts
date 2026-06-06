@@ -154,6 +154,11 @@ export class SheetsTableUiService extends Disposable {
 
         let allItemsCount = 0;
         for (let row = startRow; row <= endRow; row++) {
+            // NOTE(casual-sheets): our 0.24 "show filtered-out values in the filter
+            // dropdown" patch is now subsumed by upstream 0.25 — `filteredRowsByOtherColumns`
+            // excludes only rows hidden by OTHER columns (see the columnIndex guard above),
+            // so the current column's own filtered-out values still appear in its dropdown,
+            // matching Excel + Google Sheets. The custom commit is retired here.
             if (filteredRowsByOtherColumns.has(row)) {
                 continue;
             }
