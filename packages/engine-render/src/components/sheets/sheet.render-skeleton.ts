@@ -407,8 +407,16 @@ export class SpreadsheetSkeleton extends SheetSkeleton {
                     this._setStylesCacheForOneCell(r, c, { cacheItem: { bg: true, border: true } });
                 }
 
-                // Calculate the text length for overflow situations, focusing on the leftmost column within the visible range.
-                for (let c = expandStartCol; c < visibleEndColumn; c++) {
+                // Calculate the text length for overflow situations on cells
+                // to the LEFT of the visible range — the primary loop above
+                // already cached bg + border + font for cells inside
+                // [visibleStartColumn, visibleEndColumn]. The previous bound
+                // was `c < visibleEndColumn`, which re-walked the visible
+                // span and re-called the expensive `worksheet.getCell` +
+                // `_setFontStylesCache` for every visible cell on every
+                // render pass. Cap the loop at `visibleStartColumn` so we
+                // only touch cells the primary pass missed.
+                for (let c = expandStartCol; c < visibleStartColumn; c++) {
                     this._setStylesCacheForOneCell(r, c, { cacheItem: { bg: false, border: false } });
                 }
                 if (visibleEndColumn === 0) continue;
