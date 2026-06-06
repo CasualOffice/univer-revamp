@@ -376,12 +376,16 @@ export class HtmlToUSMService {
                         v: value.richTextParma.v,
                         p: value.richTextParma.p,
                         s: style,
+                        // PATCH(casual-sheets): formula passthrough; see
+                        // type.ts + the _parseTableByHtml extraction.
+                        f: value.formula,
                         rowSpan: value.rowSpan,
                         colSpan: value.colSpan,
                     }
                     : {
                         v: value.content,
                         s: style,
+                        f: value.formula,
                         rowSpan: value.rowSpan,
                         colSpan: value.colSpan,
                     };
@@ -458,6 +462,17 @@ export class HtmlToUSMService {
                 let cellRichStyle;
                 let numfmtPattern: string | undefined;
 
+                // PATCH(casual-sheets): preserve formulas in HTML clipboard
+                // paste. Excel desktop serialises the source formula on
+                // each <td> as `x:fmla="=SUM(A1:A2)"` (or `fmla=…`); without
+                // this extraction the paste drops to evaluated values. We
+                // accept double-quoted, single-quoted, and bare attribute
+                // forms because real-world clipboards mix them.
+                const formulaMatch = (cell as HTMLElement).outerHTML.match(
+                    /\b(?:x:fmla|fmla)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+))/i,
+                );
+                const formula = formulaMatch?.[1] ?? formulaMatch?.[2] ?? formulaMatch?.[3];
+
                 const pattern = this._getMsoNumfmtForNode(cell as HTMLElement);
                 if (pattern) {
                     cellText = cell.innerHTML;
@@ -506,6 +521,11 @@ export class HtmlToUSMService {
                         v: cellText,
                     },
                     numfmtPattern,
+                    // PATCH(casual-sheets): carry the extracted formula
+                    // down to _parseTable where it lands on the final
+                    // cellValue as `f:` so the paste recipient writes a
+                    // formula cell, not a value cell.
+                    formula,
                 };
 
                 if (cellMatrix.getValue(rowIndex, colSetValueIndex)) {
