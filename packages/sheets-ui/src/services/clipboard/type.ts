@@ -46,6 +46,11 @@ export interface IParsedCellValueByClipboard {
         v?: string;
     };
     numfmtPattern?: string;
+    /** Excel HTML clipboard carries the source formula in an `x:fmla` /
+     *  `fmla` attribute on the `<td>`. We extract it during parsing so
+     *  a paste from Excel preserves formulas instead of dropping back
+     *  to evaluated values. */
+    formula?: string;
 }
 
 export interface IUniverSheetCopyDataModel {
@@ -192,7 +197,16 @@ export interface ISheetClipboardHook {
      * @param payload
      * @returns undo and redo mutations
      */
-    onPasteRows?(pasteTo: ISheetDiscreteRangeLocation): {
+    // PATCH(casual-sheets): mirror `onPasteColumns` — pass rowProperties
+    // (Univer's parser fills them from `<tr height="…">` / inline styles)
+    // and the payload so clipboard hooks can read row heights on a
+    // regular paste. Without this, row-height preservation is only
+    // available via specialPaste flows.
+    onPasteRows?(
+        pasteTo: ISheetDiscreteRangeLocation,
+        rowProperties: IClipboardPropertyItem[],
+        payload: ICopyPastePayload,
+    ): {
         undos: IMutationInfo[];
         redos: IMutationInfo[];
     };

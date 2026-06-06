@@ -841,7 +841,14 @@ export class SheetClipboardService extends Disposable implements ISheetClipboard
             (h) => (!h.specialPasteInfo && h.id !== PREDEFINED_HOOK_NAME_PASTE.DEFAULT_PASTE) || pasteType === h.id
         );
         filteredHooks.forEach((h) => {
-            const rowReturn = h.onPasteRows?.({ range: pastedRange, unitId, subUnitId });
+            // PATCH(casual-sheets): pass rowProperties + payload to
+            // onPasteRows, mirroring onPasteColumns. Hooks that don't
+            // care can ignore the new args.
+            const rowReturn = h.onPasteRows?.(
+                { range: pastedRange, unitId, subUnitId },
+                rowProperties || [],
+                { pasteType }
+            );
             if (rowReturn) {
                 redoMutationsInfo.push(...rowReturn.redos);
                 undoMutationsInfo.push(...rowReturn.undos);
