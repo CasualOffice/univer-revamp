@@ -1,0 +1,15 @@
+Casual Slides — CasualOffice engine fork
+Copyright 2026-present CasualOffice.
+
+This product is a fork of Univer (https://github.com/dream-num/univer),
+Copyright 2023-present DreamNum Co., Ltd., licensed under the Apache License,
+Version 2.0 (see LICENSE).
+
+  - Files unmodified from upstream Univer remain Copyright 2023-present
+    DreamNum Co., Ltd., used under the terms of the Apache License, Version 2.0.
+  - Files modified by CasualOffice carry both the CasualOffice and the DreamNum
+    copyright notices.
+  - New files authored by CasualOffice are Copyright 2026-present CasualOffice.
+
+All CasualOffice contributions are likewise licensed under the Apache License,
+Version 2.0.
