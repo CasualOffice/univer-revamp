@@ -9,12 +9,27 @@ open ODF format (`.odp`), plus PDF export.
 > introduces the mutation/undo-redo/rev-tracking foundation we build on).
 
 > **Scope of THIS repo — the core engine.** This repository ships the engine packages
-> (`@univerjs/slides`, `@univerjs/slides-ui`, render adaptors, an import/export "exchange"
-> package, and a Yjs collab *binding*). The **product slides app already exists in a
-> separate repo** and integrates these packages, and a **Hocuspocus collab server already
-> exists** in our infra. So nothing here stands up a server, deployment, or Docker — the
-> collab work here is the *engine-side Yjs binding + integration contract* the product repo
-> and existing server consume.
+> (`@univerjs/slides`, `@univerjs/slides-ui`, `@univerjs/engine-render`, …). The product and
+> the collab server already exist as separate repos — see the topology below.
+
+## System topology (who owns what)
+
+Three repos under `services/`:
+
+| Repo | What it is | Consumes |
+|------|------------|----------|
+| **`univer-revamp`** (this) | The **engine fork**. Ships `@univerjs/*` v0.24.0; product pulls it via **pnpm patches** authored here. | — |
+| **`point`** (`casual-slides`) | The **product app**: React+Vite Office-style editor. Owns the UI shell, **PPTX import/export** (JSZip+fast-xml-parser / PptxGenJS), **PDF export** (jsPDF), and the Yjs bridge. | `@univerjs/*` (patched) |
+| **`collab`** (`@casualoffice/collab`) | The **real collab server**: **Hocuspocus + Yjs**, JWT auth, Redis/S3/Postgres persistence, WOPI. Format-agnostic. Connect at `ws://<host>:3000/yjs?room=<id>`. | (product-agnostic) |
+
+**Fork→product flow:** engine fixes are authored on a branch here, then `pnpm patch`'d into
+`point/patches/` so production ships without waiting for upstream Univer. Patches already in
+prod: `@univerjs__slides`, `@univerjs__slides-ui`, `@univerjs__engine-render`, `@univerjs__core`.
+
+**This roadmap therefore splits each gap into `[engine]` (work lands here) vs `[product]`
+(work lands in `point`/`collab`).** The product has its own phase plan (`point/PLAN.md`,
+`point/docs/UNIVER_SLIDES_GAPS.md`) — this roadmap reconciles with it (Gap mapping below) and
+does **not** duplicate product-owned work.
 
 ---
 
@@ -81,66 +96,93 @@ Audited on the `slide/element-mutations` branch.
   for a lossless `.pptx`/`.odp` round trip.
 
 ### Round-trip (`fidelity:roundtrip`)
-- **Nothing exists.** No OOXML, no ODF, no PDF, no zip tooling anywhere in the repo.
-  Greenfield — the highest-value and highest-effort pillar.
+- **Not greenfield — lives in the product.** `point` already ships **PPTX import** (a ~232 KB
+  OOXML parser, JSZip + fast-xml-parser), **PPTX export** (PptxGenJS), and **PDF export**
+  (jsPDF), all in a web worker, at **"T1/core" fidelity** (text frames, basic shapes, images,
+  transforms, order, page size, theme colors; ≥95% T1 round-trip target).
+- **Deferred (T2–T5):** masters/layouts/placeholders, then tables/charts/lines/hyperlinks,
+  then animations/transitions, then raw-OOXML passthrough. The T3+ tiers are **blocked on
+  engine data-model work** (Gap 3 element types) — that's where this repo contributes.
+- **ODP: still greenfield** everywhere — not started in any repo.
 
 ### Collaboration (`fidelity:collab`)
 - `getRev()` was a stub returning `0`; the branch now increments rev on mutations — the
-  *precondition* for collab. No Yjs binding, no Hocuspocus server, no presence, no comments
-  yet. **Transport decision: Yjs CRDT over a self-hosted Hocuspocus server.**
+  *precondition* for collab. **`[engine]`**
+- The **`collab` repo already provides a production Hocuspocus + Yjs server** (auth,
+  persistence, WOPI). The product `point` currently has only a *stopgap* JSON
+  last-writer-wins relay (`apps/server`, gated by `VITE_COLLAB_ENABLED`) — **not** Yjs yet.
+- The migration to real CRDT = a **Yjs bridge in the product** that mirrors `ISlideData` into
+  a `Y.Doc` and connects to the existing collab server. **`[product]`** The engine's only job
+  is to make every edit a `MUTATION` (Gap 2) so `onMutationExecutedForCollab` fires. **`[engine]`**
+
+## Reconciliation with the product plan (`point/docs/UNIVER_SLIDES_GAPS.md`)
+
+| Product Gap | Owner | This roadmap | Status |
+|-------------|-------|--------------|--------|
+| Gap 1 — rev tracking | `[engine]` | Phase 0 | ✅ done (`slide/rev-tracking`) |
+| Gap 1.5 — render-context unit fix | `[engine]` | — | ✅ done |
+| Gap 1.6 — stale doc-renderer cleanup | `[engine]` | Phase 0 (added) | ⏳ pending |
+| Gap 2 — element ops as MUTATION | `[engine]` | Phase 0 (#p0-mutation-coverage-audit) | 🔄 on this branch; text-edit envelope open |
+| Gap 3 — element types (table/chart/line/video) | `[engine]` | Phase 1 group + Phase 2 tables + Phase 4 charts/media | ⏳ pending |
+| Gap 4 — animations/transitions | `[product]` (resources slot) | Phase 4 (reframe to product) | ⏳ pending |
+| Gap 5 — speaker-notes UI | `[product]` | Phase 2 tags (reframe) | ⏳ pending |
+| Gap 6 — master/layout editor UI | `[product]`; engine render = #p2-masters-layouts-theme | Phase 2 | ⏳ pending |
+| Gap 7 — PPTX I/O | `[product]` | Phase 2 (mark DONE@T1; deepen) | ✅ T1 done |
+| Gap 8 — slides facade API (FSlide/FPage/FElement) | `[engine]` | Phase 1 (**added**) | ⏳ pending |
+| Gap 9 — slide-editing controller coupling | `[engine]` | deferred | ⏳ defer |
+| Gap 10 — theme picker UI | `[product]` | Phase 2 | ⏳ pending |
+
+**Net:** the genuinely **engine-owned** pillars are *visual rendering* (shape geometry, fills,
+effects, image adjust, master/theme resolution), *editable-as-MUTATION* plumbing, the
+*facade API*, and the *element-type data model* (groups, tables, charts, lines, video). Most
+*editing UI*, all *round-trip I/O*, *animation modeling*, *presence*, and the *server* are
+**product-owned** and tracked in `point`.
 
 ---
 
-## Phase plan
+## Phase plan (engine-only)
 
-Each phase is a milestone. Phases are ordered by dependency: editing & data-model
-completeness gate round-trip; round-trip and the mutation layer gate collaboration.
+This repo's core is **fidelity, editability, round-trip, and canvas rendering**. Each phase
+is a GitHub milestone; only **engine-owned** work is tracked as issues here (15 open).
+Product-owned items are listed as `→ point` for context but live in the product's `PLAN.md`.
 
-### Phase 0 — Foundation (in progress on the branch)
-Make every edit a real, collab-ready, undoable mutation.
-- [#] Land the mutation refactor for all element/page edits (branch work) — *done on branch*.
-- [#] Real `getRev`/`incrementRev` on `SlideDataModel` — *done on branch*.
-- [#] Audit + close gaps where operations still bypass the mutation layer (text edit, thumb).
-- [#] Snapshot (de)serialization contract for `ISlideData` (the in-memory canonical model).
+### Phase 0 — Foundation
+Make every edit a real, collab-ready, undoable mutation; stabilize the render context.
+- ✅ Mutation refactor for element/page edits — *done on this branch*.
+- ✅ Real `getRev`/`incrementRev` on `SlideDataModel` — *done* (Gap 1).
+- **#1** Close edit paths still bypassing the mutation layer (text-edit envelope, thumb) — Gap 2.
+- **#2** Canonical `ISlideData` snapshot contract + schema version (round-trip foundation).
+- **#28** Fix stale doc-renderer activation after `disposeUnit` — Gap 1.6.
 
-### Phase 1 — Editing core + visual base
-The "feels like a real editor" phase.
-- Multi-select + marquee select.
-- Copy / cut / paste / duplicate element (intra- and inter-slide, and from clipboard).
-- Group / ungroup.
-- Align + distribute + smart guides + snap.
-- Rich-text formatting toolbar (font, size, color, B/I/U, bullets, alignment, spacing).
-- Shape styling UI: outline (weight/dash/color), opacity, corner radius, **gradient fill**,
-  **shadow**.
-- Full preset-shape geometry engine (render the 50+ enumerated shapes via SVG-path geometry).
-- Slide reorder; slide background styling.
+### Phase 1 — Editing core + canvas rendering
+- **#3** Multi-select + marquee (engine selection model + transform handles).
+- **#4** Element clipboard: copy/cut/paste/duplicate as MUTATION commands.
+- **#5** Group / ungroup (group element type + nested-transform render) — Gap 3.
+- **#6** Canvas smart-guides + snapping during drag/resize (engine-render).
+- **#9** Full preset-shape geometry render (the 50+ enumerated shapes).
+- **#10** Gradient / pattern / picture fills + shadow & effect rendering.
+- **#11** Wire image brightness/contrast/transparency/crop to the renderer.
+- **#27** Slides facade API (`FSlide`/`FPage`/`FElement`) — Gap 8; the surface the product UI calls.
+- `→ point`: rich-text toolbar, shape-styling panel, align/distribute buttons, slide-rail reorder.
 
-### Phase 2 — Round-trip (the headline)
-- **PPTX import** (OOXML `p:presentation` → `ISlideData`): slides, shapes, text runs,
-  images, theme, masters/layouts, tables.
-- **PPTX export** (`ISlideData` → OOXML): lossless of everything we model.
-- Round-trip fidelity test harness (import → export → re-import → diff).
-- **Data-model extensions** required by round-trip: tables, charts (at least preserve),
-  media, masters/layouts/theme resolution, placeholders, hyperlinks, metadata, notes.
-- **ODP import/export** (OpenDocument Presentation) — the open-format pillar.
-- **PDF export** (render pages → PDF; vector where possible).
+### Phase 2 — Round-trip enablers (data-model fidelity)
+Round-trip *I/O* lives in `point` (PPTX/PDF done @T1). The engine raises the fidelity ceiling:
+- **#16** Slide masters, layouts, placeholders & theme-color resolution (unblocks PPTX T2).
+- **#17** Table element: model, render & edit (unblocks PPTX T3) — Gap 3.
+- **#18** Hyperlink rendering + element semantic fields (alt-text/description).
+- `→ point`: PPTX import/export (done), PDF export (done), ODP I/O, round-trip harness,
+  speaker-notes UI, master/layout editor UI, theme picker UI, presentation metadata.
 
-### Phase 3 — Collaboration (engine-side Yjs binding for the existing Hocuspocus server)
-The server and product app already exist — this phase is the engine binding only.
-- Bind `SlideDataModel` to a **Yjs document** (`Y.Doc`); map slide mutations ↔ Yjs shared
-  types so CRDT merge replaces hand-written conflict resolution.
-- **Integration contract** so the product repo attaches a `@hocuspocus/provider` to the
-  existing collab server (URL + auth token supplied by the product); remote Yjs updates flow
-  into the model. *No server / persistence / Docker here — the existing server owns those.*
-- Presence (cursors/selection) via Yjs awareness passthrough; comments/threads anchored to
-  slide/element ids.
-- Offline edit + CRDT reconcile on reconnect (free with Yjs).
+### Phase 3 — Collaboration *(no engine issues)*
+The `collab` server (Hocuspocus + Yjs) and the Yjs bridge both already exist / are product-owned.
+The engine's only contribution is "every edit is a MUTATION" (**#1**), so nothing is tracked here.
+- `→ point`: Yjs `Y.Doc` mirror of `ISlideData`, `@hocuspocus/provider` wiring to
+  `ws://<host>:3000/yjs?room=<id>`, presence (awareness), comments.
 
-### Phase 4 — Advanced fidelity
-- Animations + slide transitions (model, author UI, playback, round-trip).
-- Charts (native render + edit), SmartArt, embedded media playback.
-- Accessibility tags + export, reading order, alt-text enforcement.
-- Presenter view, slideshow mode, export to images.
+### Phase 4 — Advanced fidelity (engine slice)
+- **#25** Element-type data model + render: chart, line/connector, video — Gap 3 remainder.
+- `→ point`: animation/transition modeling (`resources` slot, Gap 4), SmartArt + chart-data
+  editing, presenter/slideshow mode, accessibility checker + tagged-PDF export.
 
 ---
 
