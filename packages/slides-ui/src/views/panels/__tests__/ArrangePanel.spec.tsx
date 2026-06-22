@@ -22,6 +22,7 @@ import { RediContext } from '@univerjs/ui';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { SlideUpdateElementMutation } from '../../../commands/mutations/element.mutation';
 import { UpdateSlideElementOperation } from '../../../commands/operations/update-element.operation';
 import { CanvasView } from '../../../controllers/canvas-view';
 import locale from '../../../locale/en-US';
@@ -136,6 +137,8 @@ function createPanelTestBed() {
     injector.get(IUniverInstanceService).focusUnit(UNIT_ID);
 
     const commandService = injector.get(ICommandService);
+    // UpdateSlideElementOperation (z-order arrange) routes through this MUTATION.
+    commandService.registerCommand(SlideUpdateElementMutation);
     commandService.registerCommand(UpdateSlideElementOperation);
     injector.get(LocaleService).load({
         [LocaleType.EN_US]: locale,
