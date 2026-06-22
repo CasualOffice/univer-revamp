@@ -15,7 +15,6 @@
  */
 
 import type { Ctor, IDisposable } from '../../common/di';
-
 import { skip } from 'rxjs';
 import pkg from '../../../package.json';
 import { Inject, Injector } from '../../common/di';
@@ -199,10 +198,16 @@ export class PluginService implements IDisposable {
         }
 
         if (version && version !== Plugin.version) {
-            throw new Error(
-                `[PluginService]: package "${packageName ?? 'UNKNOWN'}" version mismatch. `
-                + `Plugin version is "${version}" but @univerjs/core version is "${Plugin.version}". `
-                + 'Please make sure all @univerjs packages use the same version.'
+            this._logService.error(
+                '[PluginService]',
+                [
+                    'Plugin version mismatch.',
+                    `  plugin: "${pluginName || ctor.name}"`,
+                    `  package: "${packageName}"`,
+                    `  plugin version: "${version}"`,
+                    `  core version: "${Plugin.version}"`,
+                    '  registration will continue, but please make sure all @univerjs packages use the same version.',
+                ].join('\n')
             );
         }
 

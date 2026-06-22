@@ -20,17 +20,51 @@ import type { IPaddingData } from '../../types/interfaces/i-style-data';
 import type { JSONXActions } from './json-x/json-x';
 import { BehaviorSubject } from 'rxjs';
 import { UnitModel, UniverInstanceType } from '../../common/unit';
-import { generateRandomId, Tools } from '../../shared/tools';
+import { generateRandomId } from '../../shared/random-id';
+import { Tools } from '../../shared/tools';
 import { getEmptySnapshot } from './empty-snapshot';
 import { JSONX } from './json-x/json-x';
 import { PRESET_LIST_TYPE } from './preset-list-type';
 import { getPlainText } from './text-x/build-utils/parse';
 import { getBodySlice, SliceBodyType } from './text-x/utils';
 
-export const DEFAULT_DOC = {
-    id: 'default_doc',
-    documentStyle: {},
-};
+function createDocumentSnapshot(snapshot: Partial<IDocumentData>): IDocumentData {
+    const defaultSnapshot = getEmptySnapshot(snapshot.id, snapshot.locale, snapshot.title);
+
+    if (Tools.isEmptyObject(snapshot)) {
+        return defaultSnapshot;
+    }
+
+    const mergedSnapshot = Tools.commonExtend<IDocumentData>(defaultSnapshot, snapshot);
+    const { documentStyle, settings } = snapshot;
+
+    if (documentStyle != null) {
+        if (documentStyle.pageSize != null) {
+            documentStyle.pageSize = {
+                ...defaultSnapshot.documentStyle.pageSize,
+                ...documentStyle.pageSize,
+            };
+        }
+
+        if (documentStyle.renderConfig != null) {
+            documentStyle.renderConfig = {
+                ...defaultSnapshot.documentStyle.renderConfig,
+                ...documentStyle.renderConfig,
+            };
+        }
+
+        mergedSnapshot.documentStyle = Tools.commonExtend(defaultSnapshot.documentStyle, documentStyle);
+    }
+
+    if (settings != null) {
+        mergedSnapshot.settings = {
+            ...defaultSnapshot.settings,
+            ...settings,
+        };
+    }
+
+    return mergedSnapshot;
+}
 
 interface IDrawingUpdateConfig {
     left: number;
@@ -54,7 +88,7 @@ class DocumentDataModelSimple extends UnitModel<IDocumentData, UniverInstanceTyp
     constructor(snapshot: Partial<IDocumentData>) {
         super();
 
-        this.snapshot = { ...DEFAULT_DOC, ...snapshot };
+        this.snapshot = createDocumentSnapshot(snapshot);
         this._name$.next(this.snapshot.title ?? 'No Title');
     }
 
@@ -238,7 +272,7 @@ export class DocumentDataModel extends DocumentDataModelSimple {
     change$ = new BehaviorSubject<number>(0);
 
     constructor(snapshot: Partial<IDocumentData>) {
-        super(Tools.isEmptyObject(snapshot) ? getEmptySnapshot() : snapshot);
+        super(snapshot);
 
         const UNIT_ID_LENGTH = 6;
 
@@ -287,7 +321,7 @@ export class DocumentDataModel extends DocumentDataModelSimple {
             throw new Error('Cannot reset a document model with a different unit id!');
         }
 
-        this.snapshot = { ...DEFAULT_DOC, ...snapshot };
+        this.snapshot = createDocumentSnapshot(snapshot);
         this._initializeHeaderFooterModel();
         this.change$.next(this.change$.value + 1);
     }

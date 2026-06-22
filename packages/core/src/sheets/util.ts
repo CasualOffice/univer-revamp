@@ -20,11 +20,12 @@ import type { IDocumentData, IPaddingData, IStyleBase, IStyleData, ITextRotation
 import type { ICellData, IRange, IUnitRange } from './typedef';
 import { DEFAULT_EMPTY_DOCUMENT_VALUE } from '../common/const';
 import { BuildTextUtils, DocumentDataModel } from '../docs';
+import { createParagraphId } from '../docs/paragraph-id';
 import { TextX } from '../docs/data-model/text-x/text-x';
 import { convertTextRotation } from '../docs/data-model/utils';
 import { Rectangle } from '../shared';
 import { HorizontalAlign, VerticalAlign, WrapStrategy } from '../types/enum';
-import { CustomRangeType } from '../types/interfaces';
+import { CustomRangeType, DocumentFlavor } from '../types/interfaces';
 
 export interface IFontLocale {
     fontList: string[];
@@ -95,6 +96,7 @@ export function createDocumentModelWithStyle(content: string, textStyle: ITextSt
             paragraphs: [
                 {
                     startIndex: contentLength,
+                    paragraphId: createParagraphId(new Set()),
                     paragraphStyle: {
                         horizontalAlign,
                     },
@@ -109,10 +111,12 @@ export function createDocumentModelWithStyle(content: string, textStyle: ITextSt
                 width: Number.POSITIVE_INFINITY,
                 height: Number.POSITIVE_INFINITY,
             },
+            documentFlavor: DocumentFlavor.UNSPECIFIED,
             marginTop,
             marginBottom,
             marginRight,
             marginLeft,
+            paragraphLineGapDefault: 0,
             renderConfig: {
                 horizontalAlign,
                 verticalAlign,

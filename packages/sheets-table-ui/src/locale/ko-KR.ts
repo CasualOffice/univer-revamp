@@ -17,7 +17,7 @@
 import type enUS from './en-US';
 
 const locale: typeof enUS = {
-    'sheets-table': {
+    'sheets-table-ui': {
         title: '표',
         selectRange: '표 범위 선택',
         rename: '표 이름 바꾸기',
@@ -46,6 +46,11 @@ const locale: typeof enUS = {
             'insert-left': 'Insert 1 table column left',
             'insert-right': 'Insert 1 table column right',
             delete: 'Delete table column',
+        },
+
+        sort: {
+            'sort-asc': '오름차순',
+            'sort-desc': '내림차순',
         },
 
         insert: {

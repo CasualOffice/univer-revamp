@@ -1,19 +1,3 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import { LocaleType, LogLevel, Univer, UniverInstanceType, UserManagerService } from '@univerjs/core';
 import { FUniver } from '@univerjs/core/facade';
 import { UniverDebuggerPlugin } from '@univerjs/debugger';
@@ -21,19 +5,9 @@ import { UniverDocsPlugin } from '@univerjs/docs';
 import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
 import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
 import { UniverRenderEnginePlugin } from '@univerjs/engine-render';
-import { DEFAULT_WORKBOOK_DATA_DEMO } from '@univerjs/mockdata';
-import caES from '@univerjs/mockdata/locales/ca-ES';
+import { DEFAULT_WORKBOOK_DATA_DEMO, loadDebuggerLocale } from '@univerjs/mockdata';
 import enUS from '@univerjs/mockdata/locales/en-US';
-import esES from '@univerjs/mockdata/locales/es-ES';
-import faIR from '@univerjs/mockdata/locales/fa-IR';
-import frFR from '@univerjs/mockdata/locales/fr-FR';
-import jaJP from '@univerjs/mockdata/locales/ja-JP';
-import koKR from '@univerjs/mockdata/locales/ko-KR';
-import ruRU from '@univerjs/mockdata/locales/ru-RU';
-import skSK from '@univerjs/mockdata/locales/sk-SK';
-import viVN from '@univerjs/mockdata/locales/vi-VN';
 import zhCN from '@univerjs/mockdata/locales/zh-CN';
-import zhTW from '@univerjs/mockdata/locales/zh-TW';
 import { UniverNetworkPlugin } from '@univerjs/network';
 import { UniverRPCMainThreadPlugin } from '@univerjs/rpc';
 import { UniverSheetsPlugin } from '@univerjs/sheets';
@@ -48,7 +22,6 @@ import { UniverSheetsSortPlugin } from '@univerjs/sheets-sort';
 import { UniverSheetsTablePlugin } from '@univerjs/sheets-table';
 import { UniverSheetsThreadCommentPlugin } from '@univerjs/sheets-thread-comment';
 import { UniverSheetsUIPlugin } from '@univerjs/sheets-ui';
-import { UniverSheetsZenEditorPlugin } from '@univerjs/sheets-zen-editor';
 import { UniverUIPlugin } from '@univerjs/ui';
 import { UniverVue3AdapterPlugin } from '@univerjs/ui-adapter-vue3';
 import { UniverWebComponentAdapterPlugin } from '@univerjs/ui-adapter-web-component';
@@ -57,9 +30,9 @@ import { simpleRangePopupDemo } from './custom/custom-range-popup/simple-range-p
 import { customRegisterEvent } from './custom/custom-register-event';
 import { UniverSheetsCustomShortcutPlugin } from './custom/custom-shortcut';
 import ImportCSVButtonPlugin from './custom/import-csv-button';
-
 import '@univerjs/sheets/facade';
 import '@univerjs/ui/facade';
+import '@univerjs/docs/facade';
 import '@univerjs/docs-ui/facade';
 import '@univerjs/sheets-ui/facade';
 import '@univerjs/sheets-data-validation/facade';
@@ -73,7 +46,6 @@ import '@univerjs/sheets-conditional-formatting/facade';
 import '@univerjs/sheets-find-replace/facade';
 import '@univerjs/sheets-drawing/facade';
 import '@univerjs/sheets-drawing-ui/facade';
-import '@univerjs/sheets-zen-editor/facade';
 import '@univerjs/sheets-crosshair-highlight/facade';
 import '@univerjs/sheets-formula-ui/facade';
 import '@univerjs/sheets-table/facade';
@@ -100,22 +72,10 @@ export const mockUser = {
 function createNewInstance() {
     // univer
     const univer = new Univer({
-        // theme: greenTheme,
-        darkMode: localStorage.getItem('local.darkMode') === 'dark',
-        locale: LocaleType.ZH_CN,
+        locale: LocaleType.EN_US,
         locales: {
-            [LocaleType.CA_ES]: caES,
             [LocaleType.EN_US]: enUS,
-            [LocaleType.ES_ES]: esES,
-            [LocaleType.FA_IR]: faIR,
-            [LocaleType.FR_FR]: frFR,
-            [LocaleType.JA_JP]: jaJP,
-            [LocaleType.KO_KR]: koKR,
-            [LocaleType.RU_RU]: ruRU,
-            [LocaleType.VI_VN]: viVN,
             [LocaleType.ZH_CN]: zhCN,
-            [LocaleType.ZH_TW]: zhTW,
-            [LocaleType.SK_SK]: skSK,
         },
         logLevel: LogLevel.VERBOSE,
     });
@@ -145,7 +105,6 @@ function createNewInstance() {
         }],
         [UniverSheetsUIPlugin],
         [UniverSheetsNumfmtPlugin],
-        [UniverSheetsZenEditorPlugin],
         [UniverFormulaEnginePlugin, { notExecuteFormula: true }],
         [UniverSheetsFormulaPlugin, { notExecuteFormula: true }],
         [UniverSheetsDataValidationPlugin],
@@ -165,6 +124,8 @@ function createNewInstance() {
     if (IS_E2E) {
         univer.registerPlugin(UniverDebuggerPlugin, {
             fab: false,
+            fabEntryUnitType: UniverInstanceType.UNIVER_SHEET,
+            localeLoader: loadDebuggerLocale,
             performanceMonitor: {
                 enabled: false,
             },
@@ -217,7 +178,7 @@ createNewInstance();
 window.createNewInstance = createNewInstance;
 
 declare global {
-    // eslint-disable-next-line ts/naming-convention
+
     interface Window {
         univer?: Univer;
         univerAPI?: ReturnType<typeof FUniver.newAPI>;

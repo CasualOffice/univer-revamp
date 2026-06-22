@@ -17,7 +17,14 @@
 import type { DocumentDataModel, ITextRange } from '@univerjs/core';
 import type { ISetTextSelectionsOperationParams } from '@univerjs/docs';
 import type { ITextRangeWithStyle } from '@univerjs/engine-render';
-import { Disposable, ICommandService, Inject, isInternalEditorID, IUniverInstanceService, UniverInstanceType } from '@univerjs/core';
+import {
+    Disposable,
+    ICommandService,
+    Inject,
+    isInternalEditorID,
+    IUniverInstanceService,
+    UniverInstanceType,
+} from '@univerjs/core';
 import { SetTextSelectionsOperation } from '@univerjs/docs';
 import { DocBackScrollRenderController } from '@univerjs/docs-ui';
 import { IRenderManagerService } from '@univerjs/engine-render';
@@ -82,6 +89,17 @@ export class DocThreadCommentSelectionController extends Disposable {
                     }
 
                     if (!this._threadCommentPanelService.activeCommentId) {
+                        return;
+                    }
+
+                    const addingComment = this._docThreadCommentService.addingComment;
+                    const activeComment = this._threadCommentPanelService.activeCommentId;
+                    if (
+                        addingComment &&
+                        activeComment?.unitId === addingComment.unitId &&
+                        activeComment?.subUnitId === DEFAULT_DOC_SUBUNIT_ID &&
+                        activeComment?.commentId === addingComment.id
+                    ) {
                         return;
                     }
 

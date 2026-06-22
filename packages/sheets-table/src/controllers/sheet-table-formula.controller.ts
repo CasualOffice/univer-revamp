@@ -15,10 +15,10 @@
  */
 
 import type { ISetSuperTableMutationParam, ISetSuperTableMutationSearchParam } from '@univerjs/engine-formula';
-import type { Table } from '../model/table';
+import type { Table } from '../models/table';
 import { Disposable, ICommandService, Inject } from '@univerjs/core';
 import { RemoveSuperTableMutation, SetSuperTableMutation } from '@univerjs/engine-formula';
-import { TableManager } from '../model/table-manager';
+import { TableManager } from '../models/table-manager';
 
 export class SheetTableFormulaController extends Disposable {
     constructor(
@@ -72,12 +72,12 @@ export class SheetTableFormulaController extends Disposable {
                 if (!table) {
                     return;
                 }
-                this._updateSuperTable(unitId, table);
+                this._updateSuperTable(unitId, table, oldTableName);
             })
         );
     }
 
-    private _updateSuperTable(unitId: string, table: Table) {
+    private _updateSuperTable(unitId: string, table: Table, oldTableName?: string) {
         const tableInfo = table.getTableInfo();
         const name = tableInfo.name;
         const columns = tableInfo.columns;
@@ -88,6 +88,7 @@ export class SheetTableFormulaController extends Disposable {
         this._commandService.executeCommand<ISetSuperTableMutationParam>(SetSuperTableMutation.id, {
             unitId,
             tableName: name,
+            oldTableName,
             reference: {
                 range: tableInfo.range,
                 sheetId: tableInfo.subUnitId,

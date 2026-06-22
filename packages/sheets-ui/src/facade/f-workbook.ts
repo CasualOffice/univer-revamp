@@ -15,15 +15,27 @@
  */
 
 import type { IDisposable, Nullable } from '@univerjs/core';
-import type { IColumnsHeaderCfgParam, IMouseEvent, IPointerEvent, IRowsHeaderCfgParam, RenderComponentType, RenderManagerService, SpreadsheetColumnHeader, SpreadsheetRowHeader } from '@univerjs/engine-render';
-import type { ICellPosWithEvent, IDragCellPosition, IEditorBridgeServiceVisibleParam, IHoverRichTextInfo, IHoverRichTextPosition, IScrollState, SheetSelectionRenderService } from '@univerjs/sheets-ui';
+import type {
+    IColumnsHeaderCfgParam,
+    IRowsHeaderCfgParam,
+    RenderComponentType,
+    RenderManagerService,
+    SpreadsheetColumnHeader,
+    SpreadsheetRowHeader,
+} from '@univerjs/engine-render';
+import type { IEditorBridgeServiceVisibleParam, IScrollState, SheetSelectionRenderService } from '@univerjs/sheets-ui';
 import type { IDialogPartMethodOptions, ISidebarMethodOptions } from '@univerjs/ui';
-import { awaitTime, ICommandService, ILogService, toDisposable } from '@univerjs/core';
+import { awaitTime, ICommandService, ILogService } from '@univerjs/core';
 import { DeviceInputEventType, IRenderManagerService } from '@univerjs/engine-render';
-import { DragManagerService, HoverManagerService, IEditorBridgeService, ISheetSelectionRenderService, SetCellEditVisibleOperation, SHEET_VIEW_KEY, SheetScrollManagerService } from '@univerjs/sheets-ui';
+import {
+    IEditorBridgeService,
+    ISheetSelectionRenderService,
+    SetCellEditVisibleOperation,
+    SHEET_VIEW_KEY,
+    SheetScrollManagerService,
+} from '@univerjs/sheets-ui';
 import { FWorkbook } from '@univerjs/sheets/facade';
 import { IDialogService, ISidebarService, KeyCode } from '@univerjs/ui';
-import { filter } from 'rxjs';
 
 /**
  * @ignore
@@ -143,41 +155,6 @@ export interface IFWorkbookSheetsUIMixin {
     customizeRowHeader(cfg: IRowsHeaderCfgParam): void;
 
     /**
-     * @deprecated use `univerAPI.addEvent(univerAPI.Event.CellClicked, (params) => {})` instead
-     */
-    onCellClick(callback: (cell: IHoverRichTextInfo) => void): IDisposable;
-
-    /**
-     * @deprecated use `univerAPI.addEvent(univerAPI.Event.CellHover, (params) => {})` instead
-     */
-    onCellHover(callback: (cell: IHoverRichTextPosition) => void): IDisposable;
-
-    /**
-     * @deprecated use `univerAPI.addEvent(univerAPI.Event.CellPointerMove, (params) => {})` instead
-     */
-    onCellPointerMove(callback: (cell: ICellPosWithEvent, event: IPointerEvent | IMouseEvent) => void): IDisposable;
-
-    /**
-     * @deprecated use `univerAPI.addEvent(univerAPI.Event.CellPointerDown, (params) => {})` instead
-     */
-    onCellPointerDown(callback: (cell: ICellPosWithEvent) => void): IDisposable;
-
-    /**
-     * @deprecated use `univerAPI.addEvent(univerAPI.Event.CellPointerUp, (params) => {})` instead
-     */
-    onCellPointerUp(callback: (cell: ICellPosWithEvent) => void): IDisposable;
-
-    /**
-     * @deprecated use `univerAPI.addEvent(univerAPI.Event.DragOver, (params) => {})` instead
-     */
-    onDragOver(callback: (cell: IDragCellPosition) => void): IDisposable;
-
-    /**
-     * @deprecated use `univerAPI.addEvent(univerAPI.Event.Drop, (params) => {})` instead
-     */
-    onDrop(callback: (cell: IDragCellPosition) => void): IDisposable;
-
-    /**
      * Start the editing process of the current active cell
      * @returns {boolean} Whether the editing process is started successfully
      * @example
@@ -189,12 +166,6 @@ export interface IFWorkbookSheetsUIMixin {
     startEditing(): boolean;
 
     /**
-     * @deprecated Use `endEditingAsync` as instead
-     */
-    endEditing(save?: boolean): Promise<boolean>;
-
-    /**
-     * @async
      * End the editing process of the current active cell
      * @param {boolean} save - Whether to save the changes, default is true
      * @returns {Promise<boolean>} Whether the editing process is ended successfully
@@ -207,8 +178,7 @@ export interface IFWorkbookSheetsUIMixin {
     endEditingAsync(save?: boolean): Promise<boolean>;
 
     /**
-     * @async
-     * End the editing process of the current active cell
+     * End the editing process of the current active cell, and discard the changes.
      * @returns {Promise<boolean>} Whether the editing process is ended successfully
      * @example
      * ```ts
@@ -237,7 +207,8 @@ export interface IFWorkbookSheetsUIMixin {
      * @example
      * ``` ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      *
      * // scroll to cell D10
      * fWorksheet.scrollToCell(9, 3);
@@ -293,7 +264,6 @@ export interface IFWorkbookSheetsUIMixin {
      * ```
      */
     showSelection(): FWorkbook;
-
 }
 
 export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheetsUIMixin {
@@ -339,7 +309,7 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
      */
     private _getSheetRenderComponent(unitId: string, viewKey: SHEET_VIEW_KEY): Nullable<RenderComponentType> {
         const renderManagerService = this._injector.get(IRenderManagerService);
-        const render = renderManagerService.getRenderById(unitId);
+        const render = renderManagerService.getRenderUnitById(unitId);
         if (!render) {
             throw new Error(`Render Unit with unitId ${unitId} not found`);
         }
@@ -353,77 +323,11 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
         return renderComponent;
     }
 
+    /* istanbul ignore next -- deprecated API helper */
     private _logDeprecation(name: string): void {
         const logService = this._injector.get(ILogService);
 
         logService.warn('[FWorkbook]', `${name} is deprecated. Please use the function of the same name on "FUniver".`);
-    }
-
-    override onCellClick(callback: (cell: IHoverRichTextInfo) => void): IDisposable {
-        const hoverManagerService = this._injector.get(HoverManagerService);
-        return toDisposable(
-            hoverManagerService.currentClickedCell$
-                .pipe(filter((cell) => !!cell))
-                .subscribe((cell) => {
-                    callback(cell);
-                })
-        );
-    }
-
-    override onCellHover(callback: (cell: IHoverRichTextPosition) => void): IDisposable {
-        const hoverManagerService = this._injector.get(HoverManagerService);
-        return toDisposable(
-            hoverManagerService.currentRichText$
-                .pipe(filter((cell) => !!cell))
-                .subscribe(callback)
-        );
-    }
-
-    override onCellPointerDown(callback: (cell: ICellPosWithEvent) => void): IDisposable {
-        const hoverManagerService = this._injector.get(HoverManagerService);
-        return toDisposable(
-            hoverManagerService.currentPointerDownCell$.subscribe(callback)
-        );
-    }
-
-    override onCellPointerUp(callback: (cell: ICellPosWithEvent) => void): IDisposable {
-        const hoverManagerService = this._injector.get(HoverManagerService);
-        return toDisposable(
-            hoverManagerService.currentPointerUpCell$.subscribe(callback)
-        );
-    }
-
-    override onCellPointerMove(callback: (cell: ICellPosWithEvent, event: IPointerEvent | IMouseEvent) => void): IDisposable {
-        const hoverManagerService = this._injector.get(HoverManagerService);
-        return toDisposable(
-            hoverManagerService.currentCellPosWithEvent$
-                .pipe(filter((cell) => !!cell))
-                .subscribe((cell: ICellPosWithEvent) => {
-                    callback(cell, cell.event);
-                })
-        );
-    }
-
-    override onDragOver(callback: (cell: IDragCellPosition) => void): IDisposable {
-        const dragManagerService = this._injector.get(DragManagerService);
-        return toDisposable(
-            dragManagerService.currentCell$
-                .pipe(filter((cell) => !!cell))
-                .subscribe((cell: IDragCellPosition) => {
-                    callback(cell);
-                })
-        );
-    }
-
-    override onDrop(callback: (cell: IDragCellPosition) => void): IDisposable {
-        const dragManagerService = this._injector.get(DragManagerService);
-        return toDisposable(
-            dragManagerService.endCell$
-                .pipe(filter((cell) => !!cell))
-                .subscribe((cell: IDragCellPosition) => {
-                    callback(cell);
-                })
-        );
     }
 
     override startEditing(): boolean {
@@ -441,7 +345,7 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
         } as IEditorBridgeServiceVisibleParam);
     }
 
-    override async endEditing(save?: boolean): Promise<boolean> {
+    override async endEditingAsync(save = true): Promise<boolean> {
         const commandService = this._injector.get(ICommandService);
         const editorBridgeService = this._injector.get(IEditorBridgeService);
 
@@ -459,10 +363,6 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
         return true;
     }
 
-    override endEditingAsync(save = true): Promise<boolean> {
-        return this.endEditing(save);
-    }
-
     override abortEditingAsync(): Promise<boolean> {
         return this.endEditingAsync(false);
     }
@@ -472,19 +372,10 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
         return editorBridgeService.isVisible().visible;
     }
 
-    /**
-     * Get scroll state of specified sheet.
-     * @param {string} sheetId - sheet id
-     * @returns {IScrollState} scroll state
-     * @example
-     * ``` ts
-     * univerAPI.getActiveWorkbook().getScrollStateBySheetId($sheetId)
-     * ```
-     */
     override getScrollStateBySheetId(sheetId: string): Nullable<IScrollState> {
         const unitId = this._workbook.getUnitId();
-        const renderManagerService = this._injector.get(IRenderManagerService);
-        const render = renderManagerService.getRenderById(unitId);
+        const renderManagerService = this._injector.get(IRenderManagerService) as RenderManagerService;
+        const render = renderManagerService.getRenderUnitById(unitId);
         if (!render) return null;
         const scm = render.with(SheetScrollManagerService);
         return scm.getScrollStateByParam({ unitId, sheetId });
@@ -493,7 +384,7 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
     override disableSelection(): FWorkbook {
         const unitId = this._workbook.getUnitId();
         const renderManagerService = this._injector.get(IRenderManagerService) as RenderManagerService;
-        const render = renderManagerService.getRenderById(unitId);
+        const render = renderManagerService.getRenderUnitById(unitId);
         if (render) {
             (render.with(ISheetSelectionRenderService) as SheetSelectionRenderService).disableSelection();
         }
@@ -503,7 +394,7 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
     override enableSelection(): FWorkbook {
         const unitId = this._workbook.getUnitId();
         const renderManagerService = this._injector.get(IRenderManagerService) as RenderManagerService;
-        const render = renderManagerService.getRenderById(unitId);
+        const render = renderManagerService.getRenderUnitById(unitId);
         if (render) {
             (render.with(ISheetSelectionRenderService) as SheetSelectionRenderService).enableSelection();
         }
@@ -513,7 +404,7 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
     override transparentSelection(): FWorkbook {
         const unitId = this._workbook.getUnitId();
         const renderManagerService = this._injector.get(IRenderManagerService) as RenderManagerService;
-        const render = renderManagerService.getRenderById(unitId);
+        const render = renderManagerService.getRenderUnitById(unitId);
         if (render) {
             (render.with(ISheetSelectionRenderService) as SheetSelectionRenderService).transparentSelection();
         }
@@ -523,7 +414,7 @@ export class FWorkbookSheetsUIMixin extends FWorkbook implements IFWorkbookSheet
     override showSelection(): FWorkbook {
         const unitId = this._workbook.getUnitId();
         const renderManagerService = this._injector.get(IRenderManagerService) as RenderManagerService;
-        const render = renderManagerService.getRenderById(unitId);
+        const render = renderManagerService.getRenderUnitById(unitId);
         if (render) {
             (render.with(ISheetSelectionRenderService) as SheetSelectionRenderService).showSelection();
         }

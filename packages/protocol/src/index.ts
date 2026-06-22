@@ -18,46 +18,35 @@ export type {
     IDeserializedSheetBlock,
     IGetDeserializedSheetBlockResponse,
 } from './other/sheet-block';
-
 export type {
     IChangeset,
     ICommand,
     IMutation,
 } from './ts/univer/changeset';
-export {
-    CommentSolvedStatus,
-    CommentUpdateEventType,
-    type ICollaMsg,
-    type ICollaMsgErrorEvent,
-    type ICollaMsgJoin,
-    type ICollaMsgLeave,
-    type ICommentUpdate,
-    type ILiveShareNewHost,
-    type ILiveShareOperation,
-    type ILiveShareOperationOperation,
-    type ILiveShareRequestHost,
-    type ILiveShareTerminate,
-    type IShouldCloseConn,
-    type IUniscriptRun,
-    type IUpdateCursor,
-    type IUpdatePermissionObj,
-} from './ts/univer/colla-msg';
-export {
-    ErrorCode,
-    type IError,
-} from './ts/univer/constants/errors';
-export { UniverType } from './ts/univer/constants/univer';
-
-export type { IDocumentMeta } from './ts/univer/doc';
-export {
-    CellType,
-    type IInitialSheet,
-    type IRow,
-    type IRowCell,
-} from './ts/univer/initial-sheet';
+export { CommentSolvedStatus, CommentUpdateEventType } from './ts/univer/colla-msg';
 export type {
-    IUnitRoleKV,
-} from './ts/univer/permission';
+    ICollaMsg,
+    ICollaMsgErrorEvent,
+    ICollaMsgJoin,
+    ICollaMsgLeave,
+    ICommentUpdate,
+    ILiveShareNewHost,
+    ILiveShareOperation,
+    ILiveShareOperationOperation,
+    ILiveShareRequestHost,
+    ILiveShareTerminate,
+    IShouldCloseConn,
+    IUniscriptRun,
+    IUpdateCursor,
+    IUpdatePermissionObj,
+} from './ts/univer/colla-msg';
+export { ErrorCode } from './ts/univer/constants/errors';
+export type { IError } from './ts/univer/constants/errors';
+export { UniverType } from './ts/univer/constants/univer';
+export type { IDocumentMeta } from './ts/univer/doc';
+export { CellType } from './ts/univer/initial-sheet';
+export type { IInitialSheet, IRow, IRowCell } from './ts/univer/initial-sheet';
+export type { IUnitRoleKV } from './ts/univer/permission';
 export {
     ObjectScope,
     UnitAction,
@@ -65,29 +54,19 @@ export {
     UnitRole,
 } from './ts/univer/permission';
 export type { IRange } from './ts/univer/range';
-
+export type { ISlideMeta } from './ts/univer/slide';
 export type {
     ISnapshot,
     ITableInfo,
 } from './ts/univer/snapshot';
-
-export {
-    CellValueType,
-    type ICellData,
-    type ISheetBlock,
-    type ISheetBlockMeta,
-    type IWorkbookMeta,
-    type IWorksheetMeta,
-} from './ts/univer/workbook';
-
+export { CellValueType } from './ts/univer/workbook';
+export type { ICellData, ISheetBlock, ISheetBlockMeta, IWorkbookMeta, IWorksheetMeta } from './ts/univer/workbook';
 export type {
     IRecord,
 } from './ts/univercloud/stats/v1/stats';
-
 export {
     IRecordType,
 } from './ts/univercloud/stats/v1/stats';
-
 export {
     type IApplyRequest,
     type IApplyResponse,
@@ -107,13 +86,11 @@ export {
     type IPreloadUnitResponse,
     type IWorkbookCreateMeta,
 } from './ts/univerpro/v1/apply';
-
 export {
     type ICollaborationHelperService,
     type ICreateLatestSnapshotInBackgroundRequest,
     type ICreateLatestSnapshotInBackgroundResponse,
 } from './ts/univerpro/v1/helper';
-
 export type {
     IComputeRequest,
     IComputeResponse,
@@ -123,16 +100,13 @@ export type {
     IGetValuesResponse,
     ITableInfoList,
 } from './ts/univerpro/v1/ssc';
-
 export type {
     IGetSSRRequest,
     IGetSSRResponse,
 } from './ts/univerpro/v1/ssr';
-
 export type {
     IAccessKeyService,
 } from './ts/universer/v1/access-key';
-
 export type {
     IActionInfo,
     IAllowedRequest,
@@ -159,19 +133,16 @@ export type {
     IUpdateCollaboratorResponse,
     IUpdatePermPointRequest,
 } from './ts/universer/v1/authz';
-
-export {
-    CmdRspCode,
-    CombCmd,
-    type ICombJoinRequest,
-    type ICombJoinResponse,
-    type ICombLeaveRequest,
-    type ICombService,
-    type IMember,
-    type INewChangesRequest,
-    type INewChangesResponse,
+export { CmdRspCode, CombCmd } from './ts/universer/v1/comb';
+export type {
+    ICombJoinRequest,
+    ICombJoinResponse,
+    ICombLeaveRequest,
+    ICombService,
+    IMember,
+    INewChangesRequest,
+    INewChangesResponse,
 } from './ts/universer/v1/comb';
-
 export type {
     IAddCommentRequest,
     IAddCommentResponse,
@@ -188,13 +159,8 @@ export type {
     ISolvedCommentResponse,
     IThread,
 } from './ts/universer/v1/comment';
-
-export {
-    FileSource,
-    type IFileService,
-    type IFileUploadRequest,
-} from './ts/universer/v1/file';
-
+export { FileSource } from './ts/universer/v1/file';
+export type { IFileService, IFileUploadRequest } from './ts/universer/v1/file';
 export type {
     ICreateHistoryRequest,
     ICreateHistoryResponse,
@@ -202,15 +168,15 @@ export type {
     IGetHistoryCsResponse,
     IHistoryService,
 } from './ts/universer/v1/history';
-
 export type {
     IGetUserLicenseResponse,
     ILicenseService,
 } from './ts/universer/v1/license';
-
 export {
     type ICopyFileMetaRequest,
     type ICopyFileMetaResponse,
+    type IDeleteUnitsRequest,
+    type IDeleteUnitsResponse,
     type IFetchMissingChangesetsRequest,
     type IFetchMissingChangesetsResponse,
     type IGetLatestCsReqIdBySidRequest,
@@ -221,6 +187,12 @@ export {
     type IGetSheetBlockResponse,
     type IGetUnitOnRevRequest,
     type IGetUnitOnRevResponse,
+    type IMGetChangesetsByRevisionRequest,
+    type IMGetChangesetsByRevisionResponse,
+    type IMGetUnitMetaRequest,
+    type IMGetUnitMetaResponse,
+    type IRecoverUnitsRequest,
+    type IRecoverUnitsResponse,
     type IReportUnitRoutingStatsRequest,
     type IReportUnitRoutingStatsResponse,
     type ISaveChangesetRequest,
@@ -230,13 +202,14 @@ export {
     type ISaveSnapshotRequest,
     type ISaveSnapshotResponse,
     type ISnapshotService,
+    type IUnitMeta,
 } from './ts/universer/v1/snapshot';
-
 export type {
     IGetSessionTicketResponse,
     IGetUserResponse,
     IListUsersResponse,
+    IMigrateRequest,
+    IMigrateResponse,
     IUser,
 } from './ts/universer/v1/user';
-
 export { isError } from './utils';

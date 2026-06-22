@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { ITable, Nullable } from '@univerjs/core';
+import type { IDocumentBody, ITable, Nullable } from '@univerjs/core';
 import type {
     IDocumentSkeletonHeaderFooter,
     IDocumentSkeletonPage,
@@ -24,7 +24,7 @@ import type { ISectionBreakConfig } from '../../../../basics/interfaces';
 import type { DataStreamTreeNode } from '../../view-model/data-stream-tree-node';
 import type { DocumentViewModel } from '../../view-model/document-view-model';
 import type { ILayoutContext } from '../tools';
-import { BooleanNumber, PageOrientType } from '@univerjs/core';
+import { BooleanNumber, PageOrientType, PositionedObjectLayoutType } from '@univerjs/core';
 import { BreakType, DocumentSkeletonPageType } from '../../../../basics/i-document-skeleton-cached';
 import { dealWithSection } from '../block/section';
 import { resetContext, updateBlockIndex, updateInlineDrawingCoordsAndBorder } from '../tools';
@@ -299,13 +299,24 @@ export function createNullCellPage(
     const { cellMargin, tableRows, tableColumns, tableId } = tableConfig;
     const cellConfig = tableRows[row].tableCells[col];
 
-    const {
+    let {
         start = { v: 10 },
         end = { v: 10 },
         top = { v: 5 },
         bottom = { v: 5 },
     } = cellConfig.margin ?? cellMargin ?? {};
-    const pageWidth = tableColumns[col].size.width.v;
+    const columnSpan = Math.max(1, cellConfig.columnSpan ?? 1);
+    const pageWidth = tableColumns
+        .slice(col, col + columnSpan)
+        .reduce((sum, column) => sum + column.size.width.v, 0);
+    if (start.v + end.v >= pageWidth) {
+        const marginWidth = start.v + end.v;
+        const availableMarginWidth = Math.max(0, pageWidth - 1);
+        const startRatio = marginWidth > 0 ? start.v / marginWidth : 0.5;
+
+        start = { ...start, v: availableMarginWidth * startRatio };
+        end = { ...end, v: availableMarginWidth - start.v };
+    }
     const pageHeight = maxCellPageHeight;
 
     const cellSectionBreakConfig: ISectionBreakConfig = {
@@ -383,23 +394,61 @@ export function createSkeletonCellPages(
 
     updateBlockIndex(pages, cellNode.startIndex);
 
+    applyTrailingCellBlockRangeSpaceBelow(pages, ctx.dataModel?.getBody?.(), cellNode.endIndex);
+
     updateInlineDrawingCoordsAndBorder(ctx, pages);
+    expandCellPageHeightForInlineDrawings(pages);
 
     return pages;
 }
 
-function _getVerticalMargin(
-    marginTB: number,
-    headerOrFooter: Nullable<IDocumentSkeletonHeaderFooter>,
-    pageHeight: number
-) {
-    if (!headerOrFooter || headerOrFooter.sections[0].columns[0].lines.length === 0) {
-        return marginTB;
+export function expandCellPageHeightForInlineDrawings(pages: IDocumentSkeletonPage[]) {
+    for (const page of pages) {
+        page.skeDrawings?.forEach((drawing) => {
+            if (drawing.drawingOrigin?.layoutType !== PositionedObjectLayoutType.INLINE) {
+                return;
+            }
+
+            const drawingBottom = (drawing.aTop ?? 0) + (drawing.height ?? 0);
+            if (drawingBottom > page.height) {
+                page.height = drawingBottom;
+            }
+        });
+    }
+}
+
+function applyTrailingCellBlockRangeSpaceBelow(pages: IDocumentSkeletonPage[], body: Nullable<IDocumentBody>, cellEndIndex: number) {
+    const blockRanges = body?.blockRanges;
+    const trailingBlockRangeSpace = 28;
+    if (!blockRanges?.length) {
+        return;
     }
 
-    const HeaderFooterPageHeight = headerOrFooter.height + headerOrFooter.marginTop + headerOrFooter.marginBottom;
-    // Content height should be at least 100px.
-    const maxMargin = getHeaderFooterMaxHeight(pageHeight);
+    for (const page of pages) {
+        const lastLine = page.sections.at(-1)?.columns.at(-1)?.lines.at(-1);
+        if (!lastLine) {
+            continue;
+        }
 
-    return Math.min(maxMargin, Math.max(marginTB, HeaderFooterPageHeight));
+        const paragraphIndex = lastLine.paragraphIndex;
+        const isBlockRangeParagraph = blockRanges.some((range) => range.startIndex < paragraphIndex && paragraphIndex < range.endIndex);
+        if (!isBlockRangeParagraph) {
+            continue;
+        }
+
+        const hasLaterParagraphInCell = body?.paragraphs?.some((paragraph) => paragraph.startIndex > paragraphIndex && paragraph.startIndex < cellEndIndex);
+        if (hasLaterParagraphInCell) {
+            continue;
+        }
+
+        page.height += lastLine.spaceBelowApply || trailingBlockRangeSpace;
+    }
+}
+
+function _getVerticalMargin(
+    marginTB: number,
+    _headerOrFooter: Nullable<IDocumentSkeletonHeaderFooter>,
+    _pageHeight: number
+) {
+    return marginTB;
 }

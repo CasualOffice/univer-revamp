@@ -25,6 +25,7 @@ import {
     IActiveDirtyManagerService,
     RemoveDefinedNameMutation,
     SetDefinedNameMutation,
+    SetSuperTableMutation,
     SetTriggerFormulaCalculationStartMutation,
 } from '@univerjs/engine-formula';
 import {
@@ -39,7 +40,6 @@ import {
     SetStyleCommand,
 } from '@univerjs/sheets';
 import { afterEach, describe, expect, it } from 'vitest';
-
 import { createFacadeTestBed } from '../../facade/__tests__/create-test-bed';
 import { ActiveDirtyController } from '../active-dirty.controller';
 
@@ -404,6 +404,55 @@ describe('ActiveDirtyController', () => {
             dirtyDefinedNameMap: {
                 test: {
                     DIRTY_NAME: 'Sheet1!$A$1',
+                },
+            },
+        });
+    });
+
+    it('should dirty the table range and clear dependency cache when a super table changes', () => {
+        testBed = createControllerTestBed();
+        testBed.injector.get(ActiveDirtyController);
+
+        expect(getDirtyData(testBed, {
+            id: SetSuperTableMutation.id,
+            params: {
+                unitId: 'test',
+                tableName: 'Table1',
+                reference: {
+                    sheetId: 'sheet1',
+                    range: {
+                        startRow: 0,
+                        startColumn: 1,
+                        endRow: 5,
+                        endColumn: 2,
+                    },
+                    titleMap: new Map([
+                        ['Column1', 0],
+                        ['Column3', 1],
+                    ]),
+                },
+            },
+        } as ICommandInfo)).toEqual({
+            dirtyRanges: [
+                {
+                    unitId: 'test',
+                    sheetId: 'sheet1',
+                    range: {
+                        startRow: 0,
+                        startColumn: 1,
+                        endRow: 5,
+                        endColumn: 2,
+                    },
+                },
+            ],
+            dirtySuperTableMap: {
+                test: {
+                    Table1: '1',
+                },
+            },
+            clearDependencyTreeCache: {
+                test: {
+                    sheet1: '1',
                 },
             },
         });

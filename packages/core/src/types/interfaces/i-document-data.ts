@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import type { ImageSourceType } from '../../services/image-io/image-io.service';
+import type { IResources } from '../../services/resource-manager/type';
 import type { ISize } from '../../shared/shape';
 import type { BooleanNumber, CellValueType, HorizontalAlign, LocaleType, TextDirection, VerticalAlign, WrapStrategy } from '../enum';
 import type { IDrawingParam } from './i-drawing';
@@ -35,7 +37,7 @@ export interface IDocumentData extends IReferenceSource {
     documentStyle: IDocumentStyle;
     settings?: IDocumentSettings;
     // The type of data depends on how the plug-in is defined
-    resources?: Array<{ id?: string; name: string; data: string }>;
+    resources?: IResources;
     disabled?: boolean;
 }
 
@@ -131,6 +133,8 @@ export interface IDocumentBody {
 
     tables?: ICustomTable[]; // Table
 
+    blockRanges?: IDocumentBlockRange[]; // Generic structured block range, e.g. callout, quote, code.
+
     // tableOfContents?: { [index: number]: ITableOfContent }; // tableOfContents
     // links?: { [index: number]: IHyperlink }; // links
 
@@ -163,7 +167,7 @@ export enum DocStyleType {
 /**
  * Properties of doc footer
  */
-export interface IFooterData {
+export interface IFooterData extends IReferenceSource {
     footerId: string;
     body: IDocumentBody;
 }
@@ -171,7 +175,7 @@ export interface IFooterData {
 /**
  * Properties of doc header
  */
-export interface IHeaderData {
+export interface IHeaderData extends IReferenceSource {
     headerId: string;
     body: IDocumentBody;
 }
@@ -363,6 +367,19 @@ export type IHyperLinkCustomRange = ICustomRange<{ url: string }>;
 
 export type IMentionCustomRange = ICustomRange<IMention>;
 
+export enum DocumentBlockRangeType {
+    CALLOUT = 'callout',
+    QUOTE = 'quote',
+    CODE = 'code',
+}
+
+export interface IDocumentBlockRange {
+    startIndex: number;
+    endIndex: number;
+    blockId: string;
+    blockType: DocumentBlockRangeType;
+}
+
 export enum CustomRangeType {
     HYPERLINK,
     FIELD, // 17.16 Fields and Hyperlinks
@@ -463,6 +480,12 @@ export enum GridType {
 
 export interface IDocumentStyle extends IDocStyleBase, IDocumentLayout, IHeaderAndFooterBase {
     textStyle?: ITextStyle; // default style for text
+    background?: IDocumentBackground; // Page background image.
+}
+
+export interface IDocumentBackground {
+    source?: string;
+    sourceType?: ImageSourceType;
 }
 
 /**
@@ -490,6 +513,7 @@ export interface IDocumentRenderConfig {
     cellValueType?: CellValueType; // sheet cell type, In a spreadsheet cell, without any alignment settings applied, text should be left-aligned, numbers should be right-aligned, and Boolean values should be center-aligned.
     isRenderStyle?: BooleanNumber; // Whether to render the style(textRuns), used in formula bar editor. the default value is TRUE.
     zeroWidthParagraphBreak?: BooleanNumber; // Whether to render the paragraph \r to zero width. the default value is false.
+    shapeTextOpticalVerticalAlign?: BooleanNumber; // Align shape text by visible glyph bounds instead of the font line box.
 }
 
 export interface ISectionBreakBase {
@@ -554,6 +578,7 @@ export interface ISectionColumnProperties {
 export interface IParagraph {
     // elements: IElement[]; // elements
     startIndex: number;
+    paragraphId: string;
     paragraphStyle?: IParagraphStyle; // paragraphStyle
     bullet?: IBullet; // bullet
     // dIds?: string[]; // drawingIds drawingId
@@ -701,11 +726,53 @@ export interface IChartProperties {}
 /**
  * Properties of text style
  */
+export type DocTextFillType = 'none' | 'solid' | 'gradient' | 'picture';
+
+export type DocTextFillGradientType = 'linear' | 'radial' | 'angular' | 'diamond';
+
+export type DocTextFillPictureMode = 'stretch' | 'tile';
+
+export interface IDocTextFillGradientStop {
+    /**
+     * Offset in percent. Values in the 0-1 range are also accepted by renderers
+     * for compatibility and normalized to percent.
+     */
+    offset: number;
+    color: string;
+    opacity?: number;
+}
+
+export interface IDocTextFill {
+    /**
+     * Hidden renderer-level text fill. Normal document UI does not expose it,
+     * but rich-text renderers honor it when present on a run style.
+     */
+    type: DocTextFillType;
+    color?: string;
+    opacity?: number;
+    gradient?: {
+        type?: DocTextFillGradientType;
+        angle?: number;
+        stops?: IDocTextFillGradientStop[];
+    };
+    picture?: {
+        source?: string;
+        sourceType?: ImageSourceType;
+        opacity?: number;
+        mode?: DocTextFillPictureMode;
+        scaleX?: number;
+        scaleY?: number;
+        offsetX?: number;
+        offsetY?: number;
+    };
+}
+
 export interface ITextStyle extends IStyleBase {
     // bo?: BaselineOffset; // BaselineOffset, sup, sub
     sc?: number; // spacing
     pos?: number; // position
     sa?: number; // scale
+    textFill?: IDocTextFill;
 }
 
 export interface IIndentStart {

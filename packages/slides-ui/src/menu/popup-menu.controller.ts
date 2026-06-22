@@ -23,9 +23,9 @@ import { ISidebarService } from '@univerjs/ui';
 import { DeleteSlideElementOperation } from '../commands/operations/delete-element.operation';
 import { ToggleSlideEditSidebarOperation } from '../commands/operations/insert-shape.operation';
 import { UpdateSlideElementOperation } from '../commands/operations/update-element.operation';
-import { COMPONENT_SLIDE_IMAGE_POPUP_MENU } from '../components/image-popup-menu/component-name';
 import { CanvasView } from '../controllers/canvas-view';
 import { SlideCanvasPopMangerService } from '../services/slide-popup-manager.service';
+import { COMPONENT_SLIDE_IMAGE_POPUP_MENU } from '../views/image-popup-menu/component-name';
 
 export class SlidePopupMenuController extends RxDisposable {
     private _initImagePopupMenu = new Set<string>();
@@ -177,7 +177,7 @@ export class SlidePopupMenuController extends RxDisposable {
 
     private _getMenuItemsByObjectType(objectType: ObjectType, oKey: string, unitId: string) {
         const menuItems = [{
-            label: 'slide.popup.edit',
+            label: 'slides-ui.popup.edit',
             index: 0,
             commandId: ToggleSlideEditSidebarOperation.id,
             commandParams: {
@@ -186,7 +186,7 @@ export class SlidePopupMenuController extends RxDisposable {
             },
             disable: false,
         }, {
-            label: 'slide.popup.delete',
+            label: 'slides-ui.popup.delete',
             index: 5,
             commandId: DeleteSlideElementOperation.id,
             commandParams: {

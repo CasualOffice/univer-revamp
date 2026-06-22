@@ -26,8 +26,15 @@ import type {
 } from '@univerjs/core';
 import type { IDocumentSkeletonFontStyle } from './i-document-skeleton-cached';
 import type { IBoundRectNoAngle } from './vector2';
-
-import { BaselineOffset, ColorKit, DEFAULT_STYLES, FontStyleType, getCellInfoInMergeData, Rectangle, Tools } from '@univerjs/core';
+import {
+    BaselineOffset,
+    ColorKit,
+    DEFAULT_STYLES,
+    FontStyleType,
+    getCellInfoInMergeData,
+    Rectangle,
+    Tools,
+} from '@univerjs/core';
 import * as cjk from 'cjk-regex';
 import { FontCache } from '../components/docs/layout/shaping-engine/font-cache';
 import { DEFAULT_FONTFACE_PLANE } from './const';
@@ -245,7 +252,6 @@ export function fixLineWidthByScale(num: number, scale: number) {
     return Math.round(num * scale) / scale;
 }
 
-// eslint-disable-next-line max-lines-per-function
 export function getFontStyleString(
     textStyle?: Nullable<IStyleBase>
 ): IDocumentSkeletonFontStyle {
@@ -287,26 +293,7 @@ export function getFontStyleString(
     }
     let fontSize = originFontSize;
 
-    let fontFamilyResult = defaultFont;
-    if (textStyle.ff) {
-        let fontFamily = textStyle.ff;
-
-        fontFamily = fontFamily.replace(/"/g, '').replace(/'/g, '');
-
-        if (fontFamily.indexOf(' ') > -1) {
-            fontFamily = `"${fontFamily}"`;
-        }
-
-        // if (fontFamily != null && document.fonts && !document.fonts.check('12px ' + fontFamily)) {
-        //     menuButton.addFontToList(fontFamily);
-        // }
-
-        if (fontFamily == null) {
-            fontFamily = defaultFont;
-        }
-
-        fontFamilyResult = fontFamily;
-    }
+    const fontFamilyResult = normalizeFontFamily(textStyle.ff, defaultFont);
 
     const { va: baselineOffset } = textStyle;
 
@@ -331,6 +318,21 @@ export function getFontStyleString(
         originFontSize,
         fontFamily: fontFamilyResult,
     };
+}
+
+function normalizeFontFamily(fontFamily: Nullable<string>, defaultFont: string): string {
+    if (!fontFamily?.trim()) {
+        return defaultFont;
+    }
+
+    return fontFamily
+        .split(',')
+        .map((item) => {
+            const family = item.trim().replace(/^['"]|['"]$/g, '');
+            return family.includes(' ') ? `"${family}"` : family;
+        })
+        .filter(Boolean)
+        .join(', ');
 }
 
 // Whether it contains CJK characters, excluding symbols
@@ -430,6 +432,12 @@ export function hasArabic(text: string) {
 
 export function hasTibetan(text: string) {
     const pattern = /[\u0180-\u024F]/gi;
+
+    return pattern.test(text);
+}
+
+export function hasThai(text: string) {
+    const pattern = /[\u0E00-\u0E7F]/;
 
     return pattern.test(text);
 }

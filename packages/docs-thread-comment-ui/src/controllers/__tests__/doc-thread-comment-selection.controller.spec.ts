@@ -16,7 +16,6 @@
 
 import { SetTextSelectionsOperation } from '@univerjs/docs';
 import { SetActiveCommentOperation } from '@univerjs/thread-comment-ui';
-
 import { Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { ShowCommentPanelOperation } from '../../commands/operations/show-comment-panel.operation';
@@ -122,6 +121,62 @@ describe('DocThreadCommentSelectionController', () => {
         });
 
         expect(executeCommand).toHaveBeenCalledWith(SetActiveCommentOperation.id);
+
+        controller.dispose();
+    });
+
+    it('should keep the temporary adding comment active when selection changes before the comment is saved', () => {
+        const activeCommentId$ = new Subject<any>();
+        const threadCommentPanelService = {
+            activeCommentId: { unitId: 'doc-1', subUnitId: DEFAULT_DOC_SUBUNIT_ID, commentId: '' },
+            activeCommentId$,
+        };
+
+        const doc = {
+            getBody: () => ({ customDecorations: [] }),
+        };
+
+        const univerInstanceService = { getUnit: vi.fn(() => doc) };
+
+        let onExecutedHandler: any;
+        const executeCommand = vi.fn();
+        const commandService = {
+            onCommandExecuted: vi.fn((fn) => {
+                onExecutedHandler = fn;
+                return { dispose: vi.fn() };
+            }),
+            executeCommand,
+        };
+
+        const docThreadCommentService = {
+            addingComment: {
+                unitId: 'doc-1',
+                subUnitId: DEFAULT_DOC_SUBUNIT_ID,
+                id: '',
+            },
+            endAdd: vi.fn(),
+        };
+        const renderManagerService = { getRenderById: vi.fn(() => null) };
+        const threadCommentModel = { getComment: vi.fn(() => null) };
+
+        const controller = new DocThreadCommentSelectionController(
+            threadCommentPanelService as any,
+            univerInstanceService as any,
+            commandService as any,
+            docThreadCommentService as any,
+            renderManagerService as any,
+            threadCommentModel as any
+        );
+
+        onExecutedHandler({
+            id: SetTextSelectionsOperation.id,
+            params: {
+                unitId: 'doc-1',
+                ranges: [{ startOffset: 10, endOffset: 10, collapsed: true }],
+            },
+        });
+
+        expect(executeCommand).not.toHaveBeenCalledWith(SetActiveCommentOperation.id);
 
         controller.dispose();
     });

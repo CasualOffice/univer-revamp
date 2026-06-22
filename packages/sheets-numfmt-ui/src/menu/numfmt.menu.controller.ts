@@ -16,7 +16,6 @@
 
 import { Disposable, Inject } from '@univerjs/core';
 import { ComponentManager, IMenuManagerService } from '@univerjs/ui';
-import { MORE_NUMFMT_TYPE_KEY, MoreNumfmtType, Options, OPTIONS_KEY } from '../views/components/MoreNumfmtType';
 import { menuSchema } from './schema';
 
 export class NumfmtMenuController extends Disposable {
@@ -31,14 +30,5 @@ export class NumfmtMenuController extends Disposable {
 
     private _initMenu() {
         this._menuManagerService.mergeMenu(menuSchema);
-
-        ([
-            [MORE_NUMFMT_TYPE_KEY, MoreNumfmtType],
-            [OPTIONS_KEY, Options],
-        ] as const).forEach(([key, comp]) => {
-            this.disposeWithMe(
-                this._componentManager.register(key, comp)
-            );
-        });
     }
 }

@@ -15,8 +15,10 @@
  */
 
 import type { ICustomRange, IDocumentBody, IParagraph } from '../../../../types/interfaces';
-import { generateRandomId, Tools } from '../../../../shared';
+import { Tools } from '../../../../shared';
+import { generateRandomId } from '../../../../shared/random-id';
 import { CustomRangeType } from '../../../../types/interfaces';
+import { createParagraphId } from '../../../paragraph-id';
 import { DataStreamTreeTokenType } from '../../types';
 
 const tags = [
@@ -28,6 +30,8 @@ const tags = [
     DataStreamTreeTokenType.TABLE_CELL_END, // table start
     DataStreamTreeTokenType.TABLE_ROW_END, // table start
     DataStreamTreeTokenType.TABLE_END, // table end
+    DataStreamTreeTokenType.BLOCK_START, // block start
+    DataStreamTreeTokenType.BLOCK_END, // block end
     // DataStreamTreeTokenType.COLUMN_BREAK, // column break
     // DataStreamTreeTokenType.PAGE_BREAK, // page break
     // DataStreamTreeTokenType.DOCS_END, // document end
@@ -36,8 +40,8 @@ const tags = [
 ];
 
 export const getPlainText = (dataStream: string) => {
-    const text = dataStream.endsWith('\r\n') ? dataStream.slice(0, -2) : dataStream;
-    return tags.reduce((res, curr) => res.replaceAll(curr, ''), text);
+    const text = tags.reduce((res, curr) => res.replaceAll(curr, ''), dataStream);
+    return text.endsWith('\r\n') ? text.slice(0, -2) : text;
 };
 
 export const isEmptyDocument = (dataStream?: string) => {
@@ -51,6 +55,7 @@ export const isEmptyDocument = (dataStream?: string) => {
 export const fromPlainText = (text: string): IDocumentBody => {
     const dataStream = text.replace(/\n/g, '\r');
     const paragraphs: IParagraph[] = [];
+    const existingParagraphIds = new Set<string>();
     const customRanges: ICustomRange[] = [];
     let cursor = 0;
     let newDataStream = '';
@@ -74,13 +79,13 @@ export const fromPlainText = (text: string): IDocumentBody => {
             cursor = i + 1;
             if (insertP) {
                 newDataStream += '\r';
-                paragraphs.push({ startIndex: i });
+                paragraphs.push({ startIndex: i, paragraphId: createParagraphId(existingParagraphIds) });
             }
         } else {
             newDataStream += dataStream.slice(cursor, i + 1);
             cursor = i + 1;
             if (insertP) {
-                paragraphs.push({ startIndex: i });
+                paragraphs.push({ startIndex: i, paragraphId: createParagraphId(existingParagraphIds) });
             }
         }
     };

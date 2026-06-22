@@ -17,7 +17,6 @@
 import type { IAccessor, ICommand } from '@univerjs/core';
 import { CommandType } from '@univerjs/core';
 import { ISidebarService } from '@univerjs/ui';
-
 import { MORE_FUNCTIONS_COMPONENT } from '../../views/more-functions/interface';
 
 export const MoreFunctionsOperation: ICommand = {
@@ -27,7 +26,7 @@ export const MoreFunctionsOperation: ICommand = {
         const sidebarService = accessor.get(ISidebarService);
 
         sidebarService.open({
-            header: { title: 'formula.insert.tooltip' },
+            header: { title: 'sheets-formula-ui.insert.tooltip' },
             children: { label: MORE_FUNCTIONS_COMPONENT },
         });
 

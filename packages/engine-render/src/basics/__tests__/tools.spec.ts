@@ -47,6 +47,7 @@ import {
     hasLatinExtendedB,
     hasLatinOneSupplement,
     hasSpace,
+    hasThai,
     hasTibetan,
     hasUnMergedCellInRow,
     injectStyle,
@@ -172,6 +173,13 @@ describe('tools extra', () => {
         expect(subscript.fontFamily).toBe('"Open Sans"');
         expect(subscript.fontSize).toBeCloseTo(6);
 
+        const fontStack = getFontStyleString({
+            fs: 12,
+            ff: '"SF Mono", "Cascadia Code", Consolas, monospace',
+        } as any);
+        expect(fontStack.fontFamily).toBe('"SF Mono", "Cascadia Code", Consolas, monospace');
+        expect(fontStack.fontString).toContain('"SF Mono", "Cascadia Code", Consolas, monospace');
+
         const superscript = getFontStyleString({
             fs: 12,
             ff: 'Arial',
@@ -264,6 +272,9 @@ describe('tools extra', () => {
             startColumn: 0,
             endColumn: 6,
         });
+
+        expect(hasThai('สร้างงานใหม่')).toBe(true);
+        expect(hasThai('hello')).toBe(false);
     });
 
     it('handles style insertion and DOM size helpers', () => {

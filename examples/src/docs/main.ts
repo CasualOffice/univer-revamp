@@ -1,19 +1,3 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import { LocaleType, LogLevel, Univer, UniverInstanceType, UserManagerService } from '@univerjs/core';
 import { FUniver } from '@univerjs/core/facade';
 import { UniverDebuggerPlugin } from '@univerjs/debugger';
@@ -26,12 +10,13 @@ import { UniverDocsThreadCommentUIPlugin } from '@univerjs/docs-thread-comment-u
 import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
 import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
 import { UniverRenderEnginePlugin } from '@univerjs/engine-render';
-import { DEFAULT_DOCUMENT_DATA_SIMPLE } from '@univerjs/mockdata';
+import { DEFAULT_DOCUMENT_DATA_SIMPLE, loadDebuggerLocale } from '@univerjs/mockdata';
 import zhCN from '@univerjs/mockdata/locales/zh-CN';
 import { UniverUIPlugin } from '@univerjs/ui';
-
+import { UniverWatermarkPlugin } from '@univerjs/watermark';
+import '@univerjs/docs/facade';
 import '@univerjs/docs-ui/facade';
-
+import '@univerjs/watermark/facade';
 import '../global.css';
 
 /* eslint-disable node/prefer-global/process */
@@ -64,15 +49,19 @@ univer.registerPlugin(UniverDocsThreadCommentUIPlugin);
 univer.registerPlugin(UniverDocsHyperLinkUIPlugin);
 univer.registerPlugin(UniverDocsMentionUIPlugin);
 univer.registerPlugin(UniverDocsQuickInsertUIPlugin);
+univer.registerPlugin(UniverWatermarkPlugin);
 
 if (!IS_E2E) {
     univer.createUnit(UniverInstanceType.UNIVER_DOC, DEFAULT_DOCUMENT_DATA_SIMPLE);
     univer.registerPlugin(UniverDebuggerPlugin, {
         fabEntryUnitType: UniverInstanceType.UNIVER_DOC,
+        localeLoader: loadDebuggerLocale,
     });
 } else {
     univer.registerPlugin(UniverDebuggerPlugin, {
         fab: false,
+        fabEntryUnitType: UniverInstanceType.UNIVER_DOC,
+        localeLoader: loadDebuggerLocale,
         performanceMonitor: {
             enabled: false,
         },
@@ -81,7 +70,7 @@ if (!IS_E2E) {
 
 // use for console test
 declare global {
-    // eslint-disable-next-line ts/naming-convention
+
     interface Window {
         univer?: Univer;
     }

@@ -17,7 +17,6 @@
 import { LocaleService } from '@univerjs/core';
 import { InputNumber } from '@univerjs/design';
 import { useDependency } from '@univerjs/ui';
-
 import { useEffect, useState } from 'react';
 
 interface IDocCreateTableConfirmProps {
@@ -51,7 +50,7 @@ export const DocCreateTableConfirm = ({
     return (
         <div className="univer-flex univer-items-center univer-justify-between univer-gap-2">
             <div className="univer-flex univer-items-center univer-gap-2">
-                <span>{localeService.t('toolbar.table.rowCount')}</span>
+                <span>{localeService.t('docs-ui.toolbar.table.rowCount')}</span>
                 <InputNumber
                     className="univer-w-28"
                     min={1}
@@ -62,7 +61,7 @@ export const DocCreateTableConfirm = ({
                 />
             </div>
             <div className="univer-flex univer-items-center univer-gap-2">
-                <span>{localeService.t('toolbar.table.colCount')}</span>
+                <span>{localeService.t('docs-ui.toolbar.table.colCount')}</span>
                 <InputNumber
                     className="univer-w-28"
                     min={1}

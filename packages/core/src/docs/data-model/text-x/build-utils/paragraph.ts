@@ -18,7 +18,8 @@ import type { ITextRange } from '../../../../sheets/typedef';
 import type { ICustomTable, IParagraph, IParagraphStyle, ITextStyle } from '../../../../types/interfaces';
 import type { DocumentDataModel } from '../../document-data-model';
 import { MemoryCursor } from '../../../../common/memory-cursor';
-import { generateRandomId, UpdateDocsAttributeType } from '../../../../shared';
+import { UpdateDocsAttributeType } from '../../../../shared';
+import { generateRandomId } from '../../../../shared/random-id';
 import { PRESET_LIST_TYPE, PresetListType } from '../../preset-list-type';
 import { TextXActionType } from '../action-types';
 import { TextX } from '../text-x';
@@ -66,7 +67,7 @@ export const switchParagraphBullet = (params: ISwitchParagraphBulletParams) => {
     const textX = new TextX();
 
     for (const paragraph of currentParagraphs) {
-        const { startIndex, paragraphStyle = {}, bullet } = paragraph;
+        const { startIndex, paragraphId, paragraphStyle = {}, bullet } = paragraph;
 
         textX.push({
             t: TextXActionType.RETAIN,
@@ -81,11 +82,13 @@ export const switchParagraphBullet = (params: ISwitchParagraphBulletParams) => {
                 paragraphs: [
                     isAlreadyList
                         ? {
+                            paragraphId,
                             paragraphStyle,
                             startIndex: 0,
                         }
                         : {
                             startIndex: 0,
+                            paragraphId,
                             paragraphStyle: {
                                 ...paragraphStyle,
                             },
@@ -193,7 +196,7 @@ export const setParagraphBullet = (params: ISetParagraphBulletParams) => {
     const textX = new TextX();
 
     for (const paragraph of currentParagraphs) {
-        const { startIndex, paragraphStyle = {}, bullet } = paragraph;
+        const { startIndex, paragraphId, paragraphStyle = {}, bullet } = paragraph;
 
         textX.push({
             t: TextXActionType.RETAIN,
@@ -208,6 +211,7 @@ export const setParagraphBullet = (params: ISetParagraphBulletParams) => {
                 paragraphs: [
                     {
                         startIndex: 0,
+                        paragraphId,
                         paragraphStyle,
                         bullet: {
                             nestingLevel: bullet?.nestingLevel ?? 0,
@@ -259,7 +263,7 @@ export const changeParagraphBulletNestLevel = (params: IChangeParagraphBulletNes
     };
 
     for (const paragraph of currentParagraphs) {
-        const { startIndex, paragraphStyle = {}, bullet } = paragraph;
+        const { startIndex, paragraphId, paragraphStyle = {}, bullet } = paragraph;
         const isInTable = hasParagraphInTable(paragraph, tables);
 
         textX.push({
@@ -282,6 +286,7 @@ export const changeParagraphBulletNestLevel = (params: IChangeParagraphBulletNes
                     paragraphs: [
                         {
                             startIndex: 0,
+                            paragraphId,
                             paragraphStyle: {
                                 ...paragraphStyle,
                             },
@@ -359,7 +364,7 @@ export const setParagraphStyle = (params: ISetParagraphStyleParams) => {
     }
 
     for (const paragraph of currentParagraphs) {
-        const { startIndex, paragraphStyle = {} } = paragraph;
+        const { startIndex, paragraphId, paragraphStyle = {} } = paragraph;
         const len = startIndex - memoryCursor.cursor;
         textX.push({
             t: TextXActionType.RETAIN,
@@ -387,6 +392,7 @@ export const setParagraphStyle = (params: ISetParagraphStyleParams) => {
                 paragraphs: [
                     {
                         startIndex: 0,
+                        paragraphId,
                         paragraphStyle: {
                             ...paragraphStyle,
                             ...style,

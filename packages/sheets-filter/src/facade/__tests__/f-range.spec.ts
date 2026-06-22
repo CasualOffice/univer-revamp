@@ -14,37 +14,37 @@
  * limitations under the License.
  */
 
-import type { Injector, IRange } from '@univerjs/core';
+import type { IRange } from '@univerjs/core';
 import type { FUniver } from '@univerjs/core/facade';
-import { ICommandService } from '@univerjs/core';
-import { ClearSheetsFilterCriteriaCommand, RemoveSheetFilterCommand, SetSheetFilterRangeCommand, SetSheetsFilterCriteriaCommand } from '@univerjs/sheets-filter';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createFacadeTestBed } from './create-test-bed';
 
 describe('Test FRange', () => {
-    let get: Injector['get'];
-    let commandService: ICommandService;
     let univerAPI: FUniver;
 
     beforeEach(() => {
         const testBed = createFacadeTestBed();
-        get = testBed.get;
 
         univerAPI = testBed.univerAPI;
-
-        commandService = get(ICommandService);
     });
 
     describe('FFilter', () => {
-        beforeEach(() => {
-            commandService.registerCommand(SetSheetsFilterCriteriaCommand);
-            commandService.registerCommand(ClearSheetsFilterCriteriaCommand);
-            commandService.registerCommand(SetSheetFilterRangeCommand);
-            commandService.registerCommand(RemoveSheetFilterCommand);
-        });
-
-        it('create, modify and clear filters with Facade API', async () => {
+        it('create, modify and clear filters with Facade API without UI plugin', async () => {
             const activeSheet = univerAPI.getActiveWorkbook()!.getActiveSheet();
+            const filterEvents: string[] = [];
+            const beforeFilterDisposable = univerAPI.addEvent(univerAPI.Event.SheetBeforeRangeFilter, (params) => {
+                filterEvents.push(`before:${params.col}`);
+            });
+            const filteredDisposable = univerAPI.addEvent(univerAPI.Event.SheetRangeFiltered, (params) => {
+                filterEvents.push(`after:${params.col}`);
+            });
+            const beforeClearDisposable = univerAPI.addEvent(univerAPI.Event.SheetBeforeRangeFilterClear, (params) => {
+                filterEvents.push(`before-clear:${params.worksheet.getSheetId()}`);
+            });
+            const clearedDisposable = univerAPI.addEvent(univerAPI.Event.SheetRangeFilterCleared, (params) => {
+                filterEvents.push(`after-clear:${params.worksheet.getSheetId()}`);
+            });
+
             expect(activeSheet.getFilter()).toBeNull();
             expect(activeSheet.getRange(0, 0, 1, 1).getFilter()).toBeNull();
 
@@ -75,8 +75,24 @@ describe('Test FRange', () => {
             expect(await filter.removeFilterCriteria()).toBeTruthy();
             expect(filter.getColumnFilterCriteria(2)).toBeFalsy();
 
+            expect(filterEvents).toEqual([
+                'before:1',
+                'after:1',
+                'before:2',
+                'after:2',
+                'before:1',
+                'after:1',
+                'before-clear:sheet1',
+                'after-clear:sheet1',
+            ]);
+
             expect(await filter.remove()).toBeTruthy();
             expect(activeSheet.getFilter()).toBeNull();
+
+            beforeFilterDisposable.dispose();
+            filteredDisposable.dispose();
+            beforeClearDisposable.dispose();
+            clearedDisposable.dispose();
         });
     });
 });

@@ -1,19 +1,3 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import type { ICommand, IMutationInfo, Workbook } from '@univerjs/core';
 import type { ISetRangeValuesMutationParams, ISetWorksheetColumnCountMutationParams, ISetWorksheetRowCountMutationParams } from '@univerjs/sheets';
 import {
@@ -38,7 +22,7 @@ import {
     SetWorksheetRowCountUndoMutationFactory,
 } from '@univerjs/sheets';
 import {
-    ComponentManager,
+    IconManager,
     IMenuManagerService,
     MenuItemType,
     RibbonOthersGroup,
@@ -94,14 +78,10 @@ class ImportCSVButtonPlugin extends Plugin {
 
     constructor(
         _config: null,
-        // inject injector, required
         @Inject(Injector) readonly _injector: Injector,
-        // inject menu service, to add toolbar button
-        @Inject(IMenuManagerService) private readonly menuManagerService: IMenuManagerService,
-        // inject command service, to register command handler
-        @Inject(ICommandService) private readonly commandService: ICommandService,
-        // inject component manager, to register icon component
-        @Inject(ComponentManager) private readonly componentManager: ComponentManager
+        @Inject(IMenuManagerService) private readonly _menuManagerService: IMenuManagerService,
+        @Inject(ICommandService) private readonly _commandService: ICommandService,
+        @Inject(IconManager) private readonly _iconManager: IconManager
     ) {
         super();
     }
@@ -116,7 +96,7 @@ class ImportCSVButtonPlugin extends Plugin {
     override onStarting() {
         // register icon component
         this.disposeWithMe(
-            this.componentManager.register('FolderIcon2', FolderIcon)
+            this._iconManager.register('FolderIcon2', FolderIcon)
         );
 
         const buttonId = 'import-csv-button';
@@ -212,7 +192,7 @@ class ImportCSVButtonPlugin extends Plugin {
             type: MenuItemType.BUTTON,
         });
 
-        this.menuManagerService.mergeMenu({
+        this._menuManagerService.mergeMenu({
             [RibbonOthersGroup.OTHERS]: {
                 [buttonId]: {
                     order: 10,
@@ -221,7 +201,7 @@ class ImportCSVButtonPlugin extends Plugin {
             },
         });
 
-        this.commandService.registerCommand(command);
+        this._commandService.registerCommand(command);
     }
 }
 

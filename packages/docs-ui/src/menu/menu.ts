@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { DocumentDataModel, IAccessor, PresetListType } from '@univerjs/core';
+import type { DocumentDataModel, IAccessor, ITextRangeParam, Nullable } from '@univerjs/core';
 import type { IRichTextEditingMutationParams } from '@univerjs/docs';
 import type { IMenuButtonItem, IMenuItem, IMenuSelectorItem } from '@univerjs/ui';
 import {
@@ -22,13 +22,14 @@ import {
     BooleanNumber,
     BuildTextUtils,
     DEFAULT_STYLES,
-    DOCS_ZEN_EDITOR_UNIT_ID_KEY,
+    DocumentBlockRangeType,
     DocumentFlavor,
     HorizontalAlign,
     ICommandService,
     IUniverInstanceService,
     NAMED_STYLE_MAP,
     NamedStyleType,
+    PresetListType,
     ThemeService,
     Tools,
     UniverInstanceType,
@@ -52,20 +53,41 @@ import {
     HEADING_LIST,
     MenuItemType,
 } from '@univerjs/ui';
-
 import { combineLatest, map, Observable } from 'rxjs';
 import { OpenHeaderFooterPanelCommand } from '../commands/commands/doc-header-footer.command';
 import { HorizontalLineCommand } from '../commands/commands/doc-horizontal-line.command';
-import { getStyleInTextRange, ResetInlineFormatTextBackgroundColorCommand, SetInlineFormatBoldCommand, SetInlineFormatCommand, SetInlineFormatFontFamilyCommand, SetInlineFormatFontSizeCommand, SetInlineFormatItalicCommand, SetInlineFormatStrikethroughCommand, SetInlineFormatSubscriptCommand, SetInlineFormatSuperscriptCommand, SetInlineFormatTextBackgroundColorCommand, SetInlineFormatTextColorCommand, SetInlineFormatUnderlineCommand } from '../commands/commands/inline-format.command';
+import {
+    getStyleInTextRange,
+    ResetInlineFormatTextBackgroundColorCommand,
+    ResetInlineFormatTextColorCommand,
+    SetInlineFormatBoldCommand,
+    SetInlineFormatCommand,
+    SetInlineFormatFontFamilyCommand,
+    SetInlineFormatFontSizeCommand,
+    SetInlineFormatItalicCommand,
+    SetInlineFormatStrikethroughCommand,
+    SetInlineFormatSubscriptCommand,
+    SetInlineFormatSuperscriptCommand,
+    SetInlineFormatTextBackgroundColorCommand,
+    SetInlineFormatTextColorCommand,
+    SetInlineFormatUnderlineCommand,
+} from '../commands/commands/inline-format.command';
 import { BulletListCommand, CheckListCommand, OrderListCommand } from '../commands/commands/list.command';
-import { AlignCenterCommand, AlignJustifyCommand, AlignLeftCommand, AlignOperationCommand, AlignRightCommand } from '../commands/commands/paragraph-align.command';
+import {
+    AlignCenterCommand,
+    AlignJustifyCommand,
+    AlignLeftCommand,
+    AlignOperationCommand,
+    AlignRightCommand,
+} from '../commands/commands/paragraph-align.command';
 import { SetParagraphNamedStyleCommand } from '../commands/commands/set-heading.command';
 import { SwitchDocModeCommand } from '../commands/commands/switch-doc-mode.command';
+import { CreateDocTableCommand } from '../commands/commands/table/doc-table-create.command';
 import { DocCreateTableOperation } from '../commands/operations/doc-create-table.operation';
 import { DocOpenPageSettingCommand } from '../commands/operations/open-page-setting.operation';
 import { getCommandSkeleton } from '../commands/util';
-import { BULLET_LIST_TYPE_COMPONENT, ORDER_LIST_TYPE_COMPONENT } from '../components/list-type-picker';
 import { DocMenuStyleService } from '../services/doc-menu-style.service';
+import { BULLET_LIST_TYPE_COMPONENT, ORDER_LIST_TYPE_COMPONENT } from '../views/list-type-picker/index';
 
 function getInsertTableHiddenObservable(
     accessor: IAccessor
@@ -216,6 +238,7 @@ function getTableDisabledObservable(accessor: IAccessor): Observable<boolean> {
 
 export function disableMenuWhenNoDocRange(accessor: IAccessor): Observable<boolean> {
     const docSelectionManagerService = accessor.get(DocSelectionManagerService);
+    const univerInstanceService = accessor.get(IUniverInstanceService);
 
     return new Observable((subscriber) => {
         const subscription = docSelectionManagerService.textSelection$.subscribe((selection) => {
@@ -231,8 +254,49 @@ export function disableMenuWhenNoDocRange(accessor: IAccessor): Observable<boole
                 return;
             }
 
+            const document = univerInstanceService.getCurrentUnitOfType<DocumentDataModel>(UniverInstanceType.UNIVER_DOC);
+            const codeBlockRanges = document?.getBody()?.blockRanges?.filter((range) => range.blockType === DocumentBlockRangeType.CODE) ?? [];
+            if (codeBlockRanges.some((blockRange) => textRanges.some((range) => (
+                Math.max(range.startOffset, blockRange.startIndex) <= Math.min(range.endOffset, blockRange.endIndex)
+            )))) {
+                subscriber.next(true);
+                return;
+            }
+
             subscriber.next(false);
         });
+
+        return () => subscription.unsubscribe();
+    });
+}
+
+export function isTextRangeInAnyBlockRange(document: Nullable<DocumentDataModel>, range: ITextRangeParam): boolean {
+    const blockRanges = document?.getBody()?.blockRanges ?? [];
+    const startOffset = range.startOffset;
+    const endOffset = range.collapsed ? range.startOffset : range.endOffset - 1;
+
+    return blockRanges.some((blockRange) => (
+        Math.max(startOffset, blockRange.startIndex) <= Math.min(endOffset, blockRange.endIndex)
+    ));
+}
+
+export function hideMenuWhenSelectionInBlockRange(accessor: IAccessor): Observable<boolean> {
+    const docSelectionManagerService = accessor.get(DocSelectionManagerService);
+    const univerInstanceService = accessor.get(IUniverInstanceService);
+
+    return new Observable((subscriber) => {
+        const calc = (selection?: { textRanges?: ITextRangeParam[]; unitId?: string }) => {
+            const currentSelection = (docSelectionManagerService as { __getCurrentSelection?: () => { unitId?: string } | null }).__getCurrentSelection?.();
+            const textRanges = selection?.textRanges ?? [...(docSelectionManagerService.getTextRanges() ?? [])];
+            const unitId = selection?.unitId ?? currentSelection?.unitId;
+            const document = unitId
+                ? univerInstanceService.getUnit<DocumentDataModel>(unitId, UniverInstanceType.UNIVER_DOC)
+                : univerInstanceService.getCurrentUnitOfType<DocumentDataModel>(UniverInstanceType.UNIVER_DOC);
+            subscriber.next(textRanges.some((range) => isTextRangeInAnyBlockRange(document, range)));
+        };
+
+        calc();
+        const subscription = docSelectionManagerService.textSelection$.subscribe((selection) => calc(selection));
 
         return () => subscription.unsubscribe();
     });
@@ -246,7 +310,7 @@ export function BoldMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
         type: MenuItemType.BUTTON,
         icon: 'BoldIcon',
         title: 'Set bold',
-        tooltip: 'toolbar.bold',
+        tooltip: 'docs-ui.toolbar.bold',
         activated$: new Observable<boolean>((subscriber) => {
             const calc = () => {
                 const textRun = getFontStyleAtCursor(accessor);
@@ -285,7 +349,7 @@ export function ItalicMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
         type: MenuItemType.BUTTON,
         icon: 'ItalicIcon',
         title: 'Set italic',
-        tooltip: 'toolbar.italic',
+        tooltip: 'docs-ui.toolbar.italic',
         activated$: new Observable<boolean>((subscriber) => {
             const calc = () => {
                 const textRun = getFontStyleAtCursor(accessor);
@@ -324,7 +388,7 @@ export function UnderlineMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
         type: MenuItemType.BUTTON,
         icon: 'UnderlineIcon',
         title: 'Set underline',
-        tooltip: 'toolbar.underline',
+        tooltip: 'docs-ui.toolbar.underline',
         activated$: new Observable<boolean>((subscriber) => {
             const calc = () => {
                 const textRun = getFontStyleAtCursor(accessor);
@@ -363,7 +427,7 @@ export function StrikeThroughMenuItemFactory(accessor: IAccessor): IMenuButtonIt
         type: MenuItemType.BUTTON,
         icon: 'StrikethroughIcon',
         title: 'Set strike through',
-        tooltip: 'toolbar.strikethrough',
+        tooltip: 'docs-ui.toolbar.strikethrough',
         activated$: new Observable<boolean>((subscriber) => {
             const calc = () => {
                 const textRun = getFontStyleAtCursor(accessor);
@@ -401,7 +465,7 @@ export function SubscriptMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
         id: SetInlineFormatSubscriptCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'SubscriptIcon',
-        tooltip: 'toolbar.subscript',
+        tooltip: 'docs-ui.toolbar.subscript',
         activated$: new Observable<boolean>((subscriber) => {
             const calc = () => {
                 const textRun = getFontStyleAtCursor(accessor);
@@ -439,7 +503,7 @@ export function SuperscriptMenuItemFactory(accessor: IAccessor): IMenuButtonItem
         id: SetInlineFormatSuperscriptCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'SuperscriptIcon',
-        tooltip: 'toolbar.superscript',
+        tooltip: 'docs-ui.toolbar.superscript',
         activated$: new Observable<boolean>((subscriber) => {
             const calc = () => {
                 const textRun = getFontStyleAtCursor(accessor);
@@ -475,7 +539,7 @@ export function FontFamilySelectorMenuItemFactory(accessor: IAccessor): IMenuSel
 
     return {
         id: SetInlineFormatFontFamilyCommand.id,
-        tooltip: 'toolbar.font',
+        tooltip: 'docs-ui.toolbar.font',
         type: MenuItemType.SELECTOR,
         label: {
             name: FONT_FAMILY_COMPONENT,
@@ -531,7 +595,7 @@ export function FontSizeSelectorMenuItemFactory(accessor: IAccessor): IMenuSelec
     return {
         id: SetInlineFormatFontSizeCommand.id,
         type: MenuItemType.SELECTOR,
-        tooltip: 'toolbar.fontSize',
+        tooltip: 'docs-ui.toolbar.fontSize',
         label: {
             name: FONT_SIZE_COMPONENT,
             props: {
@@ -577,7 +641,7 @@ export function HeadingSelectorMenuItemFactory(accessor: IAccessor): IMenuSelect
     return {
         id: SetParagraphNamedStyleCommand.id,
         type: MenuItemType.SELECTOR,
-        tooltip: 'toolbar.heading.tooltip',
+        tooltip: 'ui.toolbar.heading.tooltip',
         label: {
             name: COMMON_LABEL_COMPONENT,
             props: {
@@ -624,6 +688,115 @@ export function HeadingSelectorMenuItemFactory(accessor: IAccessor): IMenuSelect
     };
 }
 
+export const FLOAT_TEXT_STYLE_MENU_ID = 'doc.menu.float-text-style';
+export const FLOAT_TOOLBAR_MENU_POSITION = 'doc.menu.float-toolbar';
+
+const FLOAT_TEXT_STYLE_OPTIONS = [
+    {
+        icon: 'TextTypeIcon',
+        label: 'ui.toolbar.heading.normal',
+        value: NamedStyleType.NORMAL_TEXT,
+    },
+    {
+        icon: 'H1Icon',
+        label: 'ui.toolbar.heading.1',
+        value: NamedStyleType.HEADING_1,
+    },
+    {
+        icon: 'H2Icon',
+        label: 'ui.toolbar.heading.2',
+        value: NamedStyleType.HEADING_2,
+    },
+    {
+        icon: 'H3Icon',
+        label: 'ui.toolbar.heading.3',
+        value: NamedStyleType.HEADING_3,
+    },
+    {
+        icon: 'H4Icon',
+        label: 'ui.toolbar.heading.4',
+        value: NamedStyleType.HEADING_4,
+    },
+    {
+        icon: 'H5Icon',
+        label: 'ui.toolbar.heading.5',
+        value: NamedStyleType.HEADING_5,
+    },
+    {
+        id: OrderListCommand.id,
+        icon: 'OrderIcon',
+        label: 'docs-ui.toolbar.order',
+        value: PresetListType.ORDER_LIST,
+    },
+    {
+        id: BulletListCommand.id,
+        icon: 'UnorderIcon',
+        label: 'docs-ui.toolbar.unorder',
+        value: PresetListType.BULLET_LIST,
+    },
+    {
+        id: CheckListCommand.id,
+        icon: 'TodoListDoubleIcon',
+        label: 'docs-ui.toolbar.checklist',
+        value: PresetListType.CHECK_LIST,
+    },
+];
+
+function normalizeFloatingTextStyleValue(paragraph: ReturnType<typeof getParagraphStyleAtCursor>): string | number {
+    const listType = paragraph?.bullet?.listType;
+
+    if (listType?.startsWith(PresetListType.ORDER_LIST)) {
+        return PresetListType.ORDER_LIST;
+    }
+
+    if (listType?.startsWith(PresetListType.BULLET_LIST)) {
+        return PresetListType.BULLET_LIST;
+    }
+
+    if (listType === PresetListType.CHECK_LIST || listType === PresetListType.CHECK_LIST_CHECKED) {
+        return PresetListType.CHECK_LIST;
+    }
+
+    return paragraph?.paragraphStyle?.namedStyleType ?? NamedStyleType.NORMAL_TEXT;
+}
+
+export function FloatTextStyleMenuItemFactory(accessor: IAccessor): IMenuSelectorItem<string | number> {
+    const commandService = accessor.get(ICommandService);
+
+    return {
+        id: FLOAT_TEXT_STYLE_MENU_ID,
+        commandId: SetParagraphNamedStyleCommand.id,
+        type: MenuItemType.SELECTOR,
+        icon: 'TextTypeIcon',
+        tooltip: 'ui.toolbar.heading.tooltip',
+        selections: FLOAT_TEXT_STYLE_OPTIONS,
+        value$: new Observable((subscriber) => {
+            const calc = () => {
+                subscriber.next(normalizeFloatingTextStyleValue(getParagraphStyleAtCursor(accessor)));
+            };
+
+            const disposable = commandService.onCommandExecuted((c) => {
+                const id = c.id;
+
+                if (
+                    id === SetTextSelectionsOperation.id ||
+                    id === SetParagraphNamedStyleCommand.id ||
+                    id === OrderListCommand.id ||
+                    id === BulletListCommand.id ||
+                    id === CheckListCommand.id
+                ) {
+                    calc();
+                }
+            });
+
+            calc();
+            return disposable.dispose;
+        }),
+        disabled$: disableMenuWhenNoDocRange(accessor),
+        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
+    };
+}
+
 export function TextColorSelectorMenuItemFactory(accessor: IAccessor): IMenuSelectorItem<string, string | undefined> {
     const commandService = accessor.get(ICommandService);
     const themeService = accessor.get(ThemeService);
@@ -631,7 +804,7 @@ export function TextColorSelectorMenuItemFactory(accessor: IAccessor): IMenuSele
     return {
         id: SetInlineFormatTextColorCommand.id,
         icon: 'FontColorDoubleIcon',
-        tooltip: 'toolbar.textColor.main',
+        tooltip: 'docs-ui.toolbar.textColor.main',
 
         type: MenuItemType.BUTTON_SELECTOR,
         selections: [
@@ -690,8 +863,8 @@ export function HeaderFooterMenuItemFactory(accessor: IAccessor): IMenuButtonIte
         id: OpenHeaderFooterPanelCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'HeaderFooterIcon',
-        tooltip: 'toolbar.headerFooter',
-        hidden$: combineLatest(getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC, undefined, DOCS_ZEN_EDITOR_UNIT_ID_KEY), getHeaderFooterMenuHiddenObservable(accessor), (one, two) => {
+        tooltip: 'docs-ui.toolbar.headerFooter',
+        hidden$: combineLatest(getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC), getHeaderFooterMenuHiddenObservable(accessor), (one, two) => {
             return one || two;
         }),
     };
@@ -705,10 +878,9 @@ export function TableMenuFactory(accessor: IAccessor): IMenuItem {
         id: TABLE_MENU_ID,
         type: MenuItemType.SUBITEMS,
         icon: TableIcon,
-        tooltip: 'toolbar.table.main',
+        tooltip: 'docs-ui.toolbar.table.main',
         disabled$: getTableDisabledObservable(accessor),
-        // Do not show header footer menu and insert table at zen mode.
-        hidden$: combineLatest(getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC, undefined, DOCS_ZEN_EDITOR_UNIT_ID_KEY), getInsertTableHiddenObservable(accessor), (one, two) => {
+        hidden$: combineLatest(getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC), getInsertTableHiddenObservable(accessor), (one, two) => {
             return one || two;
         }),
     };
@@ -717,8 +889,24 @@ export function TableMenuFactory(accessor: IAccessor): IMenuItem {
 export function InsertTableMenuFactory(_accessor: IAccessor): IMenuButtonItem {
     return {
         id: DocCreateTableOperation.id,
-        title: 'toolbar.table.insert',
+        title: 'docs-ui.toolbar.table.insert',
         type: MenuItemType.BUTTON,
+        icon: TableIcon,
+        hidden$: getMenuHiddenObservable(_accessor, UniverInstanceType.UNIVER_DOC),
+    };
+}
+
+export function InsertDefaultTableMenuFactory(_accessor: IAccessor): IMenuButtonItem {
+    return {
+        id: DocCreateTableOperation.id,
+        commandId: CreateDocTableCommand.id,
+        params: {
+            rowCount: 3,
+            colCount: 5,
+        },
+        title: 'docs-ui.toolbar.table.insert',
+        type: MenuItemType.BUTTON,
+        icon: TableIcon,
         hidden$: getMenuHiddenObservable(_accessor, UniverInstanceType.UNIVER_DOC),
     };
 }
@@ -730,7 +918,7 @@ export function AlignLeftMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
         id: AlignLeftCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'LeftJustifyingIcon',
-        tooltip: 'toolbar.alignLeft',
+        tooltip: 'docs-ui.toolbar.alignLeft',
         disabled$: disableMenuWhenNoDocRange(accessor),
         activated$: new Observable<boolean>((subscriber) => {
             const disposable = commandService.onCommandExecuted((c) => {
@@ -753,7 +941,7 @@ export function AlignLeftMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
 
             return disposable.dispose;
         }),
-        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC, undefined, DOCS_ZEN_EDITOR_UNIT_ID_KEY),
+        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
     };
 }
 
@@ -764,7 +952,7 @@ export function AlignCenterMenuItemFactory(accessor: IAccessor): IMenuButtonItem
         id: AlignCenterCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'HorizontallyIcon',
-        tooltip: 'toolbar.alignCenter',
+        tooltip: 'docs-ui.toolbar.alignCenter',
         activated$: new Observable<boolean>((subscriber) => {
             const disposable = commandService.onCommandExecuted((c) => {
                 const id = c.id;
@@ -787,7 +975,7 @@ export function AlignCenterMenuItemFactory(accessor: IAccessor): IMenuButtonItem
             return disposable.dispose;
         }),
         disabled$: disableMenuWhenNoDocRange(accessor),
-        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC, undefined, DOCS_ZEN_EDITOR_UNIT_ID_KEY),
+        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
     };
 }
 
@@ -798,7 +986,7 @@ export function AlignRightMenuItemFactory(accessor: IAccessor): IMenuButtonItem 
         id: AlignRightCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'RightJustifyingIcon',
-        tooltip: 'toolbar.alignRight',
+        tooltip: 'docs-ui.toolbar.alignRight',
         activated$: new Observable<boolean>((subscriber) => {
             const disposable = commandService.onCommandExecuted((c) => {
                 const id = c.id;
@@ -821,7 +1009,7 @@ export function AlignRightMenuItemFactory(accessor: IAccessor): IMenuButtonItem 
             return disposable.dispose;
         }),
         disabled$: disableMenuWhenNoDocRange(accessor),
-        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC, undefined, DOCS_ZEN_EDITOR_UNIT_ID_KEY),
+        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
     };
 }
 
@@ -832,7 +1020,7 @@ export function AlignJustifyMenuItemFactory(accessor: IAccessor): IMenuButtonIte
         id: AlignJustifyCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'AlignTextBothIcon',
-        tooltip: 'toolbar.alignJustify',
+        tooltip: 'docs-ui.toolbar.alignJustify',
         activated$: new Observable<boolean>((subscriber) => {
             const disposable = commandService.onCommandExecuted((c) => {
                 const id = c.id;
@@ -855,7 +1043,65 @@ export function AlignJustifyMenuItemFactory(accessor: IAccessor): IMenuButtonIte
             return disposable.dispose;
         }),
         disabled$: disableMenuWhenNoDocRange(accessor),
-        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC, undefined, DOCS_ZEN_EDITOR_UNIT_ID_KEY),
+        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
+    };
+}
+
+const HORIZONTAL_ALIGN_OPTIONS = [
+    {
+        id: AlignLeftCommand.id,
+        value: HorizontalAlign.LEFT,
+        label: 'docs-ui.toolbar.alignLeft',
+        icon: 'LeftJustifyingIcon',
+    },
+    {
+        id: AlignCenterCommand.id,
+        value: HorizontalAlign.CENTER,
+        label: 'docs-ui.toolbar.alignCenter',
+        icon: 'HorizontallyIcon',
+    },
+    {
+        id: AlignRightCommand.id,
+        value: HorizontalAlign.RIGHT,
+        label: 'docs-ui.toolbar.alignRight',
+        icon: 'RightJustifyingIcon',
+    },
+    {
+        id: AlignJustifyCommand.id,
+        value: HorizontalAlign.JUSTIFIED,
+        label: 'docs-ui.toolbar.alignJustify',
+        icon: 'AlignTextBothIcon',
+    },
+];
+
+export function AlignMenuItemFactory(accessor: IAccessor): IMenuSelectorItem<HorizontalAlign, HorizontalAlign> {
+    const commandService = accessor.get(ICommandService);
+
+    const value$ = new Observable<HorizontalAlign>((subscriber) => {
+        const calc = () => {
+            const paragraph = getParagraphStyleAtCursor(accessor);
+
+            subscriber.next(paragraph?.paragraphStyle?.horizontalAlign ?? HorizontalAlign.LEFT);
+        };
+        const disposable = commandService.onCommandExecuted((c) => {
+            if (c.id === SetTextSelectionsOperation.id || c.id === AlignOperationCommand.id) {
+                calc();
+            }
+        });
+
+        calc();
+        return disposable.dispose;
+    });
+
+    return {
+        id: AlignOperationCommand.id,
+        type: MenuItemType.SELECTOR,
+        icon: value$.pipe(map((alignType) => HORIZONTAL_ALIGN_OPTIONS.find((option) => option.value === alignType)?.icon ?? 'LeftJustifyingIcon')),
+        tooltip: 'docs-ui.toolbar.alignLeft',
+        selections: HORIZONTAL_ALIGN_OPTIONS,
+        value$,
+        disabled$: disableMenuWhenNoDocRange(accessor),
+        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
     };
 }
 
@@ -864,9 +1110,9 @@ export function HorizontalLineFactory(accessor: IAccessor): IMenuButtonItem {
         id: HorizontalLineCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'ReduceIcon',
-        tooltip: 'toolbar.horizontalLine',
+        tooltip: 'docs-ui.toolbar.horizontalLine',
         disabled$: disableMenuWhenNoDocRange(accessor),
-        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC, undefined, DOCS_ZEN_EDITOR_UNIT_ID_KEY),
+        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
     };
 }
 
@@ -928,7 +1174,7 @@ export function OrderListMenuItemFactory(accessor: IAccessor): IMenuSelectorItem
             },
         ],
         icon: 'OrderIcon',
-        tooltip: 'toolbar.order',
+        tooltip: 'docs-ui.toolbar.order',
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
         disabled$: disableMenuWhenNoDocRange(accessor),
         activated$: listValueFactory$(accessor).pipe(map((v) => Boolean(v && v.indexOf('ORDER_LIST') === 0))),
@@ -951,7 +1197,7 @@ export function BulletListMenuItemFactory(accessor: IAccessor): IMenuSelectorIte
             },
         ],
         icon: 'UnorderIcon',
-        tooltip: 'toolbar.unorder',
+        tooltip: 'docs-ui.toolbar.unorder',
         disabled$: disableMenuWhenNoDocRange(accessor),
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
         activated$: listValueFactory$(accessor).pipe(map((v) => Boolean(v && v.indexOf('BULLET_LIST') === 0))),
@@ -963,7 +1209,7 @@ export function CheckListMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
         id: CheckListCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'TodoListDoubleIcon',
-        tooltip: 'toolbar.checklist',
+        tooltip: 'docs-ui.toolbar.checklist',
         disabled$: disableMenuWhenNoDocRange(accessor),
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
         activated$: listValueFactory$(accessor).pipe(map((v) => Boolean(v && v.indexOf('CHECK_LIST') === 0))),
@@ -978,8 +1224,8 @@ export function DocSwitchModeMenuItemFactory(accessor: IAccessor): IMenuButtonIt
         id: SwitchDocModeCommand.id,
         type: MenuItemType.BUTTON,
         icon: 'KeyboardIcon',
-        tooltip: 'toolbar.documentFlavor',
-        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC, undefined, DOCS_ZEN_EDITOR_UNIT_ID_KEY),
+        tooltip: 'docs-ui.toolbar.documentFlavor',
+        hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
         activated$: new Observable<boolean>((subscriber) => {
             const subscription = commandService.onCommandExecuted((c) => {
                 if (c.id === RichTextEditingMutation.id) {
@@ -998,11 +1244,20 @@ export function DocSwitchModeMenuItemFactory(accessor: IAccessor): IMenuButtonIt
     };
 }
 
+export function ResetTextColorMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
+    return {
+        id: ResetInlineFormatTextColorCommand.id,
+        type: MenuItemType.BUTTON,
+        title: 'docs-ui.toolbar.resetColor',
+        icon: 'NoColorDoubleIcon',
+    };
+}
+
 export function ResetBackgroundColorMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
     return {
         id: ResetInlineFormatTextBackgroundColorCommand.id,
         type: MenuItemType.BUTTON,
-        title: 'toolbar.resetColor',
+        title: 'docs-ui.toolbar.resetColor',
         icon: 'NoColorDoubleIcon',
     };
 }
@@ -1013,7 +1268,7 @@ export function BackgroundColorSelectorMenuItemFactory(accessor: IAccessor): IMe
 
     return {
         id: SetInlineFormatTextBackgroundColorCommand.id,
-        tooltip: 'toolbar.fillColor.main',
+        tooltip: 'docs-ui.toolbar.fillColor.main',
         type: MenuItemType.BUTTON_SELECTOR,
         icon: 'PaintBucketDoubleIcon',
         selections: [
@@ -1024,7 +1279,7 @@ export function BackgroundColorSelectorMenuItemFactory(accessor: IAccessor): IMe
                     selectable: false,
                 },
                 value$: new Observable<string>((subscriber) => {
-                    const defaultValue = DEFAULT_STYLES.bg.rgb;
+                    const defaultValue = themeService.getColorFromTheme('primary.600');
                     const calc = () => {
                         const textRun = getFontStyleAtCursor(accessor);
 
@@ -1154,8 +1409,8 @@ export function PageSettingMenuItemFactory(accessor: IAccessor): IMenuButtonItem
     return {
         id: DocOpenPageSettingCommand.id,
         type: MenuItemType.BUTTON,
-        icon: 'DocumentSettingIcon',
-        tooltip: 'toolbar.pageSetup',
+        icon: 'DocSettingIcon',
+        tooltip: 'docs-ui.toolbar.pageSetup',
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
     };
 }

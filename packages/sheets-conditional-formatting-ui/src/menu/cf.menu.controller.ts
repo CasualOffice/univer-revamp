@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-import type { IDisposable } from '@univerjs/core';
-import { Disposable, Inject, Injector } from '@univerjs/core';
+import { Disposable } from '@univerjs/core';
 import { IMenuManagerService } from '@univerjs/ui';
 import { menuSchema } from './schema';
 
 export class ConditionalFormattingMenuController extends Disposable {
-    private _sidebarDisposable: IDisposable | null = null;
-
     constructor(
-        @Inject(Injector) private _injector: Injector,
         @IMenuManagerService private readonly _menuManagerService: IMenuManagerService
     ) {
         super();

@@ -1,19 +1,3 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import type { IDocumentData } from '@univerjs/core';
 import { BooleanNumber, ColumnSeparatorType, PresetListType, SectionType } from '@univerjs/core';
 
@@ -87,9 +71,11 @@ export const PAGE5_RICHTEXT_1: IDocumentData = {
         ],
         paragraphs: [
             {
+                paragraphId: 'para_common_mockdata_src_slides_rich_text_page5_richtext1_1',
                 startIndex: 67,
             },
             {
+                paragraphId: 'para_common_mockdata_src_slides_rich_text_page5_richtext1_2',
                 startIndex: 253,
                 paragraphStyle: {
                     spaceAbove: { v: 20 },
@@ -97,6 +83,7 @@ export const PAGE5_RICHTEXT_1: IDocumentData = {
                 },
             },
             {
+                paragraphId: 'para_common_mockdata_src_slides_rich_text_page5_richtext1_3',
                 startIndex: 404,
                 paragraphStyle: {
                     spaceAbove: { v: 20 },
@@ -104,6 +91,7 @@ export const PAGE5_RICHTEXT_1: IDocumentData = {
                 },
             },
             {
+                paragraphId: 'para_common_mockdata_src_slides_rich_text_page5_richtext1_4',
                 startIndex: 433,
                 bullet: {
                     listType: PresetListType.BULLET_LIST,
@@ -118,6 +106,7 @@ export const PAGE5_RICHTEXT_1: IDocumentData = {
                 },
             },
             {
+                paragraphId: 'para_common_mockdata_src_slides_rich_text_page5_richtext1_5',
                 startIndex: 484,
                 bullet: {
                     listType: PresetListType.BULLET_LIST,
@@ -132,6 +121,7 @@ export const PAGE5_RICHTEXT_1: IDocumentData = {
                 },
             },
             {
+                paragraphId: 'para_common_mockdata_src_slides_rich_text_page5_richtext1_6',
                 startIndex: 516,
                 bullet: {
                     listType: PresetListType.BULLET_LIST,

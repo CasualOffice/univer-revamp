@@ -16,7 +16,6 @@
 
 import type { IStyleData } from '../types/interfaces';
 import type { Nullable } from './types';
-import { customAlphabet, nanoid } from 'nanoid';
 import { isLegalUrl, normalizeUrl, topLevelDomainSet } from '../common/url';
 
 /**
@@ -177,8 +176,15 @@ export class Tools {
     static deepMerge(target: any, ...sources: any[]): any {
         sources.forEach((item) => item && deepItem(item));
 
+        function isDangerousKey(key: string): boolean {
+            return key === '__proto__' || key === 'constructor' || key === 'prototype';
+        }
+
         function deepArray(array: any[], to: any[]) {
             array.forEach((value, key) => {
+                if (typeof key === 'string' && isDangerousKey(key)) {
+                    return;
+                }
                 if (Tools.isArray(value)) {
                     const origin = to[key] ?? [];
                     to[key] = origin;
@@ -197,6 +203,9 @@ export class Tools {
 
         function deepObject(object: any, to: any) {
             Object.keys(object).forEach((key) => {
+                if (isDangerousKey(key)) {
+                    return;
+                }
                 const value = object[key];
                 if (Tools.isObject(value)) {
                     const origin = to[key] ?? {};
@@ -216,6 +225,9 @@ export class Tools {
 
         function deepItem(item: any) {
             Object.keys(item).forEach((key) => {
+                if (isDangerousKey(key)) {
+                    return;
+                }
                 const value = item[key];
                 if (Tools.isArray(value)) {
                     const origin = target[key] ?? [];
@@ -495,14 +507,6 @@ export class Tools {
     }
 }
 
-export function generateRandomId(n: number = 21, alphabet?: string): string {
-    if (alphabet) {
-        return customAlphabet(alphabet, n)();
-    }
-
-    return nanoid(n);
-}
-
 interface IStyleDataObject {
     [key: string]: unknown;
 }
@@ -540,7 +544,15 @@ export const isNodeEnv = () => {
  * @returns {RegExp} The generated regular expression
  */
 export function createREGEXFromWildChar(wildChar: string): RegExp {
-    const escaped = wildChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = escapeRegExp(wildChar);
     const regexpStr = escaped.replace(/\\\*/g, '.*').replace(/\\\?/g, '.');
     return new RegExp(`^${regexpStr}$`, 'i');
+}
+
+/**
+ * Escapes characters that have special meaning in a regular expression so the
+ * returned string can be safely embedded in a RegExp pattern as literal text.
+ */
+export function escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

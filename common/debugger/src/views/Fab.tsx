@@ -1,22 +1,6 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import type { IDropdownMenuProps } from '@univerjs/design';
 import type { IUniverDebuggerConfig } from '../config/config';
-import { IConfigService, IUniverInstanceService, UniverInstanceType } from '@univerjs/core';
+import { IConfigService, UniverInstanceType } from '@univerjs/core';
 import { borderClassName, clsx, DropdownMenu } from '@univerjs/design';
 import { useDependency } from '@univerjs/ui';
 import { DEBUGGER_PLUGIN_CONFIG_KEY } from '../config/config';
@@ -60,30 +44,46 @@ export function Fab() {
     const user = useUser();
     const dispose = useDispose();
 
-    const univerInstanceService = useDependency(IUniverInstanceService);
-    const unitType = univerInstanceService.getFocusedUnit()?.type;
-    if (!unitType) return null;
-
-    const items: IDropdownMenuProps['items'] = [
-        locale,
-        rtl,
-        darkMode,
-        theme,
+    const globalItems = [locale, rtl, darkMode, theme];
+    const lightweightItems = [
+        ...globalItems,
         watermark,
-        { type: 'separator' },
+    ];
+    const commonDebugItems = [
+        watermark,
+        { type: 'separator' as const },
         notification,
         message,
         dialog,
         sidebar,
-        { type: 'separator' },
-        (fabEntryUnitType === UniverInstanceType.UNIVER_SHEET || fabEntryUnitType === UniverInstanceType.UNIVER_DOC) && floatingDom,
-        fabEntryUnitType === UniverInstanceType.UNIVER_SHEET && cellContent,
-        fabEntryUnitType === UniverInstanceType.UNIVER_SHEET && units,
+        { type: 'separator' as const },
         snapshot,
         editable,
-        fabEntryUnitType === UniverInstanceType.UNIVER_SHEET && user,
         dispose,
-    ].filter((item) => item !== null) as IDropdownMenuProps['items'];
+    ];
+    const sheetItems = [
+        ...globalItems,
+        watermark,
+        { type: 'separator' as const },
+        notification,
+        message,
+        dialog,
+        sidebar,
+        { type: 'separator' as const },
+        floatingDom,
+        cellContent,
+        units,
+        snapshot,
+        editable,
+        user,
+        dispose,
+    ];
+
+    const items: IDropdownMenuProps['items'] = fabEntryUnitType === UniverInstanceType.UNIVER_BASE || fabEntryUnitType === UniverInstanceType.UNIVER_SLIDE
+        ? lightweightItems
+        : fabEntryUnitType === UniverInstanceType.UNIVER_DOC
+            ? [...globalItems, ...commonDebugItems, floatingDom].filter(Boolean) as IDropdownMenuProps['items']
+            : sheetItems.filter(Boolean) as IDropdownMenuProps['items'];
 
     return (
         <div

@@ -20,27 +20,29 @@ import { borderClassName, clsx, Input } from '@univerjs/design';
 import { CheckMarkIcon } from '@univerjs/icons';
 import { CURRENCYFORMAT, DATEFMTLISG, NUMBERFORMAT } from '@univerjs/sheets-numfmt';
 import { useDependency } from '@univerjs/ui';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { UserHabitController } from '../../controllers/user-habit.controller';
 
 const key = 'customFormat';
 const historyPatternKey = 'numfmt_custom_pattern';
 
 export function CustomFormat(props: IBusinessComponentProps) {
-    const { defaultPattern, action, onChange } = props;
+    const { defaultPattern, onActionChange, onChange } = props;
     const userHabitController = useDependency(UserHabitController);
     const localStorageService = useDependency(ILocalStorageService);
     const localeService = useDependency(LocaleService);
 
     const [pattern, setPattern] = useState(defaultPattern);
-    action.current = () => {
-        userHabitController.markHabit(key, pattern);
-        localStorageService.getItem<string[]>(historyPatternKey).then((list = []) => {
-            const _list = [...new Set([pattern, ...(list || [])])].splice(0, 10).filter((e) => !!e);
-            localStorageService.setItem(historyPatternKey, _list);
+    useLayoutEffect(() => {
+        onActionChange(() => {
+            userHabitController.markHabit(key, pattern);
+            localStorageService.getItem<string[]>(historyPatternKey).then((list = []) => {
+                const _list = [...new Set([pattern, ...(list || [])])].splice(0, 10).filter((e) => !!e);
+                localStorageService.setItem(historyPatternKey, _list);
+            });
+            return pattern;
         });
-        return pattern;
-    };
+    }, [localStorageService, onActionChange, pattern, userHabitController]);
     const [options, setOptions] = useState<(string | number)[]>([]);
 
     useEffect(() => {
@@ -70,9 +72,9 @@ export function CustomFormat(props: IBusinessComponentProps) {
 
     return (
         <div>
-            <div className="univer-mt-4 univer-text-sm univer-text-gray-400">{localeService.t('sheet.numfmt.customFormat')}</div>
+            <div className="univer-mt-4 univer-text-sm univer-text-gray-400">{localeService.t('sheets-numfmt-ui.customFormat')}</div>
             <Input
-                placeholder={localeService.t('sheet.numfmt.customFormat')}
+                placeholder={localeService.t('sheets-numfmt-ui.customFormat')}
                 onBlur={handleBlur}
                 value={pattern}
                 onChange={setPattern}
@@ -105,7 +107,7 @@ export function CustomFormat(props: IBusinessComponentProps) {
                   dark:!univer-text-gray-200
                 `}
             >
-                {localeService.t('sheet.numfmt.customFormatDes')}
+                {localeService.t('sheets-numfmt-ui.customFormatDes')}
             </div>
         </div>
     );

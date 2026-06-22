@@ -17,8 +17,11 @@
 import type enUS from './en-US';
 
 const locale: typeof enUS = {
-    sheetImage: {
+    'sheets-drawing-ui': {
         title: 'Obrázok',
+        uploadLoading: {
+            loading: 'Načítava sa..., zostáva',
+        },
 
         upload: {
             float: 'Plávajúci obrázok',
@@ -42,32 +45,45 @@ const locale: typeof enUS = {
             saving: 'Ukladá sa...',
             error: 'Nepodarilo sa uložiť obrázky buniek',
         },
-    },
-    'image-popup': {
-        replace: 'Nahradiť',
-        delete: 'Odstrániť',
-        edit: 'Upraviť',
-        crop: 'Orezať',
-        reset: 'Obnoviť veľkosť',
-        flipH: 'Prevrátiť vodorovne',
-        flipV: 'Prevrátiť zvisle',
-    },
-    'drawing-anchor': {
-        title: 'Vlastnosti ukotvenia',
-        both: 'Presúvať a meniť veľkosť s bunkami',
-        position: 'Presúvať, ale nemeniť veľkosť s bunkami',
-        none: 'Nepresúvať ani nemeniť veľkosť s bunkami',
-    },
-    'update-status': {
-        exceedMaxSize: 'Veľkosť obrázka prekračuje limit, limit je {0}M',
-        invalidImageType: 'Neplatný typ obrázka',
-        exceedMaxCount: 'Naraz možno nahrať iba {0} obrázkov',
-        invalidImage: 'Neplatný obrázok',
-    },
-    'cell-image': {
-        pasteTitle: 'Prilepiť ako obrázok bunky',
-        pasteContent: 'Prilepením obrázka bunky sa prepíše existujúci obsah bunky, pokračovať',
-        pasteError: 'Kopírovanie a prilepovanie obrázkov buniek v tomto module nie je podporované',
+        'image-popup': {
+            replace: 'Nahradiť',
+            delete: 'Odstrániť',
+            edit: 'Upraviť',
+            crop: 'Orezať',
+            reset: 'Obnoviť veľkosť',
+            flipH: 'Prevrátiť vodorovne',
+            flipV: 'Prevrátiť zvisle',
+        },
+        'update-status': {
+            exceedMaxSize: 'Veľkosť obrázka prekračuje limit, limit je {0}M',
+            invalidImageType: 'Neplatný typ obrázka',
+            exceedMaxCount: 'Naraz možno nahrať iba {0} obrázkov',
+            invalidImage: 'Neplatný obrázok',
+        },
+        'drawing-anchor': {
+            title: 'Vlastnosti ukotvenia',
+            both: 'Presúvať a meniť veľkosť s bunkami',
+            position: 'Presúvať, ale nemeniť veľkosť s bunkami',
+            none: 'Nepresúvať ani nemeniť veľkosť s bunkami',
+        },
+        'cell-image': {
+            pasteTitle: 'Prilepiť ako obrázok bunky',
+            pasteContent: 'Prilepením obrázka bunky sa prepíše existujúci obsah bunky, pokračovať',
+            pasteError: 'Kopírovanie a prilepovanie obrázkov buniek v tomto module nie je podporované',
+        },
+        permission: {
+            dialog: {
+                editErr: 'Rozsah je chránený a nemáte oprávnenie na úpravy. Ak chcete upravovať, kontaktujte autora.',
+            },
+        },
+        shortcut: {
+            'drawing-view': 'Zobrazenie kresby',
+            'drawing-move-down': 'Posunúť kresbu nadol',
+            'drawing-move-up': 'Posunúť kresbu nahor',
+            'drawing-move-left': 'Posunúť kresbu doľava',
+            'drawing-move-right': 'Posunúť kresbu doprava',
+            'drawing-delete': 'Odstrániť kresbu',
+        },
     },
 };
 

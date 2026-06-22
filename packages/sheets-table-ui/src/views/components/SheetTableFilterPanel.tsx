@@ -22,7 +22,7 @@ import { Button, ButtonGroup, Segmented } from '@univerjs/design';
 import { AscendingIcon, DeleteColumnDoubleIcon, DescendingIcon, LeftInsertColumnDoubleIcon, RightInsertColumnDoubleIcon } from '@univerjs/icons';
 import { WorkbookEditablePermission } from '@univerjs/sheets';
 import { SortRangeCommand, SortType } from '@univerjs/sheets-sort';
-import { SheetsTableSortStateEnum, SheetTableInsertColumnAtCommand, SheetTableRemoveColumnAtCommand, TableColumnFilterTypeEnum, TableDateCompareTypeEnum, TableManager } from '@univerjs/sheets-table';
+import { SheetsTableSortStateEnum, SheetTableInsertColumnAtCommand, SheetTableRemoveColumnAtCommand, TABLE_FILTER_EMPTY_VALUE, TableColumnFilterTypeEnum, TableDateCompareTypeEnum, TableManager } from '@univerjs/sheets-table';
 import { useDependency } from '@univerjs/ui';
 import { useMemo, useState } from 'react';
 import { SheetsTableComponentController } from '../../controllers/sheet-table-component.controller';
@@ -120,9 +120,10 @@ export function SheetTableFilterPanel() {
         if (filterBy === FilterByEnum.Items) {
             // do items
             const filteredItems: string[] = [];
+            const emptyLabel = localeService.t('sheets-table-ui.condition.empty');
             for (const itemInfo of data) {
                 if (checkedItemSet.has(itemInfo.title)) {
-                    filteredItems.push(itemInfo.title);
+                    filteredItems.push(itemInfo.title === emptyLabel ? TABLE_FILTER_EMPTY_VALUE : itemInfo.title);
                 }
             }
             const originFilter = table.getTableFilterColumn(columnIndex) as ITableManualFilterItem | undefined;
@@ -175,7 +176,7 @@ export function SheetTableFilterPanel() {
     return (
         <div
             className={`
-              univer-box-border univer-flex univer-min-w-[312px] univer-flex-col univer-rounded-[10px] univer-bg-white
+              univer-box-border univer-flex univer-w-[400px] univer-flex-col univer-rounded-[10px] univer-bg-white
               univer-p-4 univer-shadow-lg
               dark:!univer-border-gray-600 dark:!univer-bg-gray-700
             `}
@@ -202,7 +203,7 @@ export function SheetTableFilterPanel() {
                             onClick={() => insertColumn('left')}
                         >
                             <LeftInsertColumnDoubleIcon className="univer-size-5" extend={{ colorChannel1: 'var(--univer-primary-600)' }} />
-                            <span>{localeService.t('sheets-table.columnMenu.insert-left')}</span>
+                            <span>{localeService.t('sheets-table-ui.columnMenu.insert-left')}</span>
                         </button>
                         <button
                             type="button"
@@ -218,7 +219,7 @@ export function SheetTableFilterPanel() {
                             onClick={() => insertColumn('right')}
                         >
                             <RightInsertColumnDoubleIcon className="univer-size-5" extend={{ colorChannel1: 'var(--univer-primary-600)' }} />
-                            <span>{localeService.t('sheets-table.columnMenu.insert-right')}</span>
+                            <span>{localeService.t('sheets-table-ui.columnMenu.insert-right')}</span>
                         </button>
                         <button
                             type="button"
@@ -235,18 +236,18 @@ export function SheetTableFilterPanel() {
                             onClick={deleteColumn}
                         >
                             <DeleteColumnDoubleIcon className="univer-size-5" extend={{ colorChannel1: 'var(--univer-primary-600)' }} />
-                            <span>{localeService.t('sheets-table.columnMenu.delete')}</span>
+                            <span>{localeService.t('sheets-table-ui.columnMenu.delete')}</span>
                         </button>
                     </div>
                     <div className="univer-mb-3 univer-flex">
                         <ButtonGroup className="univer-mb-3 !univer-flex univer-w-full">
                             <Button className="univer-w-1/2" onClick={() => applySort(true)}>
                                 <AscendingIcon className="univer-mr-1" />
-                                {localeService.t('sheets-sort.general.sort-asc')}
+                                {localeService.t('sheets-table-ui.sort.sort-asc')}
                             </Button>
                             <Button className="univer-w-1/2" onClick={() => applySort(false)}>
                                 <DescendingIcon className="univer-mr-1" />
-                                {localeService.t('sheets-sort.general.sort-desc')}
+                                {localeService.t('sheets-table-ui.sort.sort-desc')}
                             </Button>
                         </ButtonGroup>
                     </div>
@@ -296,11 +297,11 @@ export function SheetTableFilterPanel() {
                     disabled={tableFilter === undefined}
                     onClick={onClearFilter}
                 >
-                    {localeService.t('sheets-table.filter.clear-filter')}
+                    {localeService.t('sheets-table-ui.filter.clear-filter')}
                 </Button>
                 <div>
-                    <Button className="univer-mr-2" onClick={onCancel}>{localeService.t('sheets-table.filter.cancel')}</Button>
-                    <Button variant="primary" onClick={onApply}>{localeService.t('sheets-table.filter.confirm')}</Button>
+                    <Button className="univer-mr-2" onClick={onCancel}>{localeService.t('sheets-table-ui.filter.cancel')}</Button>
+                    <Button variant="primary" onClick={onApply}>{localeService.t('sheets-table-ui.filter.confirm')}</Button>
                 </div>
             </div>
         </div>
@@ -310,7 +311,7 @@ export function SheetTableFilterPanel() {
 function useFilterByOptions(localeService: LocaleService) {
     const locale = localeService.getCurrentLocale();
     return useMemo(() => [
-        { label: localeService.t('sheets-table.filter.by-values'), value: FilterByEnum.Items },
-        { label: localeService.t('sheets-table.filter.by-conditions'), value: FilterByEnum.Condition },
+        { label: localeService.t('sheets-table-ui.filter.by-values'), value: FilterByEnum.Items },
+        { label: localeService.t('sheets-table-ui.filter.by-conditions'), value: FilterByEnum.Condition },
     ], [locale, localeService]);
 }

@@ -15,8 +15,10 @@
  */
 
 import type { ICollaborator } from '@univerjs/protocol';
+import { Injector } from '@univerjs/core';
 import { firstValueFrom, skip, take } from 'rxjs';
 import { describe, expect, it } from 'vitest';
+import { SheetPermissionPanelModel } from '../sheet-permission-panel.model';
 import { SheetPermissionUserManagerService } from '../sheet-permission-user-list.service';
 
 const OWNER: ICollaborator = {
@@ -31,9 +33,15 @@ const EDITOR: ICollaborator = {
     subject: undefined,
 };
 
+function createService(): SheetPermissionUserManagerService {
+    const injector = new Injector();
+    injector.add([SheetPermissionUserManagerService]);
+    return injector.get(SheetPermissionUserManagerService);
+}
+
 describe('SheetPermissionUserManagerService', () => {
     it('tracks editable users, selected users and historical collaborators', async () => {
-        const service = new SheetPermissionUserManagerService();
+        const service = createService();
 
         expect(service.userList).toEqual([]);
         expect(service.oldCollaboratorList).toEqual([]);
@@ -56,7 +64,7 @@ describe('SheetPermissionUserManagerService', () => {
     });
 
     it('clears stored collaborator state on reset', async () => {
-        const service = new SheetPermissionUserManagerService();
+        const service = createService();
         service.setCanEditUserList([OWNER]);
         service.setOldCollaboratorList([OWNER, EDITOR]);
         service.setSelectUserList([EDITOR]);
@@ -68,5 +76,21 @@ describe('SheetPermissionUserManagerService', () => {
         expect(service.oldCollaboratorList).toEqual([]);
         expect(service.selectUserList).toEqual([]);
         expect(await resetSelectedUsers).toEqual([]);
+    });
+});
+
+describe('SheetPermissionPanelModel', () => {
+    it('tracks whether the permission panel should be visible', () => {
+        const injector = new Injector();
+        injector.add([SheetPermissionPanelModel]);
+        const model = injector.get(SheetPermissionPanelModel);
+
+        expect(model.getVisible()).toBe(false);
+
+        model.setVisible(true);
+        expect(model.getVisible()).toBe(true);
+
+        model.reset();
+        expect(model.getVisible()).toBe(false);
     });
 });

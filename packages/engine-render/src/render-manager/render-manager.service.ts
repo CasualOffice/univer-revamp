@@ -14,14 +14,31 @@
  * limitations under the License.
  */
 
-import type { Dependency, DependencyIdentifier, ICreateUnitOptions, IDisposable, Nullable, UnitModel } from '@univerjs/core';
+import type {
+    Dependency,
+    DependencyIdentifier,
+    ICreateUnitOptions,
+    IDisposable,
+    Nullable,
+    UnitModel,
+} from '@univerjs/core';
 import type { Observable } from 'rxjs';
 import type { BaseObject } from '../base-object';
 import type { DocComponent } from '../components/docs/doc-component';
 import type { SheetComponent } from '../components/sheets/sheet-component';
 import type { Slide } from '../components/slides/slide';
 import type { IRender } from './render-unit';
-import { createIdentifier, Disposable, Inject, Injector, IUniverInstanceService, remove, ThemeService, toDisposable, UniverInstanceType } from '@univerjs/core';
+import {
+    createIdentifier,
+    Disposable,
+    Inject,
+    Injector,
+    IUniverInstanceService,
+    remove,
+    ThemeService,
+    toDisposable,
+    UniverInstanceType,
+} from '@univerjs/core';
 import { Subject } from 'rxjs';
 import { Engine } from '../engine';
 import { Scene } from '../scene';
@@ -40,6 +57,7 @@ export interface IRenderManagerService extends IDisposable {
     createRender(unitId: string, createUnitOptions?: ICreateUnitOptions): IRender;
     removeRender(unitId: string): void;
     /**
+     * @deprecated use getRenderUnitById instead
      * Get RenderUnit By Id, RenderUnit implements IRender
      * @param unitId
      */

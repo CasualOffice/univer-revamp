@@ -31,11 +31,12 @@ import type {
     Workbook,
 } from '@univerjs/core';
 import type { IRichTextEditingMutationParams } from '@univerjs/docs';
-import type { ISetRangeValuesCommandParams, MutationsAffectRange } from '@univerjs/sheets';
+import type { ISetRangeValuesCommandParams, ISetWorksheetActivateCommandParams, MutationsAffectRange } from '@univerjs/sheets';
 import type { IUniverSheetsUIConfig } from '../../config/config';
 import type { IEditorBridgeServiceVisibleParam } from '../../services/editor-bridge.service';
 import {
     CellValueType,
+    createParagraphId,
     DEFAULT_EMPTY_DOCUMENT_VALUE,
     Direction,
     Disposable,
@@ -115,6 +116,8 @@ export class EditingRenderController extends Disposable {
 
     /** If the corresponding unit is active and prepared for editing. */
     private _editingUnit = '';
+
+    private _submitEmptyCellImageEdit = false;
 
     _cursorTimeout: NodeJS.Timeout;
 
@@ -474,7 +477,10 @@ export class EditingRenderController extends Disposable {
                 }
             );
         };
-        if (this._isCellImageData(documentDataModel.getSnapshot())) {
+        const isCellImage = this._isCellImageData(documentDataModel.getSnapshot());
+        this._submitEmptyCellImageEdit = isCellImage && eventType === DeviceInputEventType.Keyboard && keycode === KeyCode.BACKSPACE;
+
+        if (isCellImage) {
             clearAndEdit();
         } else if (eventType === DeviceInputEventType.Keyboard && keycode === KeyCode.F2) {
             // f2, continue to edit
@@ -536,6 +542,8 @@ export class EditingRenderController extends Disposable {
         const documentDataModel = this._univerInstanceService.getUnit<DocumentDataModel>(DOCS_NORMAL_EDITOR_UNIT_ID_KEY);
         const snapshot = Tools.deepClone(documentDataModel?.getSnapshot());
         const { keycode } = param;
+        const shouldSubmitEmptyCellImageEdit = this._submitEmptyCellImageEdit;
+        this._submitEmptyCellImageEdit = false;
         this._cursorChange = CursorChange.InitialState;
         const currentUnitId = editCellState?.unitId ?? '';
         this._exitInput(param);
@@ -557,7 +565,7 @@ export class EditingRenderController extends Disposable {
          */
         if (workbookId === unitId && sheetId !== worksheetId) {
             // SetWorksheetActivateCommand handler uses Promise
-            await this._commandService.executeCommand(SetWorksheetActivateCommand.id, {
+            await this._commandService.executeCommand<ISetWorksheetActivateCommandParams>(SetWorksheetActivateCommand.id, {
                 subUnitId: sheetId,
                 unitId,
             });
@@ -577,7 +585,7 @@ export class EditingRenderController extends Disposable {
             ? this._isCellImageData(editCellState.documentLayoutObject.documentModel.getSnapshot())
             : false;
 
-        if (snapshot && !(isEmpty && isCellImage)) {
+        if (snapshot && shouldSubmitCellEdit({ isEmpty, isCellImage, shouldSubmitEmptyCellImageEdit })) {
             const res = await this._submitEdit(snapshot, keycode === (MetaKeys.CTRL_COMMAND | KeyCode.ENTER) || keycode === (MetaKeys.MAC_CTRL | KeyCode.ENTER));
             if (res === false) return; // if the submit was rejected, don't move selection
         }
@@ -971,6 +979,22 @@ export function isRichText(body: IDocumentBody): boolean {
     );
 }
 
+export function shouldSubmitCellEdit({
+    isEmpty,
+    isCellImage,
+    shouldSubmitEmptyCellImageEdit,
+}: {
+    isEmpty?: boolean;
+    isCellImage: boolean;
+    shouldSubmitEmptyCellImageEdit: boolean;
+}): boolean {
+    if (!isEmpty || !isCellImage) {
+        return true;
+    }
+
+    return shouldSubmitEmptyCellImageEdit;
+}
+
 export function getCellStyleBySnapshot(snapshot: IDocumentData): Nullable<IStyleData> {
     const { body } = snapshot;
     if (!body) return null;
@@ -1006,6 +1030,7 @@ function emptyBody(body: IDocumentBody, removeStyle = false) {
         body.paragraphs = [
             {
                 startIndex: 0,
+                paragraphId: createParagraphId(new Set()),
             },
         ];
     }

@@ -22,7 +22,15 @@ import type { DocumentViewModel } from '../../../view-model/document-view-model'
 import type { IOpenTypeGlyphInfo } from '../../shaping-engine/text-shaping';
 import type { ILayoutContext } from '../../tools';
 import { BooleanNumber, DataStreamTreeTokenType, GridType, PositionedObjectLayoutType } from '@univerjs/core';
-import { hasArabic, hasCJK, hasCJKPunctuation, hasCJKText, hasTibetan, startWithEmoji } from '../../../../../basics/tools';
+import {
+    hasArabic,
+    hasCJK,
+    hasCJKPunctuation,
+    hasCJKText,
+    hasThai,
+    hasTibetan,
+    startWithEmoji,
+} from '../../../../../basics/tools';
 import { Lang } from '../../hyphenation/lang';
 import { LineBreaker } from '../../line-breaker';
 import { BreakPointType } from '../../line-breaker/break';
@@ -30,13 +38,19 @@ import { LineBreakerHyphenEnhancer } from '../../line-breaker/enhancers/hyphen-e
 import { LineBreakerLinkEnhancer } from '../../line-breaker/enhancers/link-enhancer';
 import { customBlockLineBreakExtension } from '../../line-breaker/extensions/custom-block-linebreak-extension';
 import { tabLineBreakExtension } from '../../line-breaker/extensions/tab-linebreak-extension';
-import { createSkeletonCustomBlockGlyph, createSkeletonLetterGlyph, createSkeletonTabGlyph, glyphShrinkLeft, glyphShrinkRight } from '../../model/glyph';
+import {
+    createSkeletonCustomBlockGlyph,
+    createSkeletonLetterGlyph,
+    createSkeletonTabGlyph,
+    glyphShrinkLeft,
+    glyphShrinkRight,
+} from '../../model/glyph';
 import { getBoundingBox } from '../../model/line';
 import { fontLibrary } from '../../shaping-engine/font-library';
 import { textShape } from '../../shaping-engine/text-shaping';
 import { prepareParagraphBody } from '../../shaping-engine/utils';
 import { getCharSpaceApply, getFontCreateConfig } from '../../tools';
-import { ArabicHandler, emojiHandler, otherHandler, TibetanHandler } from './language-ruler';
+import { ArabicHandler, emojiHandler, otherHandler, ThaiHandler, TibetanHandler } from './language-ruler';
 
 // Now we apply consecutive punctuation adjustment, specified in Chinese Layout
 // Requirements, section 3.1.6.1 Punctuation Adjustment Space, and Japanese Layout
@@ -123,7 +137,7 @@ export function shaping(
     const shapedTextList: IShapedText[] = [];
     let breaker = new LineBreaker(content);
     const { endIndex } = paragraphNode;
-    const paragraph = viewModel.getParagraph(endIndex) || { startIndex: 0 };
+    const paragraph = viewModel.getParagraph(endIndex) || { startIndex: 0, paragraphId: 'para_render_fallback' };
     const { paragraphStyle = {} } = paragraph;
     const { snapToGrid = BooleanNumber.TRUE } = paragraphStyle;
     let last = 0;
@@ -218,7 +232,7 @@ export function shaping(
                     if (customBlock != null) {
                         const { blockId } = customBlock;
                         const drawingOrigin = drawings[blockId];
-                        if (drawingOrigin.layoutType === PositionedObjectLayoutType.INLINE) {
+                        if (drawingOrigin?.layoutType === PositionedObjectLayoutType.INLINE) {
                             const { angle } = drawingOrigin.docTransform;
                             const { width = 0, height = 0 } = drawingOrigin.docTransform.size;
                             const top = 0;
@@ -226,7 +240,7 @@ export function shaping(
                             const boundingBox = getBoundingBox(angle, left, width, top, height);
 
                             newGlyph = createSkeletonCustomBlockGlyph(config, boundingBox.width, boundingBox.height, drawingOrigin.drawingId);
-                        } else {
+                        } else if (drawingOrigin != null) {
                             newGlyph = createSkeletonCustomBlockGlyph(config, 0, 0, drawingOrigin.drawingId);
                         }
                     }
@@ -288,6 +302,19 @@ export function shaping(
                     src = src.substring(step);
                 } else if (hasTibetan(char)) {
                     const { step, glyphGroup } = TibetanHandler(
+                        i,
+                        src,
+                        viewModel,
+                        paragraphNode,
+                        sectionBreakConfig,
+                        paragraph
+                    );
+                    shapedGlyphs.push(...glyphGroup);
+                    i += step;
+
+                    src = src.substring(step);
+                } else if (hasThai(char)) {
+                    const { step, glyphGroup } = ThaiHandler(
                         i,
                         src,
                         viewModel,

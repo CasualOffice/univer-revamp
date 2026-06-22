@@ -1,21 +1,5 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import type { IDocumentData, IParagraph, ISectionBreak, ITable, ITableCell, ITableColumn, ITableRow } from '@univerjs/core';
-import { BooleanNumber, DocumentFlavor, HorizontalAlign, ObjectRelativeFromH, ObjectRelativeFromV, TableAlignmentType, TableRowHeightRule, TableSizeType, TableTextWrapType, Tools, VerticalAlignmentType } from '@univerjs/core';
+import { BooleanNumber, createParagraphId, DocumentFlavor, HorizontalAlign, ObjectRelativeFromH, ObjectRelativeFromV, TableAlignmentType, TableRowHeightRule, TableSizeType, TableTextWrapType, Tools, VerticalAlignmentType } from '@univerjs/core';
 import { ptToPixel } from '@univerjs/engine-render';
 
 const TABLE_START = '\x1A'; // 表格开始
@@ -66,11 +50,13 @@ const endIndex = tableStream.length + startIndex;
 function createParagraphAndSectionBreaks(dataStream: string) {
     const paragraphs: IParagraph[] = [];
     const sectionBreaks: ISectionBreak[] = [];
+    const existingParagraphIds = new Set<string>();
     for (let i = 0; i < dataStream.length; i++) {
         const char = dataStream[i];
         if (char === '\r') {
             paragraphs.push({
                 startIndex: i,
+                paragraphId: createParagraphId(existingParagraphIds),
                 paragraphStyle: {
                     spaceAbove: { v: 5 },
                     lineSpacing: 2,

@@ -33,7 +33,21 @@ import {
     UniverInstanceType,
 } from '@univerjs/core';
 import { FUniver } from '@univerjs/core/facade';
-import { ActiveDirtyManagerService, DefinedNamesService, FormulaDataModel, FunctionService, IActiveDirtyManagerService, IDefinedNamesService, IFunctionService, ISheetRowFilteredService, ISuperTableService, LexerTreeBuilder, RegisterOtherFormulaService, SheetRowFilteredService, SuperTableService } from '@univerjs/engine-formula';
+import {
+    ActiveDirtyManagerService,
+    DefinedNamesService,
+    FormulaDataModel,
+    FunctionService,
+    IActiveDirtyManagerService,
+    IDefinedNamesService,
+    IFunctionService,
+    ISheetRowFilteredService,
+    ISuperTableService,
+    LexerTreeBuilder,
+    RegisterOtherFormulaService,
+    SheetRowFilteredService,
+    SuperTableService,
+} from '@univerjs/engine-formula';
 import { Engine, IRenderingEngine, IRenderManagerService, RenderManagerService } from '@univerjs/engine-render';
 import {
     RefRangeService,
@@ -41,11 +55,25 @@ import {
     SheetSkeletonService,
     SheetsSelectionsService,
 } from '@univerjs/sheets';
-import { ConditionalFormattingFormulaService, ConditionalFormattingRuleModel, ConditionalFormattingService, ConditionalFormattingViewModel } from '@univerjs/sheets-conditional-formatting';
-import { DescriptionService, IDescriptionService, IRegisterFunctionService, RegisterFunctionService } from '@univerjs/sheets-formula';
+import {
+    ConditionalFormattingFormulaService,
+    ConditionalFormattingRangeIndexModel,
+    ConditionalFormattingRangeTransformService,
+    ConditionalFormattingRuleModel,
+    ConditionalFormattingService,
+    ConditionalFormattingStyleComposer,
+    ConditionalFormattingViewModel,
+} from '@univerjs/sheets-conditional-formatting';
+import {
+    DescriptionService,
+    FormulaCalculationSessionController,
+    FormulaCalculationSessionService,
+    IDescriptionService,
+    IRegisterFunctionService,
+    RegisterFunctionService,
+} from '@univerjs/sheets-formula';
 import enUS from '@univerjs/sheets/locale/en-US';
 import zhCN from '@univerjs/sheets/locale/zh-CN';
-
 import '@univerjs/sheets/facade';
 import '@univerjs/sheets-conditional-formatting/facade';
 
@@ -147,13 +175,18 @@ export function createFacadeTestBed(workbookData?: IWorkbookData, dependencies?:
             injector.add([ISuperTableService, { useClass: SuperTableService }]);
             injector.add([IDescriptionService, { useClass: DescriptionService }]);
             injector.add([IRegisterFunctionService, { useClass: RegisterFunctionService }]);
+            injector.add([FormulaCalculationSessionService]);
+            injector.add([FormulaCalculationSessionController]);
 
             // register feature modules
             ([
                 // conditional formatting
                 [ConditionalFormattingService],
                 [ConditionalFormattingFormulaService],
+                [ConditionalFormattingRangeTransformService],
+                [ConditionalFormattingStyleComposer],
                 [ConditionalFormattingRuleModel],
+                [ConditionalFormattingRangeIndexModel],
                 [ConditionalFormattingViewModel],
                 [RegisterOtherFormulaService],
                 [IActiveDirtyManagerService, { useClass: ActiveDirtyManagerService }],
@@ -165,6 +198,7 @@ export function createFacadeTestBed(workbookData?: IWorkbookData, dependencies?:
             dependencies?.forEach((d) => injector.add(d));
 
             this._injector.get(SheetInterceptorService);
+            this._injector.get(FormulaCalculationSessionController);
             this._injector.get(ConditionalFormattingService);
             this._injector.get(ConditionalFormattingViewModel);
         }

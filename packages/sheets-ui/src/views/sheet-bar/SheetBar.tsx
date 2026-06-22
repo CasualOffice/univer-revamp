@@ -15,15 +15,21 @@
  */
 
 import type { IUniverSheetsUIConfig } from '../../config/config';
-import type { IScrollState } from './sheet-bar-tabs/utils/slide-tab-bar';
-import { DEFAULT_WORKSHEET_COLUMN_COUNT, DEFAULT_WORKSHEET_ROW_COUNT, ICommandService, IPermissionService, throttle } from '@univerjs/core';
+import type { IScrollState } from '../../services/sheet-bar/type';
+import {
+    DEFAULT_WORKSHEET_COLUMN_COUNT,
+    DEFAULT_WORKSHEET_ROW_COUNT,
+    ICommandService,
+    IPermissionService,
+    throttle,
+} from '@univerjs/core';
 import { IncreaseIcon, MoreIcon } from '@univerjs/icons';
 import { InsertSheetCommand, WorkbookCreateSheetPermission, WorkbookEditablePermission } from '@univerjs/sheets';
 import { useConfigValue, useDependency, useObservable } from '@univerjs/ui';
 import { useEffect, useState } from 'react';
-import { useActiveWorkbook } from '../../components/hook';
 import { SHEETS_UI_PLUGIN_CONFIG_KEY } from '../../config/config';
 import { ISheetBarService } from '../../services/sheet-bar/sheet-bar.service';
+import { useActiveWorkbook } from '../hook';
 import { SheetBarButton } from './sheet-bar-button/SheetBarButton';
 import { SheetBarMenu } from './sheet-bar-menu/SheetBarMenu';
 import { SheetBarTabs } from './sheet-bar-tabs/SheetBarTabs';
@@ -61,7 +67,7 @@ export const SheetBar = () => {
         return () => {
             subscription.unsubscribe();
         };
-    }, []);
+    }, [sheetBarService.scroll$]);
 
     // Complete the _addSheet, handleScrollLeft, and handleScrollRight functions
     const addSheet = () => {

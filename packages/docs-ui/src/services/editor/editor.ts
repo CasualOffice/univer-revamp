@@ -14,12 +14,27 @@
  * limitations under the License.
  */
 
-import type { DocumentDataModel, ICommandService, IDocumentData, IDocumentStyle, Injector, IPosition, IUndoRedoService, IUniverInstanceService, Nullable } from '@univerjs/core';
+import type {
+    DocumentDataModel,
+    ICommandService,
+    IDocumentData,
+    IDocumentStyle,
+    Injector,
+    IPosition,
+    IUndoRedoService,
+    IUniverInstanceService,
+    Nullable,
+} from '@univerjs/core';
 import type { DocSelectionManagerService } from '@univerjs/docs';
-import type { IDocSelectionInnerParam, IRender, ISuccinctDocRangeParam, ITextRangeWithStyle } from '@univerjs/engine-render';
+import type {
+    IDocSelectionInnerParam,
+    IRender,
+    ISuccinctDocRangeParam,
+    ITextRangeWithStyle,
+} from '@univerjs/engine-render';
 import type { Observable } from 'rxjs';
 import type { IEditorInputConfig } from '../selection/doc-selection-render.service';
-import { Disposable, isInternalEditorID, UniverInstanceType } from '@univerjs/core';
+import { createParagraphId, Disposable, isInternalEditorID, UniverInstanceType } from '@univerjs/core';
 import { DocSkeletonManagerService } from '@univerjs/docs';
 import { IRenderManagerService } from '@univerjs/engine-render';
 import { KeyCode } from '@univerjs/ui';
@@ -84,6 +99,7 @@ export interface IEditorStateParams extends Partial<IPosition> {
 
 export interface IEditorCanvasStyle {
     fontSize?: number;
+    backgroundColor?: string;
 }
 
 export interface IEditorConfigParams {
@@ -330,6 +346,7 @@ export class Editor extends Disposable implements IEditor {
                     dataStream: `${text}\r\n`,
                     paragraphs: [{
                         startIndex: 0,
+                        paragraphId: createParagraphId(new Set()),
                     }],
                     customRanges: [],
                     sectionBreaks: [],

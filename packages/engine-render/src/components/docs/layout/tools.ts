@@ -39,7 +39,6 @@ import type {
     ISkeletonResourceReference,
 } from '../../../basics/i-document-skeleton-cached';
 import type { IDocsConfig, IParagraphConfig, ISectionBreakConfig } from '../../../basics/interfaces';
-
 import type { DataStreamTreeNode } from '../view-model/data-stream-tree-node';
 import type { DocumentViewModel } from '../view-model/document-view-model';
 import type { Hyphen } from './hyphenation/hyphen';
@@ -54,6 +53,9 @@ import {
     GridType,
     HorizontalAlign,
     mergeWith,
+    MODERN_DOCUMENT_DEFAULT_MARGIN,
+    MODERN_DOCUMENT_WIDTH,
+    ModernDocumentWidthMode,
     NAMED_STYLE_MAP,
     NumberUnitType,
     ObjectMatrix,
@@ -67,7 +69,7 @@ import {
 } from '@univerjs/core';
 import { DEFAULT_DOCUMENT_FONTSIZE } from '../../../basics/const';
 import { GlyphType } from '../../../basics/i-document-skeleton-cached';
-import { getFontStyleString, isFunction, ptToPixel } from '../../../basics/tools';
+import { getFontStyleString, isFunction } from '../../../basics/tools';
 import { updateInlineDrawingPosition } from './block/paragraph/layout-ruler';
 import { getCustomDecorationStyle } from './style/custom-decoration';
 import { getCustomRangeStyle } from './style/custom-range';
@@ -250,6 +252,10 @@ export function getNumberUnitValue(unitValue: Nullable<INumberUnit>, benchMark: 
 
     const { v: value, u: unit } = unitValue;
 
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+        return 0;
+    }
+
     if (!unit) {
         return value;
     }
@@ -287,17 +293,27 @@ export function validationGrid(gridType = GridType.LINES, snapToGrid = BooleanNu
 }
 
 export function getLineHeightConfig(sectionBreakConfig: ISectionBreakConfig, paragraphConfig: IParagraphConfig) {
-    const { paragraphStyle = {} } = paragraphConfig;
+    const { paragraphStyle = {}, useWordStyleLineHeight = false } = paragraphConfig;
     const { linePitch = 15.6, gridType = GridType.LINES, paragraphLineGapDefault = 0 } = sectionBreakConfig;
-    const { lineSpacing = 0, spacingRule = SpacingRule.AUTO, snapToGrid = BooleanNumber.TRUE } = paragraphStyle;
+    const hasDocumentGrid = gridType === GridType.LINES_AND_CHARS || gridType === GridType.SNAP_TO_CHARS;
+    const defaultSnapToGrid = useWordStyleLineHeight && !hasDocumentGrid ? BooleanNumber.FALSE : BooleanNumber.TRUE;
+    const { lineSpacing = 0, spacingRule = SpacingRule.AUTO, snapToGrid = defaultSnapToGrid } = paragraphStyle;
 
-    // The default line spacing in Word is 1. Here, if the lines layout is used, the default line spacing is set to 1.
+    // Flavored docs use Word-style single spacing by default.
+    // Embedded sheet/slides documents keep the legacy grid-based fallback.
     let lineSpacingApply = lineSpacing;
-    if ((gridType === GridType.LINES || gridType === GridType.LINES_AND_CHARS) && lineSpacing === 0 && spacingRule === SpacingRule.AUTO) {
+    if (useWordStyleLineHeight && lineSpacing === 0 && spacingRule === SpacingRule.AUTO) {
+        lineSpacingApply = 1;
+    } else if (
+        !useWordStyleLineHeight &&
+        (gridType === GridType.LINES || gridType === GridType.LINES_AND_CHARS) &&
+        lineSpacing === 0 &&
+        spacingRule === SpacingRule.AUTO
+    ) {
         lineSpacingApply = 1;
     }
 
-    return { paragraphLineGapDefault, linePitch, gridType, lineSpacing: lineSpacingApply, spacingRule, snapToGrid };
+    return { paragraphLineGapDefault, linePitch, gridType, lineSpacing: lineSpacingApply, spacingRule, snapToGrid, useWordStyleLineHeight };
 }
 
 export function getCharSpaceConfig(sectionBreakConfig: ISectionBreakConfig, paragraphConfig: IParagraphConfig) {
@@ -629,12 +645,9 @@ export function getPositionHorizon(
                 return absoluteLeft;
             }
         }
-    } else if (posOffset) {
-        const { pageWidth, marginLeft, marginRight } = page;
-        const boundaryLeft = marginLeft;
-        const boundaryRight = pageWidth - marginRight;
-
+    } else if (posOffset != null) {
         let absoluteLeft = 0;
+        const { marginLeft } = page;
         if (relativeFrom === ObjectRelativeFromH.COLUMN) {
             absoluteLeft = (isPageBreak ? 0 : column?.left || 0) + posOffset;
         } else if (relativeFrom === ObjectRelativeFromH.LEFT_MARGIN) {
@@ -651,9 +664,6 @@ export function getPositionHorizon(
             absoluteLeft = posOffset;
         }
 
-        if (absoluteLeft + objectWidth > boundaryRight) {
-            absoluteLeft = boundaryRight - objectWidth;
-        }
         return absoluteLeft;
     } else if (percent) {
         const { pageWidth, marginLeft, marginRight } = page;
@@ -815,7 +825,7 @@ function getBulletParagraphTextStyle(bullet: IBullet, viewModel: DocumentViewMod
     const { listType } = bullet;
     const lists = viewModel.getDataModel().getBulletPresetList();
 
-    return lists[listType].nestingLevel[0].paragraphProperties?.textStyle;
+    return lists[listType]?.nestingLevel?.[0]?.paragraphProperties?.textStyle;
 }
 
 const DEFAULT_TEXT_RUN = { ts: {}, st: 0, ed: 0 };
@@ -934,6 +944,7 @@ export interface IFloatObject {
     width: number;
     height: number;
     angle: number;
+    behindDoc?: BooleanNumber;
     type: FloatObjectType;
     positionV: IObjectPositionV;
 }
@@ -988,13 +999,13 @@ export const DEFAULT_PAGE_SIZE = { width: Number.POSITIVE_INFINITY, height: Numb
 const DEFAULT_MODERN_DOCUMENT_STYLE: IDocumentStyle = {
     pageNumberStart: 1,
     pageSize: {
-        width: ptToPixel(595),
+        width: MODERN_DOCUMENT_WIDTH[ModernDocumentWidthMode.MEDIUM],
         height: Number.POSITIVE_INFINITY,
     },
-    marginTop: ptToPixel(50),
-    marginBottom: ptToPixel(50),
-    marginRight: ptToPixel(50),
-    marginLeft: ptToPixel(50),
+    marginTop: MODERN_DOCUMENT_DEFAULT_MARGIN,
+    marginBottom: MODERN_DOCUMENT_DEFAULT_MARGIN,
+    marginRight: MODERN_DOCUMENT_DEFAULT_MARGIN,
+    marginLeft: MODERN_DOCUMENT_DEFAULT_MARGIN,
     renderConfig: {
         vertexAngle: 0,
         centerAngle: 0,
@@ -1030,8 +1041,14 @@ export function prepareSectionBreakConfig(ctx: ILayoutContext, nodeIndex: number
     // If the configuration is in modern mode, use the style configuration of modern mode to overwrite the original configuration.
     // In modern mode, there are no pages, no sections, no columns. There are no headers and footers, and margins are all defaults.
     if (documentFlavor === DocumentFlavor.MODERN) {
+        const modernPageWidth = documentStyle.pageSize?.width ?? DEFAULT_MODERN_DOCUMENT_STYLE.pageSize!.width;
         sectionBreak = Object.assign({}, sectionBreak, DEFAULT_MODERN_SECTION_BREAK);
-        documentStyle = Object.assign({}, documentStyle, DEFAULT_MODERN_DOCUMENT_STYLE);
+        documentStyle = Object.assign({}, documentStyle, DEFAULT_MODERN_DOCUMENT_STYLE, {
+            pageSize: {
+                ...DEFAULT_MODERN_DOCUMENT_STYLE.pageSize!,
+                width: modernPageWidth,
+            },
+        });
     }
 
     const {

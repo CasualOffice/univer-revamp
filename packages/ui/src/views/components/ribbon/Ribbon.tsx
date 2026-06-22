@@ -71,6 +71,10 @@ export function Ribbon(props: IRibbonProps) {
         return ribbonData;
     }, [ribbonType, ribbonData]);
 
+    const activatedTabTitle = useMemo(() => {
+        return ribbon.find((group) => group.key === activatedTab)?.title || activatedTab;
+    }, [ribbon, activatedTab]);
+
     const handleSelectTab = useCallback((group: IMenuSchema) => {
         toolbarItemRefs.current = {};
         ribbonService.setActivatedTab(group.key);
@@ -164,7 +168,12 @@ export function Ribbon(props: IRibbonProps) {
             >
                 {activeGroup.allGroups.map((groupItem, index) => (groupItem.children?.length || groupItem.item) && (
                     <Fragment key={groupItem.key}>
-                        <div className="univer-grid univer-shrink-0 univer-grid-flow-col univer-gap-2 univer-px-2">
+                        <div
+                            className="
+                              univer-grid univer-shrink-0 univer-grid-flow-col univer-gap-2 univer-px-2
+                              empty:univer-hidden
+                            "
+                        >
                             {groupItem.children && groupItem.children?.map((child) => (
                                 child.item && (
                                     <ToolbarItem
@@ -199,7 +208,7 @@ export function Ribbon(props: IRibbonProps) {
                     'univer-h-9': ribbonType === 'classic' || (headerMenuComponents && headerMenuComponents.size > 0),
                 })}
             >
-                {ribbonType === 'classic' && ribbon.length > 1 && (
+                {ribbonType === 'classic' && ribbon.length >= 1 && (
                     <ClassicMenu
                         ribbon={ribbon}
                         activatedTab={activatedTab}
@@ -227,12 +236,11 @@ export function Ribbon(props: IRibbonProps) {
                   univer-box-border univer-grid univer-h-10 univer-grid-flow-col univer-items-center univer-px-3
                   univer-text-sm
                 `, {
-                    'univer-grid-cols-[1fr] univer-justify-center': ribbonType === 'classic',
+                    'univer-grid-cols-[1fr] univer-justify-center': ribbonType === 'classic' || ribbon.length === 1,
                     'univer-grid-cols-[auto,1fr]': ribbon.length > 1 && ribbonType !== 'classic',
-                    'univer-grid-cols-none': ribbon.length === 1,
                 }, borderBottomClassName)}
             >
-                {ribbonType === 'collapsed' && ribbon.length > 1 && (
+                {ribbonType === 'collapsed' && ribbon.length >= 1 && (
                     <DefaultMenu
                         ribbon={ribbon}
                         activatedTab={activatedTab}
@@ -247,11 +255,16 @@ export function Ribbon(props: IRibbonProps) {
                         'univer-justify-center': ribbonType === 'classic',
                     })}
                     role="toolbar"
-                    aria-label={localeService.t(activatedTab)}
+                    aria-label={localeService.t(activatedTabTitle)}
                 >
                     {activeGroup.visibleGroups.map((groupItem) => (groupItem.children?.length || groupItem.item) && (
                         <Fragment key={groupItem.key}>
-                            <div className="univer-grid univer-shrink-0 univer-grid-flow-col univer-gap-2 univer-px-2">
+                            <div
+                                className="
+                                  univer-grid univer-shrink-0 univer-grid-flow-col univer-gap-2 univer-px-2
+                                  empty:univer-hidden
+                                "
+                            >
                                 {groupItem.children && groupItem.children?.map((child) => (
                                     child.item && <ToolbarItem key={child.key} {...child.item} />
                                 ))}
@@ -300,7 +313,7 @@ export function Ribbon(props: IRibbonProps) {
                                 <button
                                     type="button"
                                     className={toolbarButtonClassName}
-                                    aria-label={localeService.t('ribbon.more')}
+                                    aria-label={localeService.t('ui.ribbon.more')}
                                     aria-haspopup="true"
                                 >
                                     <MoreFunctionIcon />

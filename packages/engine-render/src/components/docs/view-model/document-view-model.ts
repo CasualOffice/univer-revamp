@@ -14,7 +14,19 @@
  * limitations under the License.
  */
 
-import type { DocumentDataModel, ICustomBlock, ICustomDecorationForInterceptor, ICustomRangeForInterceptor, ICustomTable, IDisposable, IParagraph, ISectionBreak, ITable, ITextRun, Nullable } from '@univerjs/core';
+import type {
+    DocumentDataModel,
+    ICustomBlock,
+    ICustomDecorationForInterceptor,
+    ICustomRangeForInterceptor,
+    ICustomTable,
+    IDisposable,
+    IParagraph,
+    ISectionBreak,
+    ITable,
+    ITextRun,
+    Nullable,
+} from '@univerjs/core';
 import { DataStreamTreeNodeType, DataStreamTreeTokenType, toDisposable } from '@univerjs/core';
 import { BehaviorSubject } from 'rxjs';
 import { DataStreamTreeNode } from './data-stream-tree-node';
@@ -72,6 +84,18 @@ export function parseDataStreamToTree(dataStream: string, tables?: ICustomTable[
     const tableRowList: DataStreamTreeNode[] = [];
     const tableCellList: DataStreamTreeNode[] = [];
     const currentBlocks: number[] = [];
+
+    const getParagraphList = () => tableCellList.length > 0 ? cellParagraphList : paragraphList;
+    const appendToPreviousParagraph = (char: string) => {
+        const tempParagraphList = getParagraphList();
+        const lastParagraph = tempParagraphList[tempParagraphList.length - 1];
+        if (lastParagraph) {
+            lastParagraph.content = `${lastParagraph.content ?? ''}${char}`;
+            return true;
+        }
+
+        return false;
+    };
 
     for (let i = 0; i < dataStreamLen; i++) {
         const char = dataStream[i];
@@ -164,6 +188,12 @@ export function parseDataStreamToTree(dataStream: string, tables?: ICustomTable[
             const lastRow = tableRowList[tableRowList.length - 1];
 
             batchParent(lastRow, [cellNode!], DataStreamTreeNodeType.TABLE_ROW);
+        } else if (char === DataStreamTreeTokenType.BLOCK_START) {
+            content += char;
+        } else if (char === DataStreamTreeTokenType.BLOCK_END) {
+            if (content.length > 0 || !appendToPreviousParagraph(char)) {
+                content += char;
+            }
         } else if (char === DataStreamTreeTokenType.CUSTOM_BLOCK) {
             currentBlocks.push(i);
             content += char;

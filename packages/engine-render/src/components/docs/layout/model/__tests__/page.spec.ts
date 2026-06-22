@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
-import { BooleanNumber, ColumnSeparatorType, PageOrientType } from '@univerjs/core';
+import {
+    BooleanNumber,
+    ColumnSeparatorType,
+    DocumentBlockRangeType,
+    PageOrientType,
+    PositionedObjectLayoutType,
+} from '@univerjs/core';
 import { describe, expect, it, vi } from 'vitest';
 import { DocumentSkeletonPageType } from '../../../../../basics/i-document-skeleton-cached';
-
 import {
     createNullCellPage,
     createSkeletonCellPages,
     createSkeletonPage,
+    expandCellPageHeightForInlineDrawings,
 } from '../page';
 
 const dealWithSectionMock = vi.fn();
@@ -122,6 +128,8 @@ describe('page model', () => {
         expect(firstPage.footerId).toBe('f-first');
         expect(firstPage.pageWidth).toBe(200);
         expect(firstPage.pageHeight).toBe(300);
+        expect(firstPage.marginTop).toBe(12);
+        expect(firstPage.marginBottom).toBe(14);
         expect(firstPage.sections.length).toBeGreaterThan(0);
         expect(skeletonResourceReference.skeHeaders.get('h-first')?.has(200)).toBe(true);
         expect(skeletonResourceReference.skeFooters.get('f-first')?.has(200)).toBe(true);
@@ -129,6 +137,71 @@ describe('page model', () => {
         const evenPage = createSkeletonPage(ctx, sectionBreakConfig, skeletonResourceReference, 2);
         expect(evenPage.headerId).toBe('h-even');
         expect(evenPage.footerId).toBe('f-even');
+    });
+
+    it('does not create negative-width columns for oversized single-column section properties', () => {
+        const skeletonResourceReference = createSkeletonResourceReference();
+        const ctx = {
+            layoutStartPointer: {},
+            skeletonResourceReference,
+            isDirty: false,
+        } as any;
+
+        const page = createSkeletonPage(
+            ctx,
+            {
+                pageNumberStart: 1,
+                pageSize: { width: 816, height: 1056 },
+                marginLeft: 120,
+                marginRight: 120,
+                marginTop: 96,
+                marginBottom: 96,
+                headerTreeMap: new Map(),
+                footerTreeMap: new Map(),
+                columnProperties: [{ width: 624, paddingEnd: 720 }],
+                columnSeparatorType: ColumnSeparatorType.NONE,
+            } as any,
+            skeletonResourceReference,
+            1
+        );
+
+        expect(page.sections[0].columns.map((column) => column.width)).toEqual([576]);
+    });
+
+    it('keeps every oversized DOCX multi-column section usable after fitting gaps', () => {
+        const skeletonResourceReference = createSkeletonResourceReference();
+        const ctx = {
+            layoutStartPointer: {},
+            skeletonResourceReference,
+            isDirty: false,
+        } as any;
+
+        const page = createSkeletonPage(
+            ctx,
+            {
+                pageNumberStart: 1,
+                pageSize: { width: 793.7333333333332, height: 1122.5333333333333 },
+                marginLeft: 48,
+                marginRight: 48,
+                marginTop: 48,
+                marginBottom: 48,
+                headerTreeMap: new Map(),
+                footerTreeMap: new Map(),
+                columnProperties: [
+                    { width: 201.06666666666663, paddingEnd: 709 },
+                    { width: 201.06666666666663, paddingEnd: 709 },
+                    { width: 201.06666666666663, paddingEnd: 0 },
+                ],
+                columnSeparatorType: ColumnSeparatorType.NONE,
+            } as any,
+            skeletonResourceReference,
+            1
+        );
+
+        const columns = page.sections[0].columns;
+        expect(columns).toHaveLength(3);
+        expect(columns.every((column) => column.width > 0)).toBe(true);
+        expect(columns.at(-1)!.left + columns.at(-1)!.width).toBeLessThanOrEqual(697.7333333333332);
     });
 
     it('creates null cell page and skeleton cell pages', () => {
@@ -209,5 +282,171 @@ describe('page model', () => {
         expect(pages[0].segmentId).toBe('table-1');
         expect(updateBlockIndexMock).toHaveBeenCalled();
         expect(updateInlineDrawingCoordsAndBorderMock).toHaveBeenCalled();
+    });
+
+    it('shrinks default cell margins for extremely narrow table columns', () => {
+        const ctx = {
+            layoutStartPointer: {},
+            skeletonResourceReference: createSkeletonResourceReference(),
+            isDirty: false,
+        } as any;
+        const sectionBreakConfig = {
+            lists: [],
+            localeService: {} as any,
+            drawings: {},
+            pageSize: { width: 300, height: 200 },
+            headerTreeMap: new Map(),
+            footerTreeMap: new Map(),
+        } as any;
+        const tableConfig = {
+            tableId: 'narrow-table',
+            tableRows: [{ tableCells: [{}] }],
+            tableColumns: [{ size: { width: { v: 0.8 } } }],
+        } as any;
+
+        const { page, sectionBreakConfig: cellSectionBreakConfig } = createNullCellPage(
+            ctx,
+            sectionBreakConfig,
+            tableConfig,
+            0,
+            0
+        );
+
+        expect(page.pageWidth).toBe(0.8);
+        expect(cellSectionBreakConfig.marginLeft! + cellSectionBreakConfig.marginRight!).toBeLessThan(page.pageWidth);
+        expect(page.sections[0].columns[0].width).toBeGreaterThan(0);
+    });
+
+    it('adds trailing block range spacing to table cell height when the block range is the last cell element', () => {
+        dealWithSectionMock.mockImplementation((_ctx: any, _vm: any, _node: any, areaPage: any) => ({
+            pages: [{
+                ...areaPage,
+                height: 20,
+                sections: [
+                    {
+                        columns: [
+                            {
+                                lines: [{ paragraphIndex: 12, spaceBelowApply: 28 }],
+                            },
+                        ],
+                    },
+                ],
+                skeDrawings: new Map(),
+                skeTables: new Map(),
+            }],
+        }));
+
+        const ctx = {
+            dataModel: {
+                getBody: () => ({
+                    blockRanges: [{ blockId: 'callout-1', blockType: DocumentBlockRangeType.CALLOUT, startIndex: 10, endIndex: 14 }],
+                    paragraphs: [{ startIndex: 12, paragraphId: 'para_page_header' }],
+                }),
+            },
+            layoutStartPointer: {},
+            skeletonResourceReference: createSkeletonResourceReference(),
+            isDirty: false,
+        } as any;
+        const pages = createSkeletonCellPages(
+            ctx,
+            {} as any,
+            { startIndex: 9, endIndex: 16, children: [{}] } as any,
+            {
+                columnProperties: [],
+                columnSeparatorType: ColumnSeparatorType.NONE,
+                sectionType: 0,
+                startIndex: 0,
+            } as any,
+            {
+                tableId: 'table-1',
+                tableRows: [{ tableCells: [{}] }],
+                tableColumns: [{ size: { width: { v: 80 } } }],
+            } as any,
+            0,
+            0
+        );
+
+        expect(pages[0].height).toBe(48);
+    });
+
+    it('expands table cell height to include inline drawings', () => {
+        const page = {
+            height: 20,
+            skeDrawings: new Map([
+                ['shape-1', {
+                    aTop: 6,
+                    height: 48,
+                    drawingOrigin: {
+                        layoutType: PositionedObjectLayoutType.INLINE,
+                    },
+                }],
+                ['float-1', {
+                    aTop: 10,
+                    height: 100,
+                    drawingOrigin: {
+                        layoutType: PositionedObjectLayoutType.WRAP_SQUARE,
+                    },
+                }],
+            ]),
+        };
+
+        expandCellPageHeightForInlineDrawings([page as never]);
+
+        expect(page.height).toBe(54);
+    });
+
+    it('does not add trailing block range spacing when content follows in the cell', () => {
+        dealWithSectionMock.mockImplementation((_ctx: any, _vm: any, _node: any, areaPage: any) => ({
+            pages: [{
+                ...areaPage,
+                height: 20,
+                sections: [
+                    {
+                        columns: [
+                            {
+                                lines: [{ paragraphIndex: 12, spaceBelowApply: 28 }],
+                            },
+                        ],
+                    },
+                ],
+                skeDrawings: new Map(),
+                skeTables: new Map(),
+            }],
+        }));
+
+        const ctx = {
+            dataModel: {
+                getBody: () => ({
+                    blockRanges: [{ blockId: 'callout-1', blockType: DocumentBlockRangeType.CALLOUT, startIndex: 10, endIndex: 14 }],
+                    paragraphs: [
+                        { startIndex: 12, paragraphId: 'para_page_header_1' },
+                        { startIndex: 15, paragraphId: 'para_page_header_2' },
+                    ],
+                }),
+            },
+            layoutStartPointer: {},
+            skeletonResourceReference: createSkeletonResourceReference(),
+            isDirty: false,
+        } as any;
+        const pages = createSkeletonCellPages(
+            ctx,
+            {} as any,
+            { startIndex: 9, endIndex: 16, children: [{}] } as any,
+            {
+                columnProperties: [],
+                columnSeparatorType: ColumnSeparatorType.NONE,
+                sectionType: 0,
+                startIndex: 0,
+            } as any,
+            {
+                tableId: 'table-1',
+                tableRows: [{ tableCells: [{}] }],
+                tableColumns: [{ size: { width: { v: 80 } } }],
+            } as any,
+            0,
+            0
+        );
+
+        expect(pages[0].height).toBe(20);
     });
 });

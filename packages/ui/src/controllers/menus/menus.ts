@@ -16,8 +16,14 @@
 
 import type { IAccessor } from '@univerjs/core';
 import type { IMenuButtonItem } from '../../services/menu/menu';
-import { EDITOR_ACTIVATED, FOCUSING_FX_BAR_EDITOR, IContextService, IUndoRedoService, RedoCommand, UndoCommand } from '@univerjs/core';
-
+import {
+    EDITOR_ACTIVATED,
+    FOCUSING_FX_BAR_EDITOR,
+    IContextService,
+    IUndoRedoService,
+    RedoCommand,
+    UndoCommand,
+} from '@univerjs/core';
 import { combineLatest, merge, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { MenuItemType } from '../../services/menu/menu';
@@ -40,7 +46,7 @@ export function UndoMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
         type: MenuItemType.BUTTON,
         icon: 'UndoIcon',
         title: 'Undo',
-        tooltip: 'toolbar.undo',
+        tooltip: 'ui.shortcut.undo',
         disabled$: undoRedoDisableFactory$(accessor, true),
     };
 }
@@ -51,7 +57,7 @@ export function RedoMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
         type: MenuItemType.BUTTON,
         icon: 'RedoIcon',
         title: 'Redo',
-        tooltip: 'toolbar.redo',
+        tooltip: 'ui.shortcut.redo',
         disabled$: undoRedoDisableFactory$(accessor, false),
     };
 }

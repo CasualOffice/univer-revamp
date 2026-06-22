@@ -42,6 +42,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CalculationMode, PLUGIN_CONFIG_KEY_BASE } from '../../config/config';
 import { createFacadeTestBed } from '../../facade/__tests__/create-test-bed';
+import { FormulaCalculationSessionService } from '../../services/formula-calculation-session.service';
+import { FormulaCalculationSessionController } from '../formula-calculation-session.controller';
 import { TriggerCalculationController } from '../trigger-calculation.controller';
 
 function createWorkbookData(): IWorkbookData {
@@ -72,6 +74,8 @@ function createControllerTestBed() {
     const dependencies: Dependency[] = [
         [IActiveDirtyManagerService, { useClass: ActiveDirtyManagerService }],
         [RegisterOtherFormulaService],
+        [FormulaCalculationSessionService],
+        [FormulaCalculationSessionController],
         [TriggerCalculationController],
     ];
 
@@ -118,6 +122,7 @@ function createControllerTestBed() {
         });
     });
 
+    injector.get(FormulaCalculationSessionController);
     const controller = injector.get(TriggerCalculationController);
 
     return {
@@ -185,7 +190,7 @@ describe('TriggerCalculationController', () => {
                     { unitId: 'test', sheetId: 'sheet1', range: { startRow: 0, startColumn: 0, endRow: 1, endColumn: 1 } },
                 ],
                 dirtyNameMap: { test: { sheet1: '1' } },
-                dirtyDefinedNameMap: { test: { sheet1: '1' } },
+                dirtyDefinedNameMap: { test: { definedNameA: '1' } },
                 dirtyUnitFeatureMap: { test: { sheet1: { featureA: true } } },
                 dirtyUnitOtherFormulaMap: { test: { sheet1: { formulaA: true } } },
                 clearDependencyTreeCache: { test: { sheet1: '1' } },
@@ -229,7 +234,7 @@ describe('TriggerCalculationController', () => {
                     { unitId: 'test', sheetId: 'sheet1', range: { startRow: 2, startColumn: 0, endRow: 3, endColumn: 1 } },
                 ],
                 dirtyNameMap: { test: { sheet1: '1' } },
-                dirtyDefinedNameMap: { test: { sheet1: '1' } },
+                dirtyDefinedNameMap: { test: { definedNameA: '1' } },
                 dirtyUnitFeatureMap: { test: { sheet1: { featureA: true, featureB: false } } },
                 dirtyUnitOtherFormulaMap: { test: { sheet1: { formulaA: true } } },
                 clearDependencyTreeCache: { test: { sheet1: '1' } },
@@ -337,11 +342,11 @@ describe('TriggerCalculationController', () => {
             functionsExecutedState: FormulaExecutedStateType.SUCCESS,
         });
 
-        expect(progressValues).toContainEqual({ done: 0, count: 1, label: 'formula.progress.analyzing' });
-        expect(progressValues).toContainEqual({ done: 3, count: 8, label: 'formula.progress.calculating' });
-        expect(progressValues).toContainEqual({ done: 3, count: 8, label: 'formula.progress.array-analysis' });
-        expect(progressValues).toContainEqual({ done: 6, count: 8, label: 'formula.progress.array-calculation' });
-        expect(progressValues).toContainEqual({ done: 1, count: 1, label: 'formula.progress.done' });
+        expect(progressValues).toContainEqual({ done: 0, count: 1, label: 'sheets-formula.progress.analyzing' });
+        expect(progressValues).toContainEqual({ done: 3, count: 8, label: 'sheets-formula.progress.calculating' });
+        expect(progressValues).toContainEqual({ done: 3, count: 8, label: 'sheets-formula.progress.array-analysis' });
+        expect(progressValues).toContainEqual({ done: 6, count: 8, label: 'sheets-formula.progress.array-calculation' });
+        expect(progressValues).toContainEqual({ done: 1, count: 1, label: 'sheets-formula.progress.done' });
 
         subscription.unsubscribe();
         testBed.executedDisposable.dispose();

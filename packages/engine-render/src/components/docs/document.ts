@@ -14,9 +14,14 @@
  * limitations under the License.
  */
 
-import type { IDocumentRenderConfig, IScale, ITableCellBorder, Nullable } from '@univerjs/core';
-
-import type { IDocumentSkeletonGlyph, IDocumentSkeletonLine, IDocumentSkeletonPage, IDocumentSkeletonRow, IDocumentSkeletonTable } from '../../basics/i-document-skeleton-cached';
+import type { IDocumentRenderConfig, IScale, ITableCell, ITableCellBorder, Nullable } from '@univerjs/core';
+import type {
+    IDocumentSkeletonGlyph,
+    IDocumentSkeletonLine,
+    IDocumentSkeletonPage,
+    IDocumentSkeletonRow,
+    IDocumentSkeletonTable,
+} from '../../basics/i-document-skeleton-cached';
 import type { Transform } from '../../basics/transform';
 import type { IBoundRectNoAngle, IViewportInfo } from '../../basics/vector2';
 import type { UniverRenderingContext } from '../../context';
@@ -24,25 +29,30 @@ import type { Scene } from '../../scene';
 import type { ComponentExtension, IDrawInfo, IExtensionConfig } from '../extension';
 import type { IDocumentsConfig, IPageMarginLayout } from './doc-component';
 import type { DocumentSkeleton } from './layout/doc-skeleton';
-import { CellValueType, HorizontalAlign, VerticalAlign, WrapStrategy } from '@univerjs/core';
+import type { IDocsTableRenderViewport } from './table-render-viewport';
+import { CellValueType, DashStyleType, HorizontalAlign, VerticalAlign, WrapStrategy } from '@univerjs/core';
 import { Subject } from 'rxjs';
 import { BORDER_TYPE as BORDER_LTRB, drawLineByBorderType } from '../../basics';
 import { calculateRectRotate, getRotateOffsetAndFarthestHypotenuse } from '../../basics/draw';
 import { LineType } from '../../basics/i-document-skeleton-cached';
 import { VERTICAL_ROTATE_ANGLE } from '../../basics/text-rotation';
-import { degToRad } from '../../basics/tools';
+import { degToRad, fixLineWidthByScale } from '../../basics/tools';
 import { Vector2 } from '../../basics/vector2';
 import { DocumentsSpanAndLineExtensionRegistry } from '../extension';
 import { DocComponent } from './doc-component';
 import { DOCS_EXTENSION_TYPE } from './doc-extension';
+import { collectBackgroundGlyphRuns } from './extensions/background-runs';
+import { getTableIdAndSliceIndex } from './layout/block/table';
 import { Liquid } from './liquid';
+import { getDocsTableRenderViewport, hasDocsTableHorizontalViewport } from './table-render-viewport';
 import './extensions';
 
 const DEFAULT_BORDER_COLOR: ITableCellBorder = {
     color: {
-        rgb: '#dee0e3',
+        rgb: '#c7c9cc',
     },
 };
+const TABLE_VIEWPORT_BORDER_CLIP_PADDING = 2;
 
 export interface IPageRenderConfig {
     page: IDocumentSkeletonPage;
@@ -367,37 +377,16 @@ export class Documents extends DocComponent {
                                 this._drawLiquid.translateSave();
                                 this._drawLiquid.translateDivide(divide, isVertical && wrapStrategy === WrapStrategy.WRAP, verticalAlign, rotatedHeightStore);
 
-                                // Draw text background.
-                                for (const glyph of glyphGroup) {
-                                    if (!glyph.content || glyph.content.length === 0) {
-                                        continue;
-                                    }
-
-                                    const { width: spanWidth, left: spanLeft } = glyph;
-
-                                    const { x: translateX, y: translateY } = this._drawLiquid;
-
-                                    const originTranslate = Vector2.create(translateX, translateY);
-
-                                    const centerPoint = Vector2.create(spanWidth / 2, lineHeight / 2);
-
-                                    const spanStartPoint = calculateRectRotate(
-                                        originTranslate.addByPoint(spanLeft, 0),
-                                        centerPoint,
-                                        centerAngle,
-                                        vertexAngle,
-                                        alignOffset
-                                    );
-
-                                    const extensionOffset: IExtensionConfig = {
-                                        spanStartPoint,
-                                    };
-
-                                    if (backgroundExtension) {
-                                        backgroundExtension.extensionOffset = extensionOffset;
-                                        backgroundExtension.draw(ctx, parentScale, glyph);
-                                    }
-                                }
+                                this._drawGlyphGroupBackgrounds(
+                                    ctx,
+                                    parentScale,
+                                    glyphGroup,
+                                    lineHeight,
+                                    alignOffset,
+                                    centerAngle,
+                                    vertexAngle,
+                                    backgroundExtension
+                                );
 
                                 // Draw text\border\lines etc.
                                 for (const glyph of glyphGroup) {
@@ -520,20 +509,51 @@ export class Documents extends DocComponent {
         renderConfig: IDocumentRenderConfig,
         parentScale: IScale
     ) {
-        for (const [_tableId, tableSkeleton] of skeTables) {
+        const drawLiquid = this._drawLiquid;
+        if (drawLiquid == null) {
+            return;
+        }
+
+        const renderUnitId = this._getRenderUnitId();
+
+        for (const [tableId, tableSkeleton] of skeTables) {
             const { top: tableTop, left: tableLeft, rows } = tableSkeleton;
-            this._drawLiquid?.translateSave();
-            this._drawLiquid?.translate(tableLeft, tableTop);
+            const sourceTableId = getTableIdAndSliceIndex(tableId).tableId;
+            const viewport = this._getTableViewport(page, tableSkeleton, renderUnitId, sourceTableId);
+            drawLiquid.translateSave();
+            drawLiquid.translate(tableLeft, tableTop);
+
+            if (hasDocsTableHorizontalViewport(viewport)) {
+                const { x, y } = drawLiquid;
+                const clipLeft = x + page.marginLeft - (viewport.leadingInsetLeft ?? 0);
+                ctx.save();
+                ctx.beginPath();
+                ctx.rectByPrecision(
+                    clipLeft - TABLE_VIEWPORT_BORDER_CLIP_PADDING,
+                    y + page.marginTop - TABLE_VIEWPORT_BORDER_CLIP_PADDING,
+                    viewport.viewportWidth + TABLE_VIEWPORT_BORDER_CLIP_PADDING * 2,
+                    tableSkeleton.height + TABLE_VIEWPORT_BORDER_CLIP_PADDING * 2
+                );
+                ctx.closePath();
+                ctx.clip();
+                drawLiquid.translate(-viewport.scrollLeft, 0);
+            }
+
+            this._drawTableCellBackgrounds(ctx, page, tableSkeleton);
 
             for (const row of rows) {
                 const { top: rowTop, cells } = row;
-                this._drawLiquid?.translateSave();
-                this._drawLiquid?.translate(0, rowTop);
+                drawLiquid.translateSave();
+                drawLiquid.translate(0, rowTop);
 
                 for (const cell of cells) {
+                    if ((cell as IDocumentSkeletonPage & { isMergedCellCovered?: boolean }).isMergedCellCovered) {
+                        continue;
+                    }
+
                     const { left: cellLeft } = cell;
-                    this._drawLiquid?.translateSave();
-                    this._drawLiquid?.translate(cellLeft, 0);
+                    drawLiquid.translateSave();
+                    drawLiquid.translate(cellLeft, 0);
 
                     this._drawTableCell(
                         ctx,
@@ -549,14 +569,113 @@ export class Documents extends DocComponent {
                         parentScale
                     );
 
-                    this._drawLiquid?.translateRestore();
+                    drawLiquid.translateRestore();
                 }
 
-                this._drawLiquid?.translateRestore();
+                drawLiquid.translateRestore();
             }
 
-            this._drawLiquid?.translateRestore();
+            if (hasDocsTableHorizontalViewport(viewport)) {
+                ctx.restore();
+            }
+
+            drawLiquid.translateRestore();
         }
+    }
+
+    private _drawTableCellBackgrounds(
+        ctx: UniverRenderingContext,
+        page: IDocumentSkeletonPage,
+        tableSkeleton: IDocumentSkeletonTable
+    ) {
+        if (this._drawLiquid == null) {
+            return;
+        }
+
+        const backgrounds = new Map<string, Array<{ x: number; y: number; width: number; height: number }>>();
+        const tableX = this._drawLiquid.x + page.marginLeft;
+        const tableY = this._drawLiquid.y + page.marginTop;
+
+        for (const row of tableSkeleton.rows) {
+            row.cells.forEach((cell, index) => {
+                if ((cell as IDocumentSkeletonPage & { isMergedCellCovered?: boolean }).isMergedCellCovered) {
+                    return;
+                }
+
+                const cellSource = row.rowSource.tableCells[index];
+                if (!cellSource || cellSource.rowSpan === 0 || cellSource.columnSpan === 0) {
+                    return;
+                }
+
+                const color = cellSource.backgroundColor?.rgb;
+                if (!color) {
+                    return;
+                }
+
+                const rects = backgrounds.get(color) ?? [];
+                rects.push({
+                    x: tableX + cell.left,
+                    y: tableY + row.top,
+                    width: cell.pageWidth,
+                    height: cell.pageHeight,
+                });
+                backgrounds.set(color, rects);
+            });
+        }
+
+        backgrounds.forEach((rects, color) => {
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            rects.forEach(({ x, y, width, height }) => {
+                rectByPrecisionBounds(ctx, x, y, width, height);
+            });
+            ctx.fill();
+            ctx.closePath();
+            ctx.restore();
+        });
+    }
+
+    private _getTableViewport(
+        page: IDocumentSkeletonPage,
+        tableSkeleton: IDocumentSkeletonTable,
+        unitId: string,
+        tableId: string
+    ): IDocsTableRenderViewport | null {
+        const viewport = getDocsTableRenderViewport(unitId, tableId);
+        if (viewport) {
+            return viewport;
+        }
+
+        const { pageWidth, marginLeft = 0, marginRight = 0 } = page;
+        if (!Number.isFinite(pageWidth)) {
+            return null;
+        }
+
+        const viewportWidth = Math.max(0, pageWidth - marginLeft - marginRight - tableSkeleton.left);
+        if (viewportWidth <= 0 || tableSkeleton.width <= viewportWidth) {
+            return null;
+        }
+
+        return {
+            contentWidth: tableSkeleton.width,
+            scrollLeft: 0,
+            viewportWidth,
+        };
+    }
+
+    private _getRenderUnitId(): string {
+        const skeleton = this.getSkeleton() as {
+            getViewModel?: () => {
+                getDataModel?: () => {
+                    getUnitId?: () => string;
+                };
+            };
+        } | undefined;
+        const viewModel = skeleton?.getViewModel?.();
+        const dataModel = viewModel?.getDataModel?.();
+
+        return dataModel?.getUnitId?.() ?? this.oKey;
     }
 
     private _drawBorderBottom(
@@ -589,6 +708,42 @@ export class Documents extends DocComponent {
         ctx.restore();
     }
 
+    private _drawGlyphGroupBackgrounds(
+        ctx: UniverRenderingContext,
+        parentScale: IScale,
+        glyphGroup: IDocumentSkeletonGlyph[],
+        lineHeight: number,
+        alignOffset: Vector2,
+        centerAngle: number,
+        vertexAngle: number,
+        backgroundExtension: Nullable<ComponentExtension<IDocumentSkeletonGlyph | IDocumentSkeletonLine, DOCS_EXTENSION_TYPE, IBoundRectNoAngle[]>>
+    ) {
+        if (!backgroundExtension || this._drawLiquid == null) {
+            return;
+        }
+
+        const backgroundRuns = collectBackgroundGlyphRuns(glyphGroup);
+
+        for (const backgroundRun of backgroundRuns) {
+            const { glyph, left: spanLeft, width: spanWidth } = backgroundRun;
+            const { x: translateX, y: translateY } = this._drawLiquid;
+            const originTranslate = Vector2.create(translateX, translateY);
+            const centerPoint = Vector2.create(spanWidth / 2, lineHeight / 2);
+            const spanStartPoint = calculateRectRotate(
+                originTranslate.addByPoint(spanLeft, 0),
+                centerPoint,
+                centerAngle,
+                vertexAngle,
+                alignOffset
+            );
+
+            backgroundExtension.extensionOffset = {
+                spanStartPoint,
+            };
+            backgroundExtension.draw(ctx, parentScale, glyph);
+        }
+    }
+
     // TODO: @JOCS, DRY!!!
     private _drawTableCell(
         ctx: UniverRenderingContext,
@@ -606,7 +761,7 @@ export class Documents extends DocComponent {
         if (this._drawLiquid == null) {
             return;
         }
-        this._drawTableCellBordersAndBg(ctx, page, cell);
+        this._drawTableCellBordersAndBg(ctx, page, cell, false);
         const { sections, marginLeft, marginTop } = cell;
 
         // eslint-disable-next-line no-param-reassign
@@ -668,37 +823,16 @@ export class Documents extends DocComponent {
                             this._drawLiquid.translateSave();
                             this._drawLiquid.translateDivide(divide);
 
-                            // Draw text background.
-                            for (const glyph of glyphGroup) {
-                                if (!glyph.content || glyph.content.length === 0) {
-                                    continue;
-                                }
-
-                                const { width: spanWidth, left: spanLeft } = glyph;
-
-                                const { x: translateX, y: translateY } = this._drawLiquid;
-
-                                const originTranslate = Vector2.create(translateX, translateY);
-
-                                const centerPoint = Vector2.create(spanWidth / 2, lineHeight / 2);
-
-                                const spanStartPoint = calculateRectRotate(
-                                    originTranslate.addByPoint(spanLeft, 0),
-                                    centerPoint,
-                                    centerAngle,
-                                    vertexAngle,
-                                    alignOffset
-                                );
-
-                                const extensionOffset: IExtensionConfig = {
-                                    spanStartPoint,
-                                };
-
-                                if (backgroundExtension) {
-                                    backgroundExtension.extensionOffset = extensionOffset;
-                                    backgroundExtension.draw(ctx, parentScale, glyph);
-                                }
-                            }
+                            this._drawGlyphGroupBackgrounds(
+                                ctx,
+                                parentScale,
+                                glyphGroup,
+                                lineHeight,
+                                alignOffset,
+                                centerAngle,
+                                vertexAngle,
+                                backgroundExtension
+                            );
 
                             // Draw text\border\lines etc.
                             for (const glyph of glyphGroup) {
@@ -771,21 +905,26 @@ export class Documents extends DocComponent {
     private _drawTableCellBordersAndBg(
         ctx: UniverRenderingContext,
         page: IDocumentSkeletonPage,
-        cell: IDocumentSkeletonPage
+        cell: IDocumentSkeletonPage,
+        drawBackground = true
     ) {
         const { marginLeft, marginTop } = page;
         const { pageWidth, pageHeight } = cell;
         const rowSke = cell.parent as IDocumentSkeletonRow;
         const index = rowSke.cells.indexOf(cell);
-        const cellSource = rowSke.rowSource.tableCells[index];
 
-        const {
-            borderTop = DEFAULT_BORDER_COLOR,
-            borderBottom = DEFAULT_BORDER_COLOR,
-            borderLeft = DEFAULT_BORDER_COLOR,
-            borderRight = DEFAULT_BORDER_COLOR,
-            backgroundColor,
-        } = cellSource;
+        if (index < 0) {
+            return;
+        }
+
+        const cellSource = rowSke.rowSource.tableCells[index];
+        const tableSke = rowSke.parent as IDocumentSkeletonTable | undefined;
+        const rowIndexInTable = tableSke?.rows.indexOf(rowSke);
+        const rowIndex = rowIndexInTable == null || rowIndexInTable < 0 ? rowSke.index ?? 0 : rowIndexInTable;
+
+        if (!cellSource || cellSource.rowSpan === 0 || cellSource.columnSpan === 0) {
+            return;
+        }
 
         if (this._drawLiquid == null) {
             return;
@@ -796,57 +935,85 @@ export class Documents extends DocComponent {
         y += marginTop;
 
         // Draw cell bg.
-        if (backgroundColor && backgroundColor.rgb) {
+        if (drawBackground && cellSource.backgroundColor?.rgb) {
             ctx.save();
-            ctx.fillStyle = backgroundColor.rgb;
-            ctx.fillRectByPrecision(x, y, pageWidth, pageHeight);
+            ctx.fillStyle = cellSource.backgroundColor.rgb;
+            fillRectByPrecisionBounds(ctx, x, y, pageWidth, pageHeight);
             ctx.restore();
         }
 
-        ctx.save();
-        ctx.setLineWidthByPrecision (1);
-
-        ctx.save();
-        ctx.strokeStyle = borderLeft.color.rgb ?? DEFAULT_BORDER_COLOR.color.rgb!;
-        drawLineByBorderType(ctx, BORDER_LTRB.LEFT, 0, {
+        const position = {
             startX: x,
             startY: y,
             endX: x + pageWidth,
             endY: y + pageHeight,
-        });
-        ctx.restore();
+        };
+
+        const rightCellSource = this._getTableCellSource(rowSke, index + 1);
+        const bottomCellSource = tableSke ? this._getTableCellSource(tableSke.rows[rowIndex + 1], index) : undefined;
+        this._drawTableCellBorder(ctx, this._resolveTableCellBorder(cellSource.borderRight, rightCellSource?.borderLeft), BORDER_LTRB.RIGHT, position);
+        this._drawTableCellBorder(ctx, this._resolveTableCellBorder(cellSource.borderBottom, bottomCellSource?.borderTop), BORDER_LTRB.BOTTOM, position);
+
+        if (rowIndex <= 0) {
+            this._drawTableCellBorder(ctx, this._resolveTableCellBorder(cellSource.borderTop), BORDER_LTRB.TOP, position);
+        }
+
+        if (index <= 0) {
+            this._drawTableCellBorder(ctx, this._resolveTableCellBorder(cellSource.borderLeft), BORDER_LTRB.LEFT, position);
+        }
+    }
+
+    private _getTableCellSource(row: Nullable<IDocumentSkeletonRow>, column: number): Nullable<ITableCell> {
+        return row?.rowSource.tableCells[column] ?? null;
+    }
+
+    private _resolveTableCellBorder(primary?: ITableCellBorder, secondary?: ITableCellBorder): Nullable<ITableCellBorder> {
+        if (this._isDrawableTableCellBorder(primary)) {
+            return primary!;
+        }
+
+        if (this._isDrawableTableCellBorder(secondary)) {
+            return secondary!;
+        }
+
+        if (primary || secondary) {
+            return null;
+        }
+
+        return DEFAULT_BORDER_COLOR;
+    }
+
+    private _isDrawableTableCellBorder(border?: ITableCellBorder): boolean {
+        if (!border) {
+            return false;
+        }
+
+        const lineWidth = border.width?.v ?? 1;
+        const color = border.color?.rgb ?? DEFAULT_BORDER_COLOR.color.rgb!;
+        return lineWidth > 0 && color !== 'transparent';
+    }
+
+    private _drawTableCellBorder(
+        ctx: UniverRenderingContext,
+        border: Nullable<ITableCellBorder>,
+        type: BORDER_LTRB,
+        position: { startX: number; startY: number; endX: number; endY: number }
+    ) {
+        if (!border) {
+            return;
+        }
+
+        const lineWidth = border.width?.v ?? 1;
+        const color = border.color?.rgb ?? DEFAULT_BORDER_COLOR.color.rgb!;
+        if (lineWidth <= 0 || color === 'transparent') {
+            return;
+        }
 
         ctx.save();
-        ctx.strokeStyle = borderTop.color.rgb ?? DEFAULT_BORDER_COLOR.color.rgb!;
-        drawLineByBorderType(ctx, BORDER_LTRB.TOP, 0, {
-            startX: x,
-            startY: y,
-            endX: x + pageWidth,
-            endY: y + pageHeight,
-        });
-        ctx.restore();
-
-        ctx.save();
-        ctx.strokeStyle = borderRight.color.rgb ?? DEFAULT_BORDER_COLOR.color.rgb!;
-        drawLineByBorderType(ctx, BORDER_LTRB.RIGHT, 0, {
-            startX: x,
-            startY: y,
-            endX: x + pageWidth,
-            endY: y + pageHeight,
-        });
-        ctx.restore();
-
-        ctx.save();
-        ctx.strokeStyle = borderBottom.color.rgb ?? DEFAULT_BORDER_COLOR.color.rgb!;
-        drawLineByBorderType(ctx, BORDER_LTRB.BOTTOM, 0, {
-            startX: x,
-            startY: y,
-            endX: x + pageWidth,
-            endY: y + pageHeight,
-        });
-        ctx.restore();
-
-        // restore setLineWidthByPrecision.
+        ctx.setLineWidthByPrecision(lineWidth);
+        setTableCellBorderDash(ctx, border.dashStyle);
+        ctx.strokeStyle = color;
+        drawLineByBorderType(ctx, type, 0, position);
         ctx.restore();
     }
 
@@ -867,8 +1034,24 @@ export class Documents extends DocComponent {
         if (this._drawLiquid == null) {
             return;
         }
-        const { sections } = page;
+        const { sections, skeTables } = page;
         const { y: originY } = this._drawLiquid;
+
+        if (skeTables.size > 0) {
+            this._drawTable(
+                ctx,
+                page,
+                skeTables,
+                extensions,
+                backgroundExtension,
+                glyphExtensionsExcludeBackground,
+                alignOffsetNoAngle,
+                centerAngle,
+                vertexAngle,
+                renderConfig,
+                parentScale
+            );
+        }
 
         for (const section of sections) {
             const { columns } = section;
@@ -910,12 +1093,7 @@ export class Documents extends DocComponent {
                         this._drawLiquid.translateLine(line, true, true);
                         const { y } = this._drawLiquid;
 
-                        if (isHeader) {
-                            if ((y - originY + alignOffset.y) > (parentPage.pageHeight - 100) / 2) {
-                                this._drawLiquid.translateRestore();
-                                continue;
-                            }
-                        } else {
+                        if (!isHeader) {
                             if ((y - originY + alignOffset.y + lineHeight) < (parentPage.pageHeight - 100) / 2 + 100) {
                                 this._drawLiquid.translateRestore();
                                 continue;
@@ -931,37 +1109,16 @@ export class Documents extends DocComponent {
                             this._drawLiquid.translateSave();
                             this._drawLiquid.translateDivide(divide);
 
-                            // Draw text background.
-                            for (const glyph of glyphGroup) {
-                                if (!glyph.content || glyph.content.length === 0) {
-                                    continue;
-                                }
-
-                                const { width: spanWidth, left: spanLeft } = glyph;
-
-                                const { x: translateX, y: translateY } = this._drawLiquid;
-
-                                const originTranslate = Vector2.create(translateX, translateY);
-
-                                const centerPoint = Vector2.create(spanWidth / 2, lineHeight / 2);
-
-                                const spanStartPoint = calculateRectRotate(
-                                    originTranslate.addByPoint(spanLeft, 0),
-                                    centerPoint,
-                                    centerAngle,
-                                    vertexAngle,
-                                    alignOffset
-                                );
-
-                                const extensionOffset: IExtensionConfig = {
-                                    spanStartPoint,
-                                };
-
-                                if (backgroundExtension) {
-                                    backgroundExtension.extensionOffset = extensionOffset;
-                                    backgroundExtension.draw(ctx, parentScale, glyph);
-                                }
-                            }
+                            this._drawGlyphGroupBackgrounds(
+                                ctx,
+                                parentScale,
+                                glyphGroup,
+                                lineHeight,
+                                alignOffset,
+                                centerAngle,
+                                vertexAngle,
+                                backgroundExtension
+                            );
 
                             // Draw text\border\lines etc.
                             for (const glyph of glyphGroup) {
@@ -1042,14 +1199,16 @@ export class Documents extends DocComponent {
          * In Excel, if horizontal alignment is not specified,
          * rotated text aligns to the right when rotated downwards and aligns to the left when rotated upwards.
          */
-        if (horizontalAlign === HorizontalAlign.UNSPECIFIED) {
+        let resolvedHorizontalAlign = horizontalAlign;
+
+        if (resolvedHorizontalAlign === HorizontalAlign.UNSPECIFIED) {
             if (centerAngleDeg === VERTICAL_ROTATE_ANGLE && vertexAngleDeg === VERTICAL_ROTATE_ANGLE) {
-                horizontalAlign = HorizontalAlign.CENTER;
+                resolvedHorizontalAlign = HorizontalAlign.CENTER;
             } else if ((vertexAngleDeg > 0 && vertexAngleDeg !== VERTICAL_ROTATE_ANGLE) || vertexAngleDeg === -VERTICAL_ROTATE_ANGLE) {
                 /**
                  * https://github.com/dream-num/univer-pro/issues/334
                  */
-                horizontalAlign = HorizontalAlign.RIGHT;
+                resolvedHorizontalAlign = HorizontalAlign.RIGHT;
             } else {
                 /**
                  * sheet cell type, In a spreadsheet cell, without any alignment settings applied,
@@ -1058,19 +1217,19 @@ export class Documents extends DocComponent {
                  * and Boolean values should be center-aligned.
                  */
                 if (cellValueType === CellValueType.NUMBER) {
-                    horizontalAlign = HorizontalAlign.RIGHT;
+                    resolvedHorizontalAlign = HorizontalAlign.RIGHT;
                 } else if (cellValueType === CellValueType.BOOLEAN) {
-                    horizontalAlign = HorizontalAlign.CENTER;
+                    resolvedHorizontalAlign = HorizontalAlign.CENTER;
                 } else {
-                    horizontalAlign = HorizontalAlign.LEFT;
+                    resolvedHorizontalAlign = HorizontalAlign.LEFT;
                 }
             }
         }
 
         let offsetLeft = 0;
-        if (horizontalAlign === HorizontalAlign.CENTER) {
+        if (resolvedHorizontalAlign === HorizontalAlign.CENTER) {
             offsetLeft = (this.width - pageWidth) / 2;
-        } else if (horizontalAlign === HorizontalAlign.RIGHT) {
+        } else if (resolvedHorizontalAlign === HorizontalAlign.RIGHT) {
             offsetLeft = this.width - pageWidth - pagePaddingRight;
         } else {
             offsetLeft = pagePaddingLeft;
@@ -1110,4 +1269,50 @@ export class Documents extends DocComponent {
             this.register(extension);
         });
     }
+}
+
+function setTableCellBorderDash(ctx: UniverRenderingContext, dashStyle?: DashStyleType) {
+    if (dashStyle === DashStyleType.DOT) {
+        ctx.setLineDash([2]);
+        return;
+    }
+
+    if (dashStyle === DashStyleType.DASH) {
+        ctx.setLineDash([6]);
+        return;
+    }
+
+    ctx.setLineDash([0]);
+}
+
+function fillRectByPrecisionBounds(
+    ctx: UniverRenderingContext,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+) {
+    const { scaleX, scaleY } = ctx.getScale();
+    const startX = fixLineWidthByScale(x, scaleX);
+    const startY = fixLineWidthByScale(y, scaleY);
+    const endX = fixLineWidthByScale(x + width, scaleX);
+    const endY = fixLineWidthByScale(y + height, scaleY);
+
+    ctx.fillRect(startX, startY, endX - startX, endY - startY);
+}
+
+function rectByPrecisionBounds(
+    ctx: UniverRenderingContext,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+) {
+    const { scaleX, scaleY } = ctx.getScale();
+    const startX = fixLineWidthByScale(x, scaleX);
+    const startY = fixLineWidthByScale(y, scaleY);
+    const endX = fixLineWidthByScale(x + width, scaleX);
+    const endY = fixLineWidthByScale(y + height, scaleY);
+
+    ctx.rect(startX, startY, endX - startX, endY - startY);
 }

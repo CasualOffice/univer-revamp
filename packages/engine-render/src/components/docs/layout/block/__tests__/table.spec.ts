@@ -14,9 +14,17 @@
  * limitations under the License.
  */
 
-import { BooleanNumber, TableAlignmentType, TableRowHeightRule, VerticalAlignmentType } from '@univerjs/core';
+import type { ITable } from '@univerjs/core';
+import type { IParagraphList } from '../../../../../basics/i-document-skeleton-cached';
+import type { DataStreamTreeNode } from '../../../view-model/data-stream-tree-node';
+import {
+    BooleanNumber,
+    TableAlignmentType,
+    TableRowHeightRule,
+    TableSizeType,
+    VerticalAlignmentType,
+} from '@univerjs/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
 import {
     createTableSkeleton,
     createTableSkeletons,
@@ -33,6 +41,21 @@ vi.mock('../../model/page', () => ({
     createSkeletonCellPages: (...args: unknown[]) => createSkeletonCellPagesMock(...args),
     createNullCellPage: (...args: unknown[]) => createNullCellPageMock(...args),
 }));
+
+function createMockTable(overrides: Partial<ITable> = {}): ITable {
+    return {
+        tableId: 'test-table',
+        tableRows: [],
+        tableColumns: [],
+        align: TableAlignmentType.START,
+        indent: { v: 0 },
+        textWrap: 0 as unknown as ITable['textWrap'],
+        position: {} as unknown as ITable['position'],
+        dist: {} as unknown as ITable['dist'],
+        size: { type: TableSizeType.UNSPECIFIED, width: { v: 100 } },
+        ...overrides,
+    } as ITable;
+}
 
 function createRowNode(startIndex: number, endIndex: number, cellCount: number) {
     return {
@@ -125,6 +148,139 @@ function makeCellPage(width: number, height: number) {
     };
 }
 
+describe('table utilities', () => {
+    describe('getTableSliceId', () => {
+        it('concatenates tableId and sliceIndex with delimiter', () => {
+            expect(getTableSliceId('table1', 0)).toBe('table1#-#0');
+            expect(getTableSliceId('table1', 2)).toBe('table1#-#2');
+            expect(getTableSliceId('my-table', 99)).toBe('my-table#-#99');
+        });
+    });
+
+    describe('getTableIdAndSliceIndex', () => {
+        it('parses sliced table id', () => {
+            expect(getTableIdAndSliceIndex('table1#-#0')).toEqual({
+                tableId: 'table1',
+                sliceIndex: 0,
+            });
+            expect(getTableIdAndSliceIndex('table1#-#2')).toEqual({
+                tableId: 'table1',
+                sliceIndex: 2,
+            });
+        });
+
+        it('returns sliceIndex 0 for unsliced table id', () => {
+            expect(getTableIdAndSliceIndex('table1')).toEqual({
+                tableId: 'table1',
+                sliceIndex: 0,
+            });
+        });
+    });
+
+    describe('getNullTableSkeleton', () => {
+        it('returns a skeleton with zero dimensions and given bounds', () => {
+            const table = createMockTable();
+            const skeleton = getNullTableSkeleton(10, 50, table);
+
+            expect(skeleton.rows).toEqual([]);
+            expect(skeleton.width).toBe(0);
+            expect(skeleton.height).toBe(0);
+            expect(skeleton.top).toBe(0);
+            expect(skeleton.left).toBe(0);
+            expect(skeleton.st).toBe(10);
+            expect(skeleton.ed).toBe(50);
+            expect(skeleton.tableId).toBe('test-table');
+            expect(skeleton.tableSource).toBe(table);
+        });
+    });
+
+    describe('rollbackListCache', () => {
+        it('removes paragraph lists whose startIndex is inside the table range', () => {
+            const paragraphList1: IParagraphList = {
+                bullet: {} as unknown as IParagraphList['bullet'],
+                paragraph: { startIndex: 5 } as unknown as IParagraphList['paragraph'],
+            };
+            const paragraphList2: IParagraphList = {
+                bullet: {} as unknown as IParagraphList['bullet'],
+                paragraph: { startIndex: 15 } as unknown as IParagraphList['paragraph'],
+            };
+            const paragraphList3: IParagraphList = {
+                bullet: {} as unknown as IParagraphList['bullet'],
+                paragraph: { startIndex: 25 } as unknown as IParagraphList['paragraph'],
+            };
+
+            const listLevel = new Map<string, IParagraphList[][]>([
+                ['list1', [[paragraphList1, paragraphList2, paragraphList3]]],
+            ]);
+
+            const tableNode = {
+                startIndex: 10,
+                endIndex: 20,
+            } as DataStreamTreeNode;
+
+            rollbackListCache(listLevel, tableNode);
+
+            const result = listLevel.get('list1')![0];
+            expect(result).toHaveLength(1);
+            expect(result[0].paragraph.startIndex).toBe(5);
+        });
+
+        it('does not remove paragraph lists outside the table range', () => {
+            const paragraphList1: IParagraphList = {
+                bullet: {} as unknown as IParagraphList['bullet'],
+                paragraph: { startIndex: 1 } as unknown as IParagraphList['paragraph'],
+            };
+            const paragraphList2: IParagraphList = {
+                bullet: {} as unknown as IParagraphList['bullet'],
+                paragraph: { startIndex: 2 } as unknown as IParagraphList['paragraph'],
+            };
+
+            const listLevel = new Map<string, IParagraphList[][]>([
+                ['list1', [[paragraphList1, paragraphList2]]],
+            ]);
+
+            const tableNode = {
+                startIndex: 10,
+                endIndex: 20,
+            } as DataStreamTreeNode;
+
+            rollbackListCache(listLevel, tableNode);
+
+            const result = listLevel.get('list1')![0];
+            expect(result).toHaveLength(2);
+        });
+
+        it('handles empty listLevel', () => {
+            const listLevel = new Map<string, IParagraphList[][]>();
+            const tableNode = {
+                startIndex: 10,
+                endIndex: 20,
+            } as DataStreamTreeNode;
+
+            expect(() => rollbackListCache(listLevel, tableNode)).not.toThrow();
+        });
+
+        it('skips sparse paragraph list levels', () => {
+            const paragraphList: IParagraphList = {
+                bullet: {} as unknown as IParagraphList['bullet'],
+                paragraph: { startIndex: 25 } as unknown as IParagraphList['paragraph'],
+            };
+            const paragraphLists = [] as unknown as IParagraphList[][];
+            paragraphLists[2] = [paragraphList];
+            const listLevel = new Map<string, IParagraphList[][]>([
+                ['list1', paragraphLists],
+            ]);
+            const tableNode = {
+                startIndex: 10,
+                endIndex: 20,
+            } as DataStreamTreeNode;
+
+            expect(() => rollbackListCache(listLevel, tableNode)).not.toThrow();
+            expect(listLevel.get('list1')![2]).toHaveLength(1);
+        });
+    });
+});
+
 describe('docs table layout', () => {
     beforeEach(() => {
         createSkeletonCellPagesMock.mockReset();
@@ -158,6 +314,87 @@ describe('docs table layout', () => {
         expect(skeleton?.rows[0].cells[1].marginTop).toBeGreaterThanOrEqual(1);
     });
 
+    it('keeps covered merged cells as non-rendering layout placeholders', () => {
+        const { ctx, curPage, viewModel, tableNode, sectionBreakConfig, tableSource } = createContextAndTable();
+        createSkeletonCellPagesMock.mockImplementation(
+            (_ctx: unknown, _viewModel: unknown, _cellNode: unknown, _section: unknown, table: any, row: number, col: number) => {
+                const columnSpan = Math.max(1, table.tableRows[row].tableCells[col].columnSpan ?? 1);
+                return [makeCellPage(60 * columnSpan, 20)];
+            }
+        );
+        tableSource.tableRows[0].tableCells = [
+            { columnSpan: 2, vAlign: VerticalAlignmentType.TOP },
+            { rowSpan: 0, columnSpan: 0, vAlign: VerticalAlignmentType.TOP },
+            { vAlign: VerticalAlignmentType.TOP },
+        ];
+        tableNode.children[0] = createRowNode(1, 30, 3) as any;
+
+        const skeleton = createTableSkeleton(ctx, curPage, viewModel, tableNode, sectionBreakConfig);
+
+        expect(skeleton).not.toBeNull();
+        const cells = skeleton!.rows[0].cells;
+        expect(cells).toHaveLength(3);
+        expect((cells[1] as any).isMergedCellCovered).toBe(true);
+        expect(cells[2].left).toBe(120);
+        expect(createSkeletonCellPagesMock.mock.calls.some((call) => call[5] === 0 && call[6] === 1)).toBe(false);
+    });
+
+    it('does not shift cells after a same-row horizontally covered merged cell', () => {
+        const { ctx, curPage, viewModel, tableNode, sectionBreakConfig, tableSource } = createContextAndTable();
+        createSkeletonCellPagesMock.mockImplementation(
+            (_ctx: unknown, _viewModel: unknown, _cellNode: unknown, _section: unknown, table: any, row: number, col: number) => {
+                const columnSpan = Math.max(1, table.tableRows[row].tableCells[col].columnSpan ?? 1);
+                return [makeCellPage(60 * columnSpan, 20)];
+            }
+        );
+        tableSource.tableRows[0].tableCells = [
+            { vAlign: VerticalAlignmentType.TOP },
+            { columnSpan: 2, vAlign: VerticalAlignmentType.TOP },
+            { rowSpan: 0, columnSpan: 0, vAlign: VerticalAlignmentType.TOP },
+            { vAlign: VerticalAlignmentType.TOP },
+        ];
+        tableNode.children[0] = createRowNode(1, 30, 4) as any;
+
+        const skeleton = createTableSkeleton(ctx, curPage, viewModel, tableNode, sectionBreakConfig);
+
+        expect(skeleton?.rows[0].cells[3].left).toBe(180);
+    });
+
+    it('expands merged master cell height across spanned rows', () => {
+        const { ctx, curPage, viewModel, tableNode, sectionBreakConfig, tableSource } = createContextAndTable();
+        tableSource.tableRows[0].tableCells = [
+            { rowSpan: 2, columnSpan: 2, vAlign: VerticalAlignmentType.TOP },
+            { rowSpan: 0, columnSpan: 0, vAlign: VerticalAlignmentType.TOP },
+        ];
+        tableSource.tableRows[1].tableCells = [
+            { rowSpan: 0, columnSpan: 0, vAlign: VerticalAlignmentType.TOP },
+            { rowSpan: 0, columnSpan: 0, vAlign: VerticalAlignmentType.TOP },
+        ];
+
+        const skeleton = createTableSkeleton(ctx, curPage, viewModel, tableNode, sectionBreakConfig);
+
+        expect(skeleton?.rows[0].cells[0].pageHeight).toBe(
+            skeleton!.rows[0].height + skeleton!.rows[1].height
+        );
+    });
+
+    it('treats explicit row height as a minimum so wrapped cell content remains visible', () => {
+        const { ctx, curPage, viewModel, tableNode, sectionBreakConfig, tableSource } = createContextAndTable();
+        tableSource.tableRows[0].trHeight = {
+            hRule: TableRowHeightRule.EXACT,
+            val: { v: 18 },
+        };
+        createSkeletonCellPagesMock.mockImplementation(
+            (_ctx: unknown, _viewModel: unknown, _cellNode: unknown, _section: unknown, _table: unknown, row: number) =>
+                [makeCellPage(60, row === 0 ? 48 : 20)]
+        );
+
+        const skeleton = createTableSkeleton(ctx, curPage, viewModel, tableNode, sectionBreakConfig);
+
+        expect(skeleton?.rows[0].height).toBe(50);
+        expect(skeleton?.rows[0].cells[0].pageHeight).toBe(50);
+    });
+
     it('creates sliced tables when available height is limited', () => {
         const { ctx, curPage, viewModel, tableNode, sectionBreakConfig } = createContextAndTable();
 
@@ -171,26 +408,51 @@ describe('docs table layout', () => {
         }
     });
 
-    it('handles rollback/slice id helpers and missing table branches', () => {
-        const listCache = new Map<string, any[][]>([
-            ['a', [[{ paragraph: { startIndex: 1 } }, { paragraph: { startIndex: 20 } }]]],
-        ]);
-        rollbackListCache(listCache as any, { startIndex: 5, endIndex: 50 } as any);
-        expect(listCache.get('a')?.[0].length).toBe(1);
+    it('repeats multiple leading header rows on sliced table pages', () => {
+        const { ctx, curPage, viewModel, tableNode, sectionBreakConfig, tableSource } = createContextAndTable();
+        tableSource.tableRows[1].repeatHeaderRow = BooleanNumber.TRUE;
+        tableSource.tableRows.push(
+            {
+                repeatHeaderRow: BooleanNumber.FALSE,
+                trHeight: {
+                    hRule: TableRowHeightRule.EXACT,
+                    val: { v: 70 },
+                },
+                cantSplit: BooleanNumber.FALSE,
+                tableCells: [
+                    { vAlign: VerticalAlignmentType.TOP },
+                    { vAlign: VerticalAlignmentType.TOP },
+                ],
+            },
+            {
+                repeatHeaderRow: BooleanNumber.FALSE,
+                trHeight: {
+                    hRule: TableRowHeightRule.EXACT,
+                    val: { v: 40 },
+                },
+                cantSplit: BooleanNumber.FALSE,
+                tableCells: [
+                    { vAlign: VerticalAlignmentType.TOP },
+                    { vAlign: VerticalAlignmentType.TOP },
+                ],
+            }
+        );
+        tableNode.children.push(createRowNode(41, 60, 2) as any, createRowNode(61, 80, 2) as any);
 
-        const sliceId = getTableSliceId('table-x', 3);
-        expect(sliceId).toBe('table-x#-#3');
-        expect(getTableIdAndSliceIndex(sliceId)).toEqual({ tableId: 'table-x', sliceIndex: 3 });
-        expect(getTableIdAndSliceIndex('table-y')).toEqual({ tableId: 'table-y', sliceIndex: 0 });
+        const result = createTableSkeletons(ctx, curPage, viewModel, tableNode, sectionBreakConfig, 110);
 
-        const nullTable = getNullTableSkeleton(1, 2, { tableId: 't0' } as any);
-        expect(nullTable.rows).toEqual([]);
-        expect(nullTable.tableId).toBe('t0');
+        expect(result.skeTables.length).toBeGreaterThan(1);
+        expect(result.skeTables[1].rows[0]).toMatchObject({ index: 0, isRepeatRow: true });
+        expect(result.skeTables[1].rows[1]).toMatchObject({ index: 1, isRepeatRow: true });
+        expect(result.skeTables[1].rows[2]).toMatchObject({ index: 2, isRepeatRow: false });
+    });
 
+    it('returns an empty slice result when the table is missing', () => {
         const { ctx, curPage, tableNode, sectionBreakConfig } = createContextAndTable();
         const noTableViewModel = {
             getTableByStartIndex: vi.fn(() => null),
         };
+
         expect(createTableSkeleton(ctx, curPage, noTableViewModel as any, tableNode, sectionBreakConfig)).toBeNull();
         const sliced = createTableSkeletons(ctx, curPage, noTableViewModel as any, tableNode, sectionBreakConfig, 100);
         expect(sliced.skeTables).toEqual([]);

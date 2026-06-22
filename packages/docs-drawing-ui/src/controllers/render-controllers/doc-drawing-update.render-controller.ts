@@ -20,14 +20,37 @@ import type { IImageIoServiceParam } from '@univerjs/drawing';
 import type { Documents, Image, IRenderContext, IRenderModule } from '@univerjs/engine-render';
 import type { IInsertDrawingCommandParams } from '../../commands/commands/interfaces';
 import type { ISetDrawingArrangeCommandParams } from '../../commands/commands/set-drawing-arrange.command';
-import { BooleanNumber, Disposable, DrawingTypeEnum, FOCUSING_COMMON_DRAWINGS, ICommandService, IContextService, Inject, LocaleService, ObjectRelativeFromH, ObjectRelativeFromV, PositionedObjectLayoutType, WrapTextType } from '@univerjs/core';
+import {
+    BooleanNumber,
+    Disposable,
+    DrawingTypeEnum,
+    FOCUSING_COMMON_DRAWINGS,
+    ICommandService,
+    IContextService,
+    Inject,
+    LocaleService,
+    ObjectRelativeFromH,
+    ObjectRelativeFromV,
+    PositionedObjectLayoutType,
+    WrapTextType,
+} from '@univerjs/core';
 import { MessageType } from '@univerjs/design';
 import { DocSelectionManagerService, DocSkeletonManagerService, RichTextEditingMutation } from '@univerjs/docs';
 import { IDocDrawingService } from '@univerjs/docs-drawing';
 import { docDrawingPositionToTransform, DocSelectionRenderService } from '@univerjs/docs-ui';
-import { DRAWING_IMAGE_ALLOW_IMAGE_LIST, DRAWING_IMAGE_COUNT_LIMIT, DRAWING_IMAGE_HEIGHT_LIMIT, DRAWING_IMAGE_WIDTH_LIMIT, getDrawingImageAllowSize, getDrawingShapeKeyByDrawingSearch, getImageSize, IDrawingManagerService, IImageIoService, ImageUploadStatusType } from '@univerjs/drawing';
+import {
+    DRAWING_IMAGE_ALLOW_IMAGE_LIST,
+    DRAWING_IMAGE_COUNT_LIMIT,
+    DRAWING_IMAGE_HEIGHT_LIMIT,
+    DRAWING_IMAGE_WIDTH_LIMIT,
+    getDrawingImageAllowSize,
+    getDrawingShapeKeyByDrawingSearch,
+    getImageSize,
+    IDrawingManagerService,
+    IImageIoService,
+    ImageUploadStatusType,
+} from '@univerjs/drawing';
 import { DocumentEditArea, IRenderManagerService } from '@univerjs/engine-render';
-
 import { ILocalFileService, IMessageService } from '@univerjs/ui';
 import { debounceTime } from 'rxjs';
 import { GroupDocDrawingCommand } from '../../commands/commands/group-doc-drawing.command';
@@ -35,6 +58,11 @@ import { InsertDocDrawingCommand } from '../../commands/commands/insert-doc-draw
 import { SetDocDrawingArrangeCommand } from '../../commands/commands/set-drawing-arrange.command';
 import { UngroupDocDrawingCommand } from '../../commands/commands/ungroup-doc-drawing.command';
 import { DocRefreshDrawingsService } from '../../services/doc-refresh-drawings.service';
+
+interface IImageInsertPosition {
+    left: number;
+    top: number;
+}
 
 export class DocDrawingUpdateRenderController extends Disposable implements IRenderModule {
     constructor(
@@ -68,6 +96,7 @@ export class DocDrawingUpdateRenderController extends Disposable implements IRen
     }
 
     async insertDocImage(): Promise<boolean> {
+        const insertPosition = this._getCurrentImageInsertPosition();
         const files = await this._fileOpenerService.openFile({
             multiple: true,
             accept: DRAWING_IMAGE_ALLOW_IMAGE_LIST.map((image) => `.${image.replace('image/', '')}`).join(','),
@@ -77,19 +106,19 @@ export class DocDrawingUpdateRenderController extends Disposable implements IRen
         if (fileLength > DRAWING_IMAGE_COUNT_LIMIT) {
             this._messageService.show({
                 type: MessageType.Error,
-                content: this._localeService.t('update-status.exceedMaxCount', String(DRAWING_IMAGE_COUNT_LIMIT)),
+                content: this._localeService.t('docs-drawing-ui.update-status.exceedMaxCount', String(DRAWING_IMAGE_COUNT_LIMIT)),
             });
             return false;
         } else if (fileLength === 0) {
             return false;
         }
 
-        await this._insertFloatImages(files);
+        await this._insertFloatImages(files, insertPosition);
         return true;
     }
 
     // eslint-disable-next-line max-lines-per-function
-    private async _insertFloatImages(files: File[]) {
+    private async _insertFloatImages(files: File[], insertPosition: Nullable<IImageInsertPosition>) {
         let imageParams: Nullable<IImageIoServiceParam>[] = [];
 
         try {
@@ -100,13 +129,13 @@ export class DocDrawingUpdateRenderController extends Disposable implements IRen
 
             switch (type) {
                 case ImageUploadStatusType.ERROR_EXCEED_SIZE:
-                    content = this._localeService.t('update-status.exceedMaxSize', String(getDrawingImageAllowSize() / (1024 * 1024)));
+                    content = this._localeService.t('docs-drawing-ui.update-status.exceedMaxSize', String(getDrawingImageAllowSize() / (1024 * 1024)));
                     break;
                 case ImageUploadStatusType.ERROR_IMAGE_TYPE:
-                    content = this._localeService.t('update-status.invalidImageType');
+                    content = this._localeService.t('docs-drawing-ui.update-status.invalidImageType');
                     break;
                 case ImageUploadStatusType.ERROR_IMAGE:
-                    content = this._localeService.t('update-status.invalidImage');
+                    content = this._localeService.t('docs-drawing-ui.update-status.invalidImage');
                     break;
                 default:
                     break;
@@ -141,10 +170,16 @@ export class DocDrawingUpdateRenderController extends Disposable implements IRen
                 scale = Math.min(scaleWidth, scaleHeight);
             }
 
-            const docTransform = this._getImagePosition(width * scale, height * scale);
+            const imagePosition = insertPosition ?? this._getCurrentImageInsertPosition();
+            const docTransform = this._getImagePosition(width * scale, height * scale, imagePosition);
 
             if (docTransform == null) {
                 return;
+            }
+
+            const transform = docDrawingPositionToTransform(docTransform);
+            if (transform != null && imagePosition != null) {
+                transform.top = imagePosition.top;
             }
 
             const docDrawingParam: IDocDrawing = {
@@ -154,7 +189,7 @@ export class DocDrawingUpdateRenderController extends Disposable implements IRen
                 drawingType: DrawingTypeEnum.DRAWING_IMAGE,
                 imageSourceType,
                 source,
-                transform: docDrawingPositionToTransform(docTransform),
+                transform,
                 docTransform,
                 behindDoc: BooleanNumber.FALSE,
                 title: '',
@@ -196,11 +231,11 @@ export class DocDrawingUpdateRenderController extends Disposable implements IRen
 
     private _getImagePosition(
         imageWidth: number,
-        imageHeight: number
+        imageHeight: number,
+        insertPosition?: Nullable<IImageInsertPosition>
     ): Nullable<IDocDrawingPosition> {
-        const activeTextRange = this._docSelectionRenderService.getActiveTextRange();
         // TODO: NO need to get the cursor position, because the insert image is inline.
-        const position = activeTextRange?.getAbsolutePosition() || {
+        const position = insertPosition ?? this._getCurrentImageInsertPosition() ?? {
             left: 0,
             top: 0,
         };
@@ -219,6 +254,19 @@ export class DocDrawingUpdateRenderController extends Disposable implements IRen
                 posOffset: 0,
             },
             angle: 0,
+        };
+    }
+
+    private _getCurrentImageInsertPosition(): Nullable<IImageInsertPosition> {
+        const position = this._docSelectionRenderService.getActiveTextRange()?.getAbsolutePosition();
+
+        if (position == null) {
+            return null;
+        }
+
+        return {
+            left: position.left,
+            top: position.top,
         };
     }
 

@@ -17,15 +17,30 @@
 import type { IAccessor, Workbook } from '@univerjs/core';
 import type { IMenuSelectorItem } from '@univerjs/ui';
 import { ICommandService, IUniverInstanceService, Rectangle, UniverInstanceType } from '@univerjs/core';
-import { checkRangesEditablePermission, RangeProtectionPermissionEditPoint, SetWorksheetActiveOperation, SheetsSelectionsService, WorkbookEditablePermission, WorksheetEditPermission, WorksheetSetCellStylePermission } from '@univerjs/sheets';
-import { AddConditionalRuleMutation, ConditionalFormattingRuleModel, DeleteConditionalRuleMutation, MoveConditionalRuleMutation, SetConditionalRuleMutation } from '@univerjs/sheets-conditional-formatting';
-
+import {
+    checkRangesEditablePermission,
+    RangeProtectionPermissionEditPoint,
+    SetWorksheetActiveOperation,
+    SheetsSelectionsService,
+    WorkbookEditablePermission,
+    WorksheetEditPermission,
+    WorksheetSetCellStylePermission,
+} from '@univerjs/sheets';
+import {
+    AddConditionalRuleMutation,
+    ConditionalFormattingRuleModel,
+    DeleteConditionalRuleMutation,
+    MoveConditionalRuleMutation,
+    SetConditionalRuleMutation,
+} from '@univerjs/sheets-conditional-formatting';
 import { getCurrentRangeDisable$ } from '@univerjs/sheets-ui';
 import { getMenuHiddenObservable, MenuItemType } from '@univerjs/ui';
 import { merge, Observable } from 'rxjs';
-
 import { debounceTime } from 'rxjs/operators';
-import { CF_MENU_OPERATION, OpenConditionalFormattingOperator } from '../commands/operations/open-conditional-formatting-panel';
+import {
+    CF_MENU_OPERATION,
+    OpenConditionalFormattingOperator,
+} from '../commands/operations/open-conditional-formatting-panel';
 
 const commandList = [
     SetWorksheetActiveOperation.id,
@@ -38,63 +53,63 @@ const commandList = [
 const commonSelections = [
     {
         label: {
-            name: 'sheet.cf.ruleType.highlightCell',
+            name: 'sheets-conditional-formatting-ui.ruleType.highlightCell',
             selectable: false,
         },
         value: CF_MENU_OPERATION.highlightCell,
     },
     {
         label: {
-            name: 'sheet.cf.panel.rankAndAverage',
+            name: 'sheets-conditional-formatting-ui.panel.rankAndAverage',
             selectable: false,
         },
         value: CF_MENU_OPERATION.rank,
     },
     {
         label: {
-            name: 'sheet.cf.ruleType.formula',
+            name: 'sheets-conditional-formatting-ui.ruleType.formula',
             selectable: false,
         },
         value: CF_MENU_OPERATION.formula,
     },
     {
         label: {
-            name: 'sheet.cf.ruleType.colorScale',
+            name: 'sheets-conditional-formatting-ui.ruleType.colorScale',
             selectable: false,
         },
         value: CF_MENU_OPERATION.colorScale,
     },
     {
         label: {
-            name: 'sheet.cf.ruleType.dataBar',
+            name: 'sheets-conditional-formatting-ui.ruleType.dataBar',
             selectable: false,
         },
         value: CF_MENU_OPERATION.dataBar,
     },
     {
         label: {
-            name: 'sheet.cf.ruleType.iconSet',
+            name: 'sheets-conditional-formatting-ui.ruleType.iconSet',
             selectable: false,
         },
         value: CF_MENU_OPERATION.icon,
     },
     {
         label: {
-            name: 'sheet.cf.menu.manageConditionalFormatting',
+            name: 'sheets-conditional-formatting-ui.menu.manageConditionalFormatting',
             selectable: false,
         },
         value: CF_MENU_OPERATION.viewRule,
     },
     {
         label: {
-            name: 'sheet.cf.menu.createConditionalFormatting',
+            name: 'sheets-conditional-formatting-ui.menu.createConditionalFormatting',
             selectable: false,
         },
         value: CF_MENU_OPERATION.createRule,
     },
     {
         label: {
-            name: 'sheet.cf.menu.clearRangeRules',
+            name: 'sheets-conditional-formatting-ui.menu.clearRangeRules',
             selectable: false,
         },
         value: CF_MENU_OPERATION.clearRangeRules,
@@ -102,7 +117,7 @@ const commonSelections = [
     },
     {
         label: {
-            name: 'sheet.cf.menu.clearWorkSheetRules',
+            name: 'sheets-conditional-formatting-ui.menu.clearWorkSheetRules',
             selectable: false,
         },
         value: CF_MENU_OPERATION.clearWorkSheetRules,
@@ -192,7 +207,7 @@ export const FactoryManageConditionalFormattingRule = (accessor: IAccessor): IMe
         id: OpenConditionalFormattingOperator.id,
         type: MenuItemType.SELECTOR,
         icon: 'ConditionsDoubleIcon',
-        tooltip: 'sheet.cf.title',
+        tooltip: 'sheets-conditional-formatting-ui.title',
         selections: selections$,
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_SHEET),
         disabled$: getCurrentRangeDisable$(accessor, { workbookTypes: [WorkbookEditablePermission], worksheetTypes: [WorksheetSetCellStylePermission, WorksheetEditPermission], rangeTypes: [RangeProtectionPermissionEditPoint] }),

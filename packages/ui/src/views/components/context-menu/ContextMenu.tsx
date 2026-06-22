@@ -17,7 +17,6 @@
 import type { IMouseEvent } from '@univerjs/engine-render';
 import type { IContextMenuAnchorRect } from './AnchoredContextMenu';
 import { ICommandService } from '@univerjs/core';
-
 import { useEffect, useRef, useState } from 'react';
 import { IContextMenuService } from '../../../services/contextmenu/contextmenu.service';
 import { ILayoutService } from '../../../services/layout/layout.service';
@@ -79,9 +78,11 @@ export function DesktopContextMenu() {
             onRequestClose={handleClose}
             onOptionSelect={(params) => {
                 const { label: id, commandId, value } = params;
+                const rawParams = typeof params.params === 'function' ? params.params() : params.params;
+                const commandParams = typeof rawParams === 'undefined' ? { value } : rawParams;
 
                 if (commandService) {
-                    commandService.executeCommand(commandId ?? id as string, { value });
+                    commandService.executeCommand(commandId ?? id as string, commandParams);
                 }
 
                 const layoutService = injector.get(ILayoutService);

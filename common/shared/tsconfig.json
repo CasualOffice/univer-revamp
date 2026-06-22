@@ -5,10 +5,11 @@
         "skipLibCheck": true
     },
     "include": [
-        "bin/**/*.ts",
+        "bin/**/*.mts",
         "esbuild/**/*.ts",
         "eslint/**/*.ts",
         "eslint/**/*.d.ts",
+        "locale/**/*.ts",
         "tailwind/**/*.ts",
         "tsdown/**/*.ts",
         "vitest/**/*.ts"

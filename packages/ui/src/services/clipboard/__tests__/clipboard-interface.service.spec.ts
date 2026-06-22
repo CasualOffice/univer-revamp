@@ -98,6 +98,29 @@ describe('BrowserClipboardService', () => {
         expect(document.execCommand).toHaveBeenCalledWith('copy');
     });
 
+    it('should write raw sanitized html during legacy copy event', async () => {
+        vi.mocked(supportClipboardAPI).mockReturnValue(false);
+        const { service } = createService();
+        const clipboardData = {
+            setData: vi.fn(),
+        };
+
+        vi.mocked(document.execCommand).mockImplementation(() => {
+            const event = new Event('copy', { cancelable: true }) as ClipboardEvent;
+            Object.defineProperty(event, 'clipboardData', {
+                value: clipboardData,
+            });
+            document.dispatchEvent(event);
+            return true;
+        });
+
+        await service.write('plain', '<div onclick="alert(1)" style="color:red">rich</div>');
+
+        expect(clipboardData.setData).toHaveBeenCalledWith('text/plain', 'plain');
+        expect(clipboardData.setData).toHaveBeenCalledWith('text/html', '<div style="color: red">rich</div>');
+        expect(document.body.lastElementChild?.textContent).not.toBe('rich');
+    });
+
     it('should sanitize html before legacy copy', async () => {
         vi.mocked(supportClipboardAPI).mockReturnValue(false);
         const { service } = createService();
@@ -140,8 +163,8 @@ describe('BrowserClipboardService', () => {
         expect(logService.error).toHaveBeenCalledTimes(2);
         expect(notificationService.show).toHaveBeenCalledWith({
             type: 'warning',
-            title: 'clipboard.authentication.title',
-            content: 'clipboard.authentication.content',
+            title: 'ui.clipboard.authentication.title',
+            content: 'ui.clipboard.authentication.content',
         });
     });
 

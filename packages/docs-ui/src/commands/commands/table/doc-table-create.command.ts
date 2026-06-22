@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import type { ICommand, IMutationInfo, JSONXActions } from '@univerjs/core';
+import type { ICommand, IMutationInfo, IParagraph, ISectionBreak, ITextRun, JSONXActions } from '@univerjs/core';
 import type { IRichTextEditingMutationParams } from '@univerjs/docs';
 import type { ITextRangeWithStyle } from '@univerjs/engine-render';
-import { CommandType, DataStreamTreeTokenType, ICommandService, IUniverInstanceService, JSONX, TextX, TextXActionType } from '@univerjs/core';
-import { DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs';
+import { CommandType, createParagraphId, DataStreamTreeTokenType, getRichTextEditPath, ICommandService, IUniverInstanceService, JSONX, TextX, TextXActionType } from '@univerjs/core';
+import { DocContentInsertService, DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs';
 import { getTextRunAtPosition } from '../../../basics/paragraph';
 import { DocMenuStyleService } from '../../../services/doc-menu-style.service';
-import { getCommandSkeleton, getRichTextEditPath } from '../../util';
+import { getCommandSkeleton } from '../../util';
 import { generateParagraphs } from '../break-line.command';
 import { genEmptyTable, genTableSource } from './table';
 
@@ -31,6 +31,53 @@ export interface ICreateDocTableCommandParams {
     rowCount: number;
     colCount: number;
 }
+
+export interface IDocTableInsertBodyParams {
+    tableDataStream: string;
+    tableParagraphs: IParagraph[];
+    sectionBreaks: ISectionBreak[];
+    tableId: string;
+    textRun: ITextRun;
+    existingParagraphIds?: Set<string>;
+}
+
+export function buildDocTableInsertBody(params: IDocTableInsertBodyParams) {
+    const { tableDataStream, tableParagraphs, sectionBreaks, tableId, textRun } = params;
+    const existingParagraphIds = params.existingParagraphIds ?? new Set(tableParagraphs.map((paragraph) => paragraph.paragraphId));
+    const dataStream = `${tableDataStream}${DataStreamTreeTokenType.PARAGRAPH}`;
+    const tableEnd = tableDataStream.length;
+
+    return {
+        dataStream,
+        paragraphs: [
+            ...tableParagraphs,
+            {
+                startIndex: tableEnd,
+                paragraphId: createParagraphId(existingParagraphIds),
+            },
+        ],
+        sectionBreaks,
+        textRuns: [{
+            ...textRun,
+            st: 0,
+            ed: tableEnd,
+        }],
+        tables: [{
+            startIndex: 0,
+            endIndex: tableEnd,
+            tableId,
+        }],
+    };
+}
+
+export function shouldCreateParagraphBeforeTable(body: { dataStream: string }, startOffset: number): boolean {
+    return startOffset <= 0 || body.dataStream[startOffset - 1] !== DataStreamTreeTokenType.PARAGRAPH;
+}
+
+export function normalizeTableInsertOffset(body: { dataStream: string }, startOffset: number): number {
+    return startOffset === 0 && body.dataStream[0] === DataStreamTreeTokenType.PARAGRAPH ? 1 : startOffset;
+}
+
 /**
  * The command to create a table at cursor point.
  */
@@ -46,14 +93,25 @@ export const CreateDocTableCommand: ICommand<ICreateDocTableCommandParams> = {
         const commandService = accessor.get(ICommandService);
         const docMenuStyleService = accessor.get(DocMenuStyleService);
 
-        const activeRange = docSelectionManagerService.getActiveTextRange();
-        if (activeRange == null) {
+        const docDataModel = univerInstanceService.getCurrentUniverDocInstance();
+        if (docDataModel == null) {
             return false;
         }
-        const { segmentId, segmentPage } = activeRange;
-        const docDataModel = univerInstanceService.getCurrentUniverDocInstance();
+        let contentInsertRange: ReturnType<DocContentInsertService['consumeInsertRange']> = null;
+        try {
+            contentInsertRange = accessor.get(DocContentInsertService).consumeInsertRange(docDataModel.getUnitId());
+        } catch {
+            contentInsertRange = null;
+        }
+
+        const activeRange = docSelectionManagerService.getActiveTextRange();
+        if (activeRange == null && contentInsertRange == null) {
+            return false;
+        }
+        const segmentId = contentInsertRange?.segmentId ?? activeRange?.segmentId ?? '';
+        const segmentPage = activeRange?.segmentPage;
         const body = docDataModel?.getSelfOrHeaderFooterModel(segmentId).getBody();
-        if (docDataModel == null || body == null) {
+        if (body == null) {
             return false;
         }
 
@@ -64,7 +122,7 @@ export const CreateDocTableCommand: ICommand<ICreateDocTableCommandParams> = {
         if (skeleton == null) {
             return false;
         }
-        const { startOffset } = activeRange;
+        const startOffset = normalizeTableInsertOffset(body, contentInsertRange?.startOffset ?? activeRange!.startOffset);
 
         const paragraphs = body.paragraphs ?? [];
         const prevParagraph = paragraphs.find((p) => p.startIndex >= startOffset);
@@ -77,9 +135,7 @@ export const CreateDocTableCommand: ICommand<ICreateDocTableCommandParams> = {
             return false;
         }
 
-        // Also need to create new paragraph when there is already a table in paragraph.
-        // Always inert a paragraph before table.
-        const needCreateParagraph = true; // isInParagraph || line.isBehindTable;
+        const needCreateParagraph = shouldCreateParagraphBeforeTable(body, startOffset);
 
         const textX = new TextX();
         const jsonX = JSONX.getInstance();
@@ -138,27 +194,19 @@ export const CreateDocTableCommand: ICommand<ICreateDocTableCommandParams> = {
         }
         const { pageWidth, marginLeft, marginRight } = page;
         const tableSource = genTableSource(rowCount, colCount, pageWidth - marginLeft - marginRight);
+        const tableInsertBody = buildDocTableInsertBody({
+            tableDataStream,
+            tableParagraphs,
+            sectionBreaks,
+            tableId: tableSource.tableId,
+            textRun: curTextRun,
+            existingParagraphIds: new Set(body.paragraphs?.map((paragraph) => paragraph.paragraphId)),
+        });
 
         textX.push({
             t: TextXActionType.INSERT,
-            body: {
-                dataStream: tableDataStream,
-                paragraphs: tableParagraphs,
-                sectionBreaks,
-                textRuns: [{
-                    ...curTextRun,
-                    st: 0,
-                    ed: tableDataStream.length,
-                }],
-                tables: [
-                    {
-                        startIndex: 0,
-                        endIndex: tableDataStream.length,
-                        tableId: tableSource.tableId,
-                    },
-                ],
-            },
-            len: tableDataStream.length,
+            body: tableInsertBody,
+            len: tableInsertBody.dataStream.length,
         });
 
         const path = getRichTextEditPath(docDataModel, segmentId);

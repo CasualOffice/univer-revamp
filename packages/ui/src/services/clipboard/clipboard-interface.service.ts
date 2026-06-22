@@ -148,7 +148,7 @@ export interface IClipboardInterfaceService {
      * @param text
      * @param html
      */
-    write(text: string, html: string): Promise<void>;
+    write(text: string, html: string, customData?: Record<string, string>): Promise<void>;
 
     /**
      * Read plain text from clipboard. Use read() to read both plain text and html.
@@ -184,9 +184,9 @@ export class BrowserClipboardService extends Disposable implements IClipboardInt
         super();
     }
 
-    async write(text: string, html: string): Promise<void> {
+    async write(text: string, html: string, customData?: Record<string, string>): Promise<void> {
         if (!this.supportClipboard) {
-            return this._legacyCopyHtml(html);
+            return this._legacyCopyHtml(text, html);
         }
 
         try {
@@ -195,9 +195,24 @@ export class BrowserClipboardService extends Disposable implements IClipboardInt
                 new ClipboardItem({
                     [PLAIN_TEXT_CLIPBOARD_MIME_TYPE]: new Blob([text], { type: PLAIN_TEXT_CLIPBOARD_MIME_TYPE }),
                     [HTML_CLIPBOARD_MIME_TYPE]: new Blob([html], { type: HTML_CLIPBOARD_MIME_TYPE }),
+                    ...Object.fromEntries(Object.entries(customData ?? {}).map(([type, value]) => [type, new Blob([value], { type })])),
                 }),
             ]);
         } catch (error) {
+            if (customData && Object.keys(customData).length) {
+                try {
+                    return await navigator.clipboard.write([
+                        new ClipboardItem({
+                            [PLAIN_TEXT_CLIPBOARD_MIME_TYPE]: new Blob([text], { type: PLAIN_TEXT_CLIPBOARD_MIME_TYPE }),
+                            [HTML_CLIPBOARD_MIME_TYPE]: new Blob([html], { type: HTML_CLIPBOARD_MIME_TYPE }),
+                        }),
+                    ]);
+                } catch (fallbackError) {
+                    this._logService.error('[BrowserClipboardService]', fallbackError);
+                    this._showClipboardAuthenticationNotification();
+                    return;
+                }
+            }
             this._logService.error('[BrowserClipboardService]', error);
             this._showClipboardAuthenticationNotification();
         }
@@ -245,21 +260,45 @@ export class BrowserClipboardService extends Disposable implements IClipboardInt
         }
     }
 
-    private _legacyCopyHtml(html: string): void {
+    private _legacyCopyHtml(text: string, html: string): void {
         const activeElement = document.activeElement;
-        const container = createCopyHtmlContainer();
-        document.body.appendChild(container);
-        container.replaceChildren(sanitizeHtmlForClipboard(html));
+        const sanitizedHtml = serializeSanitizedHtmlForClipboard(html);
+        let handledByClipboardEvent = false;
+
+        const onCopy = (event: ClipboardEvent) => {
+            if (!event.clipboardData) {
+                return;
+            }
+
+            event.preventDefault();
+            event.clipboardData.setData(PLAIN_TEXT_CLIPBOARD_MIME_TYPE, text);
+            event.clipboardData.setData(HTML_CLIPBOARD_MIME_TYPE, sanitizedHtml);
+            handledByClipboardEvent = true;
+        };
+
+        document.addEventListener('copy', onCopy);
 
         try {
-            select(container);
             document.execCommand('copy');
+
+            if (!handledByClipboardEvent) {
+                const container = createCopyHtmlContainer();
+                document.body.appendChild(container);
+                container.innerHTML = sanitizedHtml;
+
+                try {
+                    select(container);
+                    document.execCommand('copy');
+                } finally {
+                    document.body.removeChild(container);
+                }
+            }
         } finally {
+            document.removeEventListener('copy', onCopy);
+
             if (activeElement instanceof HTMLElement) {
                 activeElement.focus();
             }
-
-            document.body.removeChild(container);
         }
     }
 
@@ -285,8 +324,8 @@ export class BrowserClipboardService extends Disposable implements IClipboardInt
     private _showClipboardAuthenticationNotification(): void {
         this._notificationService?.show({
             type: 'warning',
-            title: this._localeService.t('clipboard.authentication.title'),
-            content: this._localeService.t('clipboard.authentication.content'),
+            title: this._localeService.t('ui.clipboard.authentication.title'),
+            content: this._localeService.t('ui.clipboard.authentication.content'),
         });
     }
 }
@@ -328,6 +367,12 @@ function sanitizeHtmlForClipboard(html: string): DocumentFragment {
     });
 
     return fragment;
+}
+
+function serializeSanitizedHtmlForClipboard(html: string): string {
+    const container = document.createElement('div');
+    container.appendChild(sanitizeHtmlForClipboard(html));
+    return container.innerHTML;
 }
 
 function sanitizeHtmlNode(node: Node): Node | null {

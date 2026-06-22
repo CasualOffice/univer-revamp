@@ -1,26 +1,10 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 /* eslint-disable max-lines-per-function */
-import type { IPackageJson } from '../types';
+import type { IPackageJson } from '../types.ts';
+import fs from 'node:fs';
 import path from 'node:path';
-import fs from 'fs-extra';
 import sortKeys from 'sort-keys';
 import * as ts from 'typescript';
-import { peerDepsMap } from '../data/peer-deps';
+import { peerDepsMap } from '../data/peer-deps.ts';
 
 type StringMap = Record<string, string>;
 type PeerDepValue = (typeof peerDepsMap)[keyof typeof peerDepsMap] & { optional?: boolean };
@@ -434,9 +418,17 @@ function assignPeerDependencies(pkg: CleanupPackageJson, peerDeps: StringMap) {
     pkg.peerDependencies = merged;
 }
 
+function readJsonFile<T>(filePath: string): T {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
+}
+
+function writeJsonFile(filePath: string, value: unknown) {
+    fs.writeFileSync(filePath, `${JSON.stringify(value, null, 4)}\n`);
+}
+
 export function cleanupPackageJson(packageDir: string, packageJson: IPackageJson) {
     const pkgPath = path.resolve(packageDir, 'package.json');
-    const pkg = fs.readJSONSync(pkgPath) as CleanupPackageJson;
+    const pkg = readJsonFile<CleanupPackageJson>(pkgPath);
     const dependencyGroups = deriveDependencyGroups(packageDir, packageJson);
 
     applyPublishManifest(pkg, packageDir);
@@ -446,5 +438,5 @@ export function cleanupPackageJson(packageDir: string, packageJson: IPackageJson
     // This rewrite only owns @univerjs-managed entries; unrelated dev deps stay intact.
     assignDependencyGroup(pkg, 'devDependencies', dependencyGroups.devDependencies);
 
-    fs.writeJSONSync(pkgPath, pkg, { spaces: 4 });
+    writeJsonFile(pkgPath, pkg);
 }

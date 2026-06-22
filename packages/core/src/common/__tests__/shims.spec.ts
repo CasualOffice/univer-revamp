@@ -30,6 +30,7 @@ function restoreProperty(target: object, key: PropertyKey, descriptor: Restorabl
 describe('installShims', () => {
     let requestIdleDescriptor: RestorableDescriptor;
     let cancelIdleDescriptor: RestorableDescriptor;
+    let queueMicrotaskDescriptor: RestorableDescriptor;
     let findLastDescriptor: RestorableDescriptor;
     let findLastIndexDescriptor: RestorableDescriptor;
     let stringAtDescriptor: RestorableDescriptor;
@@ -38,6 +39,7 @@ describe('installShims', () => {
         vi.useFakeTimers();
         requestIdleDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'requestIdleCallback');
         cancelIdleDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'cancelIdleCallback');
+        queueMicrotaskDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'queueMicrotask');
         findLastDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'findLast');
         findLastIndexDescriptor = Object.getOwnPropertyDescriptor(Array.prototype, 'findLastIndex');
         stringAtDescriptor = Object.getOwnPropertyDescriptor(String.prototype, 'at');
@@ -48,6 +50,11 @@ describe('installShims', () => {
             value: undefined,
         });
         Object.defineProperty(globalThis, 'cancelIdleCallback', {
+            configurable: true,
+            writable: true,
+            value: undefined,
+        });
+        Object.defineProperty(globalThis, 'queueMicrotask', {
             configurable: true,
             writable: true,
             value: undefined,
@@ -75,6 +82,7 @@ describe('installShims', () => {
     afterEach(() => {
         restoreProperty(globalThis, 'requestIdleCallback', requestIdleDescriptor);
         restoreProperty(globalThis, 'cancelIdleCallback', cancelIdleDescriptor);
+        restoreProperty(globalThis, 'queueMicrotask', queueMicrotaskDescriptor);
         restoreProperty(Array.prototype, 'findLast', findLastDescriptor);
         restoreProperty(Array.prototype, 'findLastIndex', findLastIndexDescriptor);
         restoreProperty(String.prototype, 'at', stringAtDescriptor);
@@ -101,12 +109,25 @@ describe('installShims', () => {
         expect(idleDeadline.timeRemaining()).toBeGreaterThanOrEqual(0);
     });
 
+    it('should install queueMicrotask polyfill', async () => {
+        const callback = vi.fn();
+
+        installShims();
+        globalThis.queueMicrotask?.(callback);
+
+        expect(callback).not.toHaveBeenCalled();
+
+        await Promise.resolve();
+
+        expect(callback).toHaveBeenCalledTimes(1);
+    });
+
     it('should install array findLastIndex and findLast polyfills', () => {
         installShims();
 
         expect([1, 2, 3, 2].findLastIndex((value) => value === 2)).toBe(3);
         expect([1, 2, 3, 2].findLast((value) => value === 2)).toBe(2);
-        expect(() => Array.prototype.findLastIndex.call([1], null as never)).toThrowError(/callback must be a function/);
+        expect(() => Array.prototype.findLastIndex.call([1], null as never)).toThrow(/callback must be a function/);
     });
 
     it('should install string at polyfill', () => {

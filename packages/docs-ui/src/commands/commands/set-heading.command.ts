@@ -17,9 +17,21 @@
 import type { DocumentDataModel, ICommand, IMutationInfo, ITextRangeParam } from '@univerjs/core';
 import type { IRichTextEditingMutationParams } from '@univerjs/docs';
 import type { ITextRangeWithStyle } from '@univerjs/engine-render';
-import { BuildTextUtils, CommandType, generateRandomId, ICommandService, IUniverInstanceService, JSONX, NamedStyleType, TextX, TextXActionType, UniverInstanceType } from '@univerjs/core';
-import { DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs';
-import { getRichTextEditPath } from '../util';
+import {
+    BuildTextUtils,
+    CommandType,
+    createParagraphId,
+    generateRandomId,
+    getRichTextEditPath,
+    ICommandService,
+    IUniverInstanceService,
+    JSONX,
+    NamedStyleType,
+    TextX,
+    TextXActionType,
+    UniverInstanceType,
+} from '@univerjs/core';
+import { DocContentInsertService, DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs';
 
 export interface ISetParagraphNamedStyleCommandParams {
     value: NamedStyleType;
@@ -41,6 +53,11 @@ export const SetParagraphNamedStyleCommand: ICommand<ISetParagraphNamedStyleComm
         }
         const unitId = doc.getUnitId();
         const selectionService = accessor.get(DocSelectionManagerService);
+        const contentInsertRange = params.textRanges ? null : consumeContentInsertRange(accessor, unitId);
+        if (contentInsertRange) {
+            return insertNamedStyleParagraph(accessor, doc, params.value, contentInsertRange.startOffset, contentInsertRange.endOffset);
+        }
+
         const selections = params.textRanges ?? selectionService.getTextRanges({ unitId, subUnitId: unitId });
         if (!selections?.length) {
             return false;
@@ -78,6 +95,59 @@ export const SetParagraphNamedStyleCommand: ICommand<ISetParagraphNamedStyleComm
         return Boolean(result);
     },
 };
+
+function consumeContentInsertRange(accessor: Parameters<ICommand['handler']>[0], unitId: string) {
+    try {
+        return accessor.get(DocContentInsertService).consumeInsertRange(unitId);
+    } catch {
+        return null;
+    }
+}
+
+function insertNamedStyleParagraph(
+    accessor: Parameters<ICommand['handler']>[0],
+    doc: DocumentDataModel,
+    namedStyleType: NamedStyleType,
+    startOffset: number,
+    endOffset: number
+): boolean {
+    const textX = BuildTextUtils.selection.replace({
+        doc,
+        selection: {
+            startOffset,
+            endOffset,
+            collapsed: startOffset === endOffset,
+        },
+        body: {
+            dataStream: '\r',
+            paragraphs: [{
+                startIndex: 0,
+                paragraphId: createParagraphId(new Set()),
+                paragraphStyle: {
+                    namedStyleType,
+                    headingId: !namedStyleType || namedStyleType === NamedStyleType.NORMAL_TEXT ? undefined : generateRandomId(6),
+                },
+            }],
+        },
+    });
+
+    if (!textX) {
+        return false;
+    }
+
+    const jsonX = JSONX.getInstance();
+    const commandService = accessor.get(ICommandService);
+    return Boolean(commandService.syncExecuteCommand<IRichTextEditingMutationParams>(RichTextEditingMutation.id, {
+        actions: jsonX.editOp(textX.serialize(), getRichTextEditPath(doc)),
+        isEditing: false,
+        textRanges: [{
+            startOffset,
+            endOffset: startOffset,
+            collapsed: true,
+        }],
+        unitId: doc.getUnitId(),
+    }));
+}
 
 export const QuickHeadingCommand: ICommand<ISetParagraphNamedStyleCommandParams> = {
     id: 'doc.command.quick-heading',

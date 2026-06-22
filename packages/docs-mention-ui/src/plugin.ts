@@ -19,8 +19,9 @@ import type { IUniverDocsMentionUIConfig } from './config/config';
 import { IConfigService, Inject, Injector, merge, Plugin, UniverInstanceType } from '@univerjs/core';
 import pkg from '../package.json';
 import { defaultPluginConfig, DOCS_MENTION_UI_PLUGIN_CONFIG_KEY } from './config/config';
+import { ComponentsController } from './controllers/components.controller';
 import { DocMentionTriggerController } from './controllers/doc-mention-trigger.controller';
-import { DocMentionUIController } from './controllers/doc-mention-ui.controller';
+import { DocMentionUIController } from './controllers/ui.controller';
 import { DocMentionPopupService } from './services/doc-mention-popup.service';
 import { DocMentionService } from './services/doc-mention.service';
 import { DOC_MENTION_UI_PLUGIN } from './types/const/const';
@@ -52,6 +53,7 @@ export class UniverDocsMentionUIPlugin extends Plugin {
 
     override onStarting(): void {
         ([
+            [ComponentsController],
             [DocMentionService],
             [DocMentionPopupService],
             [DocMentionUIController],
@@ -61,6 +63,7 @@ export class UniverDocsMentionUIPlugin extends Plugin {
         });
 
         this._injector.get(DocMentionUIController);
+        this._injector.get(ComponentsController);
     }
 
     override onRendered(): void {

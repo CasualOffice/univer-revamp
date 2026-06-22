@@ -28,8 +28,6 @@ export interface IUniverSheetsFilterUIConfig {
 
 export const DefaultSheetFilterUiConfig = {};
 
-export const FILTER_PANEL_POPUP_KEY = 'FILTER_PANEL_POPUP';
-
 /**
  * This controller controls the UI of "filter" features. Menus, commands and filter panel etc. Except for the rendering.
  */
@@ -82,7 +80,7 @@ export class SheetsFilterPermissionController extends Disposable {
                     }
 
                     if (!permission) {
-                        this._sheetPermissionCheckPermission.blockExecuteWithoutPermission(this._localeService.t('permission.dialog.filterErr'));
+                        this._sheetPermissionCheckPermission.blockExecuteWithoutPermission(this._localeService.t('sheets-filter-ui.permission.filterErr'));
                     }
                 }
                 if (command.id === OpenFilterPanelOperation.id) {
@@ -98,7 +96,7 @@ export class SheetsFilterPermissionController extends Disposable {
                             worksheetTypes: [WorksheetFilterPermission, WorksheetViewPermission],
                         }, [colRange], unitId, subUnitId);
                         if (!permission) {
-                            this._sheetPermissionCheckPermission.blockExecuteWithoutPermission(this._localeService.t('permission.dialog.filterErr'));
+                            this._sheetPermissionCheckPermission.blockExecuteWithoutPermission(this._localeService.t('sheets-filter-ui.permission.filterErr'));
                         }
                     }
                 }

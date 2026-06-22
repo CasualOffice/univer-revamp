@@ -41,8 +41,20 @@ export class SheetsHyperLinkParserService {
         @IDefinedNamesService private _definedNamesService: IDefinedNamesService
     ) {}
 
-    buildHyperLink(unitId: string, sheetId: string, range?: string | IRange): string {
-        return `#${SheetHyperLinkType.SHEET}=${sheetId}${range ? `&${typeof range === 'string' ? SheetHyperLinkType.DEFINE_NAME : SheetHyperLinkType.RANGE}=${typeof range === 'string' ? range : serializeRange(range)}` : ''}`;
+    buildHyperLink(defineNameId: string): string;
+    buildHyperLink(range: IRange | null, sheetId: string): string;
+    buildHyperLink(defineNameIdOrRange: string | IRange | null, sheetId?: string): string {
+        if (typeof defineNameIdOrRange === 'string') {
+            return `#${SheetHyperLinkType.DEFINE_NAME}=${defineNameIdOrRange}`;
+        }
+
+        let result = `#${SheetHyperLinkType.SHEET}=${sheetId}`;
+
+        if (defineNameIdOrRange) {
+            result += `&${SheetHyperLinkType.RANGE}=${serializeRange(defineNameIdOrRange)}`;
+        }
+
+        return result;
     }
 
     parseHyperLink(urlStr: string): ISheetHyperLinkInfo {
@@ -79,7 +91,7 @@ export class SheetsHyperLinkParserService {
             : this._univerInstanceService.getCurrentUnitOfType<Workbook>(UniverInstanceType.UNIVER_SHEET);
         const invalidLink = {
             type: SheetHyperLinkType.INVALID,
-            name: this._localeService.t('hyperLink.message.refError'),
+            name: this._localeService.t('sheets-hyper-link.message.refError'),
         };
 
         if (!workbook) {

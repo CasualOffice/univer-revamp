@@ -5,10 +5,11 @@
         },
 
         "coverage": {
-            "cache": false
+            "outputs": ["coverage/**"]
         },
 
         "build": {
+            "outputs": ["lib/**"]
         },
 
         "build:e2e": {},

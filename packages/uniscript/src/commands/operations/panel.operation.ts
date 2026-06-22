@@ -17,7 +17,6 @@
 import type { IAccessor, IOperation } from '@univerjs/core';
 import { CommandType } from '@univerjs/core';
 import { ISidebarService } from '@univerjs/ui';
-
 import { ScriptPanelService } from '../../services/script-panel.service';
 
 export const ScriptPanelComponentName = 'ScriptPanel';
@@ -37,7 +36,7 @@ export const ToggleScriptPanelOperation: IOperation = {
         } else {
             scriptPanelService.open();
             sidebarService.open({
-                header: { title: 'script-panel.title' },
+                header: { title: 'uniscript.title' },
                 children: { label: ScriptPanelComponentName },
                 width: 600,
             });

@@ -15,7 +15,6 @@
  */
 
 import type { ISrcRect, Nullable } from '@univerjs/core';
-
 import type { IObjectFullState, ITransformChangeState, IViewportInfo } from '../basics';
 import type { UniverRenderingContext } from '../context';
 import type { Scene } from '../scene';
@@ -65,6 +64,8 @@ export interface IImageProps extends IShapeProps {
     adjustValues?: Nullable<Record<string, number>>;
 
     opacity?: number;
+
+    clipBounds?: Nullable<IShapeClipBounds>;
 }
 
 export class Image extends Shape<IImageProps> {
@@ -94,7 +95,6 @@ export class Image extends Shape<IImageProps> {
             this.makeDirty(true);
         } else if (config.url) {
             this._native = document.createElement('img');
-            this._native.src = config.url;
             this._native.crossOrigin = 'anonymous';
             this._native.onload = () => {
                 config.success?.();
@@ -110,6 +110,7 @@ export class Image extends Shape<IImageProps> {
                     this.makeDirty(true);
                 }
             };
+            this._native.src = config.url;
         }
 
         this._init();
@@ -127,8 +128,17 @@ export class Image extends Shape<IImageProps> {
         return this._props.opacity ?? 1;
     }
 
+    get clipBounds() {
+        return this._props.clipBounds;
+    }
+
     setOpacity(opacity: number) {
         this._props.opacity = opacity;
+        this.makeDirty(true);
+    }
+
+    setClipBounds(clipBounds?: Nullable<IShapeClipBounds>) {
+        this._props.clipBounds = clipBounds;
         this.makeDirty(true);
     }
 
@@ -154,10 +164,10 @@ export class Image extends Shape<IImageProps> {
         if (this._native == null) {
             this._native = document.createElement('img');
         }
-        this._native.src = url;
         this._native.onload = () => {
             this.makeDirty(true);
         };
+        this._native.src = url;
     }
 
     resetSize() {
@@ -341,6 +351,12 @@ export class Image extends Shape<IImageProps> {
 
         const m = this.transform.getMatrix();
         mainCtx.save();
+        const { clipBounds } = this;
+        if (clipBounds) {
+            mainCtx.beginPath();
+            mainCtx.rect(clipBounds.left, clipBounds.top, clipBounds.width, clipBounds.height);
+            mainCtx.clip();
+        }
         // if (this.flipX || this.flipY) {
         //     const centerX = this.left + this.width / 2;
         //     const centerY = this.top + this.height / 2;

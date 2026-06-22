@@ -15,7 +15,7 @@
  */
 
 import type { IDrawingParam, IDrawingSearch } from '@univerjs/core';
-import { BooleanNumber, DrawingTypeEnum } from '@univerjs/core';
+import { BooleanNumber, DrawingTypeEnum, Injector } from '@univerjs/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { UnitDrawingService } from '../drawing-manager-impl.service';
 
@@ -44,7 +44,9 @@ describe('UnitDrawingService', () => {
     let service: UnitDrawingService<IDrawingParam>;
 
     beforeEach(() => {
-        service = new UnitDrawingService<IDrawingParam>();
+        const injector = new Injector();
+        injector.add([UnitDrawingService]);
+        service = injector.get(UnitDrawingService);
     });
 
     it('should register, initialize and remove drawing data for a unit', () => {
@@ -128,7 +130,8 @@ describe('UnitDrawingService', () => {
             transform: { left: 1, top: 2 } as NonNullable<IDrawingParam['transform']>,
             transforms: [{ left: 3, top: 4 } as NonNullable<IDrawingParam['transform']>] as NonNullable<IDrawingParam['transforms']>,
             isMultiTransform: BooleanNumber.TRUE,
-        });
+            behindText: true,
+        } as Partial<IDrawingParam>);
         service.refreshTransform([transformed]);
 
         expect(refreshed).toEqual([[transformed]]);
@@ -136,6 +139,7 @@ describe('UnitDrawingService', () => {
             transform: { left: 1, top: 2 },
             transforms: [{ left: 3, top: 4 }],
             isMultiTransform: BooleanNumber.TRUE,
+            behindText: true,
         });
 
         service.visibleNotification([{ ...createSearch('a'), visible: false }]);

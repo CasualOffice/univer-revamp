@@ -42,7 +42,6 @@ import {
     SheetsSelectionsService,
 } from '@univerjs/sheets';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import { getCurrencyFormat } from '../../../base/const/currency-symbols';
 import { AddDecimalCommand } from '../add-decimal.command';
 import { SetCurrencyCommand } from '../set-currency.command';
@@ -218,6 +217,20 @@ describe('Sheets numfmt commands', () => {
 
         expect(numfmtService.getValue('test', 'sheet1', 0, 0)).toEqual({ pattern: '0.00' });
         expect(numfmtService.getValue('test', 'sheet1', 1, 0)).toEqual({ pattern: '0.00' });
+    });
+
+    it('subtracts decimals from raw numeric cells when no number format exists yet', async () => {
+        selectionService.addSelections([
+            {
+                range: { startRow: 0, startColumn: 0, endRow: 0, endColumn: 0, rangeType: RANGE_TYPE.NORMAL },
+                primary: null,
+                style: null,
+            },
+        ]);
+
+        await expect(commandService.executeCommand(SubtractDecimalCommand.id)).resolves.toBe(true);
+
+        expect(numfmtService.getValue('test', 'sheet1', 0, 0)).toEqual({ pattern: '0' });
     });
 
     it('applies percent and currency formats to current selections', async () => {

@@ -20,7 +20,9 @@ import type { ITextRangeWithStyle } from '@univerjs/engine-render';
 import {
     BuildTextUtils,
     CommandType,
+    createParagraphId,
     generateRandomId,
+    getRichTextEditPath,
     ICommandService,
     IUniverInstanceService,
     JSONX,
@@ -32,8 +34,7 @@ import {
     TextXActionType,
     UniverInstanceType,
 } from '@univerjs/core';
-import { DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs';
-import { getRichTextEditPath } from '../util';
+import { DocContentInsertService, DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs';
 import { getCurrentParagraph } from './util';
 
 interface IListOperationCommandParams {
@@ -345,6 +346,7 @@ export const ToggleCheckListCommand: ICommand<IToggleCheckListCommandParams> = {
 
 interface IOrderListCommandParams {
     value?: PresetListType;
+    docRange?: ITextRangeWithStyle[];
 }
 
 export const OrderListCommand: ICommand<IOrderListCommandParams> = {
@@ -357,11 +359,13 @@ export const OrderListCommand: ICommand<IOrderListCommandParams> = {
         if (params?.value) {
             return commandService.syncExecuteCommand(ChangeListTypeCommand.id, {
                 listType: params.value,
+                docRange: params.docRange,
             });
         }
 
         return commandService.syncExecuteCommand(ListOperationCommand.id, {
             listType: PresetListType.ORDER_LIST,
+            docRange: params?.docRange,
         });
     },
 };
@@ -450,6 +454,7 @@ export const QuickListCommand: ICommand<IQuickListCommandParams> = {
                 paragraphs: [
                     {
                         startIndex: 0,
+                        paragraphId: paragraph.paragraphId,
                         paragraphStyle: {
                             ...paragraphStyle,
                             textStyle: {
@@ -483,19 +488,28 @@ export const QuickListCommand: ICommand<IQuickListCommandParams> = {
 
 function insertList(accessor: IAccessor, listType: PresetListType) {
     const commandService = accessor.get(ICommandService);
-    const paragraph = getCurrentParagraph(accessor);
-    if (!paragraph) {
-        return false;
-    }
     const docDataModel = accessor.get(IUniverInstanceService).getCurrentUnitOfType<DocumentDataModel>(UniverInstanceType.UNIVER_DOC);
     if (!docDataModel) {
         return false;
     }
+    let contentInsertRange: ReturnType<DocContentInsertService['consumeInsertRange']> = null;
+    try {
+        contentInsertRange = accessor.get(DocContentInsertService).consumeInsertRange(docDataModel.getUnitId());
+    } catch {
+        contentInsertRange = null;
+    }
+    const paragraph = contentInsertRange ? null : getCurrentParagraph(accessor);
+    if (!contentInsertRange && !paragraph) {
+        return false;
+    }
+    const sourceParagraph = paragraph || undefined;
+    const insertOffset = contentInsertRange?.startOffset ?? sourceParagraph!.startIndex + 1;
+    const sourceBullet = sourceParagraph?.bullet;
     const textX = BuildTextUtils.selection.replace({
         doc: docDataModel,
         selection: {
-            startOffset: paragraph.startIndex + 1,
-            endOffset: paragraph.startIndex + 1,
+            startOffset: insertOffset,
+            endOffset: contentInsertRange?.endOffset ?? insertOffset,
             collapsed: true,
         },
         body: {
@@ -503,13 +517,14 @@ function insertList(accessor: IAccessor, listType: PresetListType) {
             paragraphs: [
                 {
                     startIndex: 0,
+                    paragraphId: createParagraphId(new Set()),
                     paragraphStyle: {
-                        ...paragraph.paragraphStyle,
+                        ...(sourceParagraph?.paragraphStyle ?? {}),
                     },
                     bullet: {
                         listType,
-                        listId: paragraph.bullet?.listType === listType ? paragraph.bullet.listId : generateRandomId(6),
-                        nestingLevel: paragraph.bullet?.listType === listType ? paragraph.bullet.nestingLevel : 0,
+                        listId: sourceBullet?.listType === listType ? sourceBullet.listId : generateRandomId(6),
+                        nestingLevel: sourceBullet?.listType === listType ? sourceBullet.nestingLevel : 0,
                     },
                 },
             ],
@@ -525,8 +540,8 @@ function insertList(accessor: IAccessor, listType: PresetListType) {
             unitId: docDataModel.getUnitId(),
             actions: [],
             textRanges: [{
-                startOffset: paragraph.startIndex + 1,
-                endOffset: paragraph.startIndex + 1,
+                startOffset: insertOffset,
+                endOffset: insertOffset,
                 collapsed: true,
             }],
             isEditing: false,

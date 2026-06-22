@@ -14,28 +14,23 @@
  * limitations under the License.
  */
 
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import type { Nullable } from '@univerjs/core';
-import type { Documents, DocumentSkeleton, Engine, IDocumentSkeletonGlyph, INodePosition, IRectRangeWithStyle, ITextRangeWithStyle, ITextSelectionStyle, Scene } from '@univerjs/engine-render';
+import type {
+    Documents,
+    DocumentSkeleton,
+    Engine,
+    IDocumentSkeletonGlyph,
+    INodePosition,
+    IRectRangeWithStyle,
+    ITextRangeWithStyle,
+    ITextSelectionStyle,
+    Scene,
+} from '@univerjs/engine-render';
 import type { IDocRange } from './range-interface';
 import { RANGE_DIRECTION, Tools } from '@univerjs/core';
 import { getOffsetRectForDom } from '@univerjs/engine-render';
 import { isInSameTableCell, isInSameTableCellData, isValidRectRange } from './convert-rect-range';
+import { compareNodePosition } from './convert-text-range';
 import { convertPositionsToRectRanges, RectRange } from './rect-range';
 import { TextRange } from './text-range';
 
@@ -190,6 +185,15 @@ export function getRangeListFromSelection(
 
     const startOffset = Math.min(anchorOffset, focusOffset);
     const endOffset = Math.max(anchorOffset, focusOffset);
+    const originRange = compareNodePosition(anchorPosition, focusPosition);
+
+    const findStartNodePositionByCharIndex = (charIndex: number, isBack: boolean = true) =>
+        skeleton.findNodePositionByCharIndex(charIndex, isBack, segmentId, segmentPage) ??
+        (charIndex === startOffset ? originRange.start : undefined);
+
+    const findEndNodePositionByCharIndex = (charIndex: number, isBack: boolean = true) =>
+        skeleton.findNodePositionByCharIndex(charIndex, isBack, segmentId, segmentPage) ??
+        (charIndex === endOffset ? originRange.end : undefined);
 
     let start = startOffset;
     let end = endOffset;
@@ -227,8 +231,8 @@ export function getRangeListFromSelection(
                     tableEndPosition = skeleton.findNodePositionByCharIndex(tableEnd - 4, true, segmentId, segmentPage);
 
                     if (start <= tableStart - 1) {
-                        const sp = skeleton.findNodePositionByCharIndex(start, true, segmentId, segmentPage);
-                        const ep = skeleton.findNodePositionByCharIndex(tableStart - 1, false, segmentId, segmentPage);
+                        const sp = findStartNodePositionByCharIndex(start, true);
+                        const ep = findEndNodePositionByCharIndex(tableStart - 1, false);
                         const ap = direction === RANGE_DIRECTION.FORWARD ? sp : ep;
                         const fp = direction === RANGE_DIRECTION.FORWARD ? ep : sp;
 
@@ -262,8 +266,8 @@ export function getRangeListFromSelection(
             }
 
             if ((end >= startIndex && end <= endIndex) || endInTable) {
-                const sp = skeleton.findNodePositionByCharIndex(start, true, segmentId, segmentPage);
-                const ep = skeleton.findNodePositionByCharIndex(end, !endInTable, segmentId, segmentPage);
+                const sp = findStartNodePositionByCharIndex(start, true);
+                const ep = findEndNodePositionByCharIndex(end, !endInTable);
                 const ap = direction === RANGE_DIRECTION.FORWARD ? sp : ep;
                 const fp = direction === RANGE_DIRECTION.FORWARD ? ep : sp;
 

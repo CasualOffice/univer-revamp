@@ -32,10 +32,9 @@ afterEach(() => {
 });
 
 describe('FormulaAlertRenderController', () => {
-    it('shows formula alerts for hovered cells and hides them for repeated hovers or zen mode', async () => {
+    it('shows formula alerts for hovered cells and hides them for repeated hovers', async () => {
         vi.useFakeTimers();
         const currentCell$ = new Subject<{ location: { unitId: string; subUnitId: string; row: number; col: number } }>();
-        const visible$ = new Subject<boolean>();
         const currentAlert = new Map<string, { alert: { location: { unitId: string; subUnitId: string; row: number; col: number } } }>();
         const showAlert = vi.fn((alert) => currentAlert.set('SHEET_FORMULA_ALERT', { alert }));
         const removeAlert = vi.fn((key: string) => currentAlert.delete(key));
@@ -46,8 +45,7 @@ describe('FormulaAlertRenderController', () => {
             { currentCell$ } as never,
             { currentAlert, removeAlert, showAlert } as never,
             { t: (key: string) => key } as never,
-            { getArrayFormulaCellData: vi.fn(() => null) } as never,
-            { visible$ } as never
+            { getArrayFormulaCellData: vi.fn(() => null) } as never
         );
 
         expect(controller).toBeTruthy();
@@ -58,16 +56,13 @@ describe('FormulaAlertRenderController', () => {
 
         expect(showAlert).toHaveBeenCalledWith(expect.objectContaining({
             key: 'SHEET_FORMULA_ALERT',
-            title: 'formula.error.title',
-            message: 'formula.error.divByZero',
+            title: 'sheets-formula-ui.error.title',
+            message: 'sheets-formula-ui.error.divByZero',
             location,
         }));
 
         currentCell$.next({ location });
         await vi.advanceTimersByTimeAsync(120);
-        expect(removeAlert).toHaveBeenCalledWith('SHEET_FORMULA_ALERT');
-
-        visible$.next(true);
         expect(removeAlert).toHaveBeenCalledWith('SHEET_FORMULA_ALERT');
     });
 
@@ -82,8 +77,7 @@ describe('FormulaAlertRenderController', () => {
             { currentCell$ } as never,
             { currentAlert: new Map(), removeAlert, showAlert: vi.fn() } as never,
             { t: (key: string) => key } as never,
-            { getArrayFormulaCellData: vi.fn(() => null) } as never,
-            { visible$: new Subject<boolean>() } as never
+            { getArrayFormulaCellData: vi.fn(() => null) } as never
         );
 
         expect(controller).toBeTruthy();
@@ -94,5 +88,35 @@ describe('FormulaAlertRenderController', () => {
         expect(removeAlert).toHaveBeenCalledWith('SHEET_FORMULA_ALERT');
         expect(vi.mocked(extractFormulaError)).toHaveBeenCalledWith({ v: 'plain-text' }, false);
         expect(ErrorType.DIV_BY_ZERO).toBeTruthy();
+    });
+
+    it('hides alerts when the workbook has no active worksheet for the hovered cell', async () => {
+        vi.useFakeTimers();
+        const currentCell$ = new Subject<{ location: { unitId: string; subUnitId: string; row: number; col: number } }>();
+        const removedAlerts: string[] = [];
+        const shownAlerts: unknown[] = [];
+        const controller = new FormulaAlertRenderController(
+            { unit: { getActiveSheet: () => null } } as never,
+            { currentCell$ } as never,
+            {
+                currentAlert: new Map(),
+                removeAlert: (key: string) => {
+                    removedAlerts.push(key);
+                },
+                showAlert: (alert: unknown) => {
+                    shownAlerts.push(alert);
+                },
+            } as never,
+            { t: (key: string) => key } as never,
+            { getArrayFormulaCellData: () => null } as never
+        );
+
+        currentCell$.next({ location: { unitId: 'book-1', subUnitId: 'sheet-1', row: 3, col: 4 } });
+        await vi.advanceTimersByTimeAsync(120);
+
+        expect(removedAlerts).toEqual(['SHEET_FORMULA_ALERT']);
+        expect(shownAlerts).toEqual([]);
+
+        controller.dispose();
     });
 });

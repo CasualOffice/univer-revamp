@@ -15,22 +15,20 @@
  */
 
 import type { IShortcutItem } from '../../services/shortcut/shortcut.service';
-import { Disposable, ICommandService, Inject, Injector } from '@univerjs/core';
+import { Disposable, ICommandService } from '@univerjs/core';
 import {
-    ShortcutPanelComponentName,
     ToggleShortcutPanelOperation,
 } from '../../commands/operations/toggle-shortcut-panel.operation';
-import { ComponentManager } from '../../common/component-manager';
 import { IMenuManagerService } from '../../services/menu/menu-manager.service';
 import { KeyCode, MetaKeys } from '../../services/shortcut/keycode';
 import { IShortcutService } from '../../services/shortcut/shortcut.service';
-import { ShortcutPanel } from '../../views/components/shortcut-panel/ShortcutPanel';
 
 const ToggleShortcutPanelShortcut: IShortcutItem = {
     id: ToggleShortcutPanelOperation.id,
     binding: MetaKeys.CTRL_COMMAND | KeyCode.BACK_SLASH,
-    description: 'shortcut.shortcut-panel',
+    description: 'ui.shortcut.shortcut-panel',
     group: '10_global-shortcut',
+    groupTitle: 'ui.global-shortcut',
 };
 
 /**
@@ -38,16 +36,11 @@ const ToggleShortcutPanelShortcut: IShortcutItem = {
  */
 export class ShortcutPanelController extends Disposable {
     constructor(
-        @Inject(Injector) injector: Injector,
-        @Inject(ComponentManager) componentManager: ComponentManager,
         @IShortcutService shortcutService: IShortcutService,
         @IMenuManagerService private readonly _menuManagerService: IMenuManagerService,
         @ICommandService commandService: ICommandService
     ) {
         super();
-
-        // register the panel
-        this.disposeWithMe(componentManager.register(ShortcutPanelComponentName, ShortcutPanel));
         this.disposeWithMe(commandService.registerCommand(ToggleShortcutPanelOperation));
 
         // register the shortcut

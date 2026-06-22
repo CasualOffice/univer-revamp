@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
-import type { Dependency, DependencyIdentifier, ICreateUnitOptions, IDisposable, Nullable, UnitModel, UniverInstanceType } from '@univerjs/core';
+import type {
+    Dependency,
+    DependencyIdentifier,
+    ICreateUnitOptions,
+    IDisposable,
+    Nullable,
+    UnitModel,
+    UniverInstanceType,
+} from '@univerjs/core';
 import type { Observable } from 'rxjs';
 import type { Engine } from '../engine';
 import type { Scene } from '../scene';
@@ -55,6 +63,8 @@ export interface IRender {
      * Activate the render unit, means the render unit would be updated and rendered.
      */
     activate(): void;
+
+    isDisposed(): boolean;
 }
 
 /**
@@ -66,7 +76,7 @@ export interface IRenderModule extends IDisposable { }
  * Necessary context for a render module.This interface would be the first argument of render modules' constructor
  * functions.
  */
-export interface IRenderContext<T extends UnitModel = UnitModel> extends Omit<IRender, 'with'> {
+export interface IRenderContext<T extends UnitModel = UnitModel> extends Omit<IRender, 'with' | 'isDisposed'> {
     unit: T;
     type: UniverInstanceType;
 }
@@ -136,6 +146,10 @@ export class RenderUnit extends Disposable implements IRender {
         //@ts-ignore
         this._renderContext.unit = null;
         this._renderContext.components.clear();
+    }
+
+    isDisposed(): boolean {
+        return this._disposed;
     }
 
     /**

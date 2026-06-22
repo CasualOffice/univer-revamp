@@ -15,38 +15,24 @@
  */
 
 import { Disposable, ICommandService, Inject, Injector } from '@univerjs/core';
-import { LinkIcon } from '@univerjs/icons';
-import { ComponentManager, IMenuManagerService, IShortcutService } from '@univerjs/ui';
+import { ComponentManager, IconManager, IMenuManagerService, IShortcutService } from '@univerjs/ui';
 import { CloseHyperLinkPopupOperation, InsertHyperLinkOperation, InsertHyperLinkToolbarOperation, OpenHyperLinkEditPanelOperation } from '../commands/operations/popup.operations';
 import { InsertLinkShortcut } from '../menu/menu';
 import { menuSchema } from '../menu/schema';
-import { CellLinkEdit } from '../views/CellLinkEdit';
-import { CellLinkPopup } from '../views/CellLinkPopup';
 
 export class SheetsHyperLinkUIController extends Disposable {
     constructor(
         @Inject(ComponentManager) private _componentManager: ComponentManager,
+        @Inject(IconManager) private _iconManager: IconManager,
         @ICommandService private _commandService: ICommandService,
         @IMenuManagerService private readonly _menuManagerService: IMenuManagerService,
         @Inject(Injector) private _injector: Injector,
         @Inject(IShortcutService) private _shortcutService: IShortcutService
     ) {
         super();
-
-        this._initComponents();
         this._initCommands();
         this._initMenus();
         this._initShortCut();
-    }
-
-    private _initComponents() {
-        ([
-            [CellLinkPopup.componentKey, CellLinkPopup],
-            [CellLinkEdit.componentKey, CellLinkEdit],
-            ['LinkIcon', LinkIcon],
-        ] as const).forEach(([key, comp]) => {
-            this._componentManager.register(key, comp);
-        });
     }
 
     private _initCommands() {

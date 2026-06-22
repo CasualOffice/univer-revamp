@@ -17,7 +17,7 @@
 import type enUS from './en-US';
 
 const locale: typeof enUS = {
-    'sheets-table': {
+    'sheets-table-ui': {
         title: '表格',
         selectRange: '选择表格范围',
         rename: '重命名表格',
@@ -46,6 +46,11 @@ const locale: typeof enUS = {
             'insert-left': '向左插入 1 个表格列',
             'insert-right': '向右插入 1 个表格列',
             delete: '删除表格列',
+        },
+
+        sort: {
+            'sort-asc': '升序',
+            'sort-desc': '降序',
         },
 
         insert: {

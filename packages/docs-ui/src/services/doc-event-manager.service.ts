@@ -19,15 +19,16 @@ import type {
     Documents,
     DocumentSkeleton,
     IBoundRectNoAngle,
+    IDocsTableRenderViewport,
     IDocumentSkeletonGlyph,
     IDocumentSkeletonPage,
     IDocumentSkeletonSection,
     IRenderContext,
     IRenderModule,
 } from '@univerjs/engine-render';
-import { Disposable, fromEventSubject, Inject } from '@univerjs/core';
+import { Disposable, fromEventSubject, Inject, PresetListType } from '@univerjs/core';
 import { DocSkeletonManagerService } from '@univerjs/docs';
-import { CURSOR_TYPE, TRANSFORM_CHANGE_OBSERVABLE_TYPE } from '@univerjs/engine-render';
+import { CURSOR_TYPE, getDocsTableRenderViewport, getTableIdAndSliceIndex, TRANSFORM_CHANGE_OBSERVABLE_TYPE } from '@univerjs/engine-render';
 import { BehaviorSubject, distinctUntilChanged, filter, map, Subject, switchMap, take, throttleTime } from 'rxjs';
 import { DOC_VERTICAL_PADDING } from '../types/const/padding';
 import { transformOffset2Bound } from './doc-popup-manager.service';
@@ -145,6 +146,9 @@ export const calcDocGlyphPosition = (glyph: IDocumentSkeletonGlyph, documents: D
     const { borderBoxPointGroup } = convertor.getRangePointData(startPosition, startPosition);
     const bounds = getLineBounding(borderBoxPointGroup);
     const rect = bounds[0];
+    if (!rect) {
+        return;
+    }
 
     return {
         top: rect.top + documentOffsetConfig.docsTop,
@@ -153,6 +157,55 @@ export const calcDocGlyphPosition = (glyph: IDocumentSkeletonGlyph, documents: D
         right: rect.left + documentOffsetConfig.docsLeft + glyph.width,
     };
 };
+
+const LIST_MARKER_FALLBACK_HIT_WIDTH = 36;
+
+export function getListMarkerFallbackHit(
+    paragraphBound: Pick<IMutiPageParagraphBound, 'firstLine' | 'pageIndex' | 'rect' | 'segmentId'>,
+    paragraph: Pick<IParagraph, 'bullet' | 'startIndex'> | undefined,
+    point: { x: number; y: number }
+): IBulletBound | null {
+    const markerBound = getListMarkerFallbackBound(paragraphBound, paragraph);
+
+    if (!markerBound || !isPointInRect(point.x, point.y, markerBound.rect)) {
+        return null;
+    }
+
+    return markerBound;
+}
+
+export function getListParagraphContextMenuHit(
+    paragraphBound: Pick<IMutiPageParagraphBound, 'firstLine' | 'pageIndex' | 'rect' | 'segmentId'>,
+    paragraph: Pick<IParagraph, 'bullet' | 'startIndex'> | undefined,
+    point: { x: number; y: number }
+): IBulletBound | null {
+    return getListMarkerFallbackHit(paragraphBound, paragraph, point);
+}
+
+export function isChecklistListType(listType?: string): boolean {
+    return listType === PresetListType.CHECK_LIST || listType === PresetListType.CHECK_LIST_CHECKED;
+}
+
+export function getListMarkerFallbackBound(
+    paragraphBound: Pick<IMutiPageParagraphBound, 'firstLine' | 'pageIndex' | 'rect' | 'segmentId'>,
+    paragraph: Pick<IParagraph, 'bullet' | 'startIndex'> | undefined
+): IBulletBound | null {
+    if (!paragraph?.bullet) {
+        return null;
+    }
+
+    return {
+        paragraph: paragraph as IParagraph,
+        rect: {
+            bottom: paragraphBound.firstLine.bottom,
+            left: paragraphBound.rect.left,
+            right: Math.min(paragraphBound.rect.right, paragraphBound.rect.left + LIST_MARKER_FALLBACK_HIT_WIDTH),
+            top: paragraphBound.firstLine.top,
+        },
+        segmentId: paragraphBound.segmentId,
+        segmentPageIndex: paragraphBound.pageIndex,
+    };
+}
 
 interface ICustomRangeActive {
     range: ICustomRange;
@@ -206,12 +259,42 @@ export interface ITableCellBound {
     tableId: string;
 }
 
+const TABLE_BLOCK_MENU_HOVER_GUTTER_LEFT = 72;
+const TABLE_BLOCK_MENU_HOVER_GUTTER_TOP = 42;
+
 function isPointInRect(x: number, y: number, rect: IBoundRectNoAngle) {
     const { left, right, top, bottom } = rect;
     if (x >= left && x <= right && y >= top && y <= bottom) {
         return true;
     }
     return false;
+}
+
+export function getTableBlockMenuHoverRect(tableRect: IBoundRectNoAngle): IBoundRectNoAngle {
+    return {
+        bottom: tableRect.bottom,
+        left: tableRect.left - TABLE_BLOCK_MENU_HOVER_GUTTER_LEFT,
+        right: tableRect.right,
+        top: tableRect.top - TABLE_BLOCK_MENU_HOVER_GUTTER_TOP,
+    };
+}
+
+export function getTableHorizontalViewportGeometry(tableLeft: number, tableWidth: number, viewport: Nullable<IDocsTableRenderViewport>) {
+    const hasHorizontalViewport = hasHorizontalTableViewport(viewport);
+    const visibleLeft = hasHorizontalViewport
+        ? tableLeft - (viewport.leadingInsetLeft ?? 0)
+        : tableLeft;
+
+    return {
+        scrollLeft: hasHorizontalViewport ? viewport.scrollLeft : 0,
+        visibleLeft,
+        visibleRight: visibleLeft + (hasHorizontalViewport ? viewport.viewportWidth : tableWidth),
+    };
+}
+
+function hasHorizontalTableViewport(viewport: Nullable<IDocsTableRenderViewport>): viewport is IDocsTableRenderViewport {
+    return viewport != null &&
+        (viewport.leadingInsetLeft ?? 0) + viewport.contentWidth + (viewport.trailingInsetRight ?? 0) > viewport.viewportWidth;
 }
 
 export class DocEventManagerService extends Disposable implements IRenderModule {
@@ -226,6 +309,9 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
 
     private readonly _clickBullet$ = new Subject<IBulletActive>();
     readonly clickBullets$ = this._clickBullet$.asObservable();
+
+    private readonly _contextMenuBullet$ = new Subject<IBulletActive & { x: number; y: number }>();
+    readonly contextMenuBullets$ = this._contextMenuBullet$.asObservable();
 
     private readonly _hoverParagraph$ = new BehaviorSubject<Nullable<IMutiPageParagraphBound>>(null);
     readonly hoverParagraph$ = this._hoverParagraph$.pipe(distinctUntilChanged((pre, aft) => pre?.startIndex === aft?.startIndex && pre?.segmentId === aft?.segmentId && pre?.pageIndex === aft?.pageIndex));
@@ -273,6 +359,7 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
     private _paragraphLeftBounds: IMutiPageParagraphBound[] = [];
     private _tableParagraphBounds: Map<string, ITableParagraphBound[]> = new Map();
     private _segmentParagraphBounds: Map<string, Map<number, IMutiPageParagraphBound[]>> = new Map();
+    private _tableViewportSignature = '';
 
     private _tableCellBounds: Map<string, ITableCellBound[]> = new Map();
     private _tableBounds: Map<string, ITableBound> = new Map();
@@ -330,6 +417,16 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
                 this._paragraphDirty = true;
             })
         );
+
+        this.disposeWithMe(
+            fromEventSubject(this._context.scene.onTransformChange$).pipe(
+                filter((evt) => evt.type === TRANSFORM_CHANGE_OBSERVABLE_TYPE.scale)
+            ).subscribe(() => {
+                this._customRangeDirty = true;
+                this._bulletDirty = true;
+                this._paragraphDirty = true;
+            })
+        );
     }
 
     private _initEvents() {
@@ -368,12 +465,23 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
         const onPointerUp$ = fromEventSubject(this._context.scene!.onPointerUp$);
         this.disposeWithMe(onPointerDown$.pipe(
             switchMap((down) => onPointerUp$.pipe(take(1), map((up) => ({ down, up })))),
-            filter(({ down, up }) => down.target === up.target && up.timeStamp - down.timeStamp < 300)
+            filter(({ down, up }) => down.target === up.target && (down.button === 2 || up.timeStamp - down.timeStamp < 300))
         ).subscribe(({ down }) => {
+            const point = transformOffset2Bound(down.offsetX, down.offsetY, this._context.scene);
+
             if (down.button === 2) {
+                const bullet = this._calcActiveBullet(point) ?? this._calcActiveListParagraph(point);
+                if (bullet) {
+                    this._contextMenuBullet$.next({
+                        ...bullet,
+                        x: down.offsetX,
+                        y: down.offsetY,
+                    });
+                }
+
                 return;
             }
-            const point = transformOffset2Bound(down.offsetX, down.offsetY, this._context.scene);
+
             const ranges = this._calcActiveRanges(point);
             if (ranges.length) {
                 this._clickCustomRanges$.next(ranges.pop()!);
@@ -384,6 +492,28 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
                 this._clickBullet$.next(bullet);
             }
         }));
+    }
+
+    isPointerOnBullet(offsetX: number, offsetY: number): boolean {
+        return Boolean(this._calcActiveBullet(transformOffset2Bound(offsetX, offsetY, this._context.scene)));
+    }
+
+    isPointerOnNonChecklistBullet(offsetX: number, offsetY: number): boolean {
+        const bullet = this._calcActiveBullet(transformOffset2Bound(offsetX, offsetY, this._context.scene));
+
+        return Boolean(bullet && !isChecklistListType(bullet.paragraph.bullet?.listType));
+    }
+
+    getBulletBounds(): IBulletBound[] {
+        this._buildBulletBounds();
+
+        return [...this._bulletBounds];
+    }
+
+    getListContextMenuBulletByOffset(offsetX: number, offsetY: number): Nullable<IBulletBound> {
+        const point = transformOffset2Bound(offsetX, offsetY, this._context.scene);
+
+        return this._calcActiveBullet(point) ?? this._calcActiveListParagraph(point);
     }
 
     private _buildCustomRangeBoundsBySegment(segmentId?: string, segmentPage = -1) {
@@ -453,7 +583,7 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
 
     private _buildBulletBoundsBySegment(segmentId?: string, segmentPage = -1): IBulletBound[] {
         const body = this._context.unit.getSelfOrHeaderFooterModel(segmentId)?.getBody();
-        const paragraphs = (body?.paragraphs ?? []).filter((p) => p.bullet && p.bullet.listType.indexOf('CHECK_LIST') === 0);
+        const paragraphs = (body?.paragraphs ?? []).filter((p) => p.bullet);
         const bounds: IBulletBound[] = [];
         const skeletonData = this._skeleton.getSkeletonData();
         if (!skeletonData) {
@@ -538,7 +668,37 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
 
         const { x, y } = evt;
         const bullet = this._bulletBounds.find((layout) => isPointInRect(x, y, layout.rect));
-        return bullet;
+        if (bullet) {
+            return bullet;
+        }
+
+        const paragraphBound = this._calcActiveParagraph(evt);
+        if (!paragraphBound) {
+            return null;
+        }
+
+        return getListMarkerFallbackHit(
+            paragraphBound,
+            this._getParagraphByStartIndex(paragraphBound.startIndex, paragraphBound.segmentId),
+            evt
+        );
+    }
+
+    private _calcActiveListParagraph(evt: { x: number; y: number }) {
+        const paragraphBound = this._calcActiveParagraph(evt);
+        if (!paragraphBound) {
+            return null;
+        }
+
+        return getListParagraphContextMenuHit(
+            paragraphBound,
+            this._getParagraphByStartIndex(paragraphBound.startIndex, paragraphBound.segmentId),
+            evt
+        );
+    }
+
+    private _getParagraphByStartIndex(startIndex: number, segmentId?: string): IParagraph | undefined {
+        return this._context.unit.getSelfOrHeaderFooterModel(segmentId)?.getBody()?.paragraphs?.find((paragraph) => paragraph.startIndex === startIndex);
     }
 
     // eslint-disable-next-line max-lines-per-function
@@ -586,7 +746,13 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
                     Array.from(page.skeTables.values()).forEach((table) => {
                         const tableLeft = table.left + left;
                         const tableTop = table.top + top;
-                        const tableRight = tableLeft + table.width;
+                        const sourceTableId = getTableIdAndSliceIndex(table.tableId).tableId;
+                        const tableViewport = getTableHorizontalViewportGeometry(
+                            tableLeft,
+                            table.width,
+                            getDocsTableRenderViewport(this._context.unitId, sourceTableId)
+                        );
+                        const tableRight = tableViewport.visibleRight;
                         const tableBottom = tableTop + table.height;
                         const tableId = table.tableId;
                         this._tableBounds.set(tableId, {
@@ -603,8 +769,18 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
                         table.rows.forEach((row, rowIndex) => {
                             row.cells.forEach((cell, colIndex) => {
                                 const top = (((page.pageHeight === Infinity ? 0 : page.pageHeight) + documentOffsetConfig.pageMarginTop) * i) + table.top + documentOffsetConfig.docsTop + page.marginTop + row.top + cell.marginTop;
-                                const left = table.left + documentOffsetConfig.docsLeft + page.marginLeft + cell.left + cell.marginLeft;
-                                const bounds = calcDocParagraphPositions(cell.sections, top, left, cell.pageWidth - cell.marginLeft - cell.marginRight);
+                                const cellLeft = tableLeft + cell.left - tableViewport.scrollLeft + cell.marginLeft;
+                                const cellContentWidth = cell.pageWidth - cell.marginLeft - cell.marginRight;
+                                const cellRight = cellLeft + cellContentWidth;
+                                const visibleCellLeft = Math.max(cellLeft, tableViewport.visibleLeft);
+                                const visibleCellRight = Math.min(cellRight, tableViewport.visibleRight);
+                                if (visibleCellRight <= visibleCellLeft) {
+                                    return;
+                                }
+
+                                const bounds = calcDocParagraphPositions(cell.sections, top, cellLeft, cellContentWidth)
+                                    .map((bound) => clipParagraphBoundHorizontally(bound, tableViewport.visibleLeft, tableViewport.visibleRight))
+                                    .filter((bound): bound is ICustomRangeBoundBase => bound != null);
                                 let arr = this._tableParagraphBounds.get(tableId);
                                 if (!arr) {
                                     arr = [];
@@ -635,8 +811,8 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
                                 cellBounds.push({
                                     rect: {
                                         top,
-                                        left,
-                                        right: left + cell.pageWidth - cell.marginLeft - cell.marginRight,
+                                        left: visibleCellLeft,
+                                        right: visibleCellRight,
                                         bottom: top + cell.pageHeight - cell.marginBottom - cell.marginTop,
                                     },
                                     pageIndex: i,
@@ -667,10 +843,12 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
     }
 
     private _buildParagraphBounds() {
-        if (!this._paragraphDirty) {
+        const tableViewportSignature = this._getTableViewportSignature();
+        if (!this._paragraphDirty && this._tableViewportSignature === tableViewportSignature) {
             return;
         }
         this._paragraphDirty = false;
+        this._tableViewportSignature = tableViewportSignature;
         this._tableParagraphBounds = new Map();
         this._tableCellBounds = new Map();
         this._tableBounds = new Map();
@@ -704,7 +882,7 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
 
         const { x, y } = evt;
 
-        const table = Array.from(this._tableBounds.values()).find((bound) => isPointInRect(x, y, bound.rect));
+        const table = Array.from(this._tableBounds.values()).find((bound) => isPointInRect(x, y, getTableBlockMenuHoverRect(bound.rect)));
         this._hoverTable$.next(table);
 
         if (table) {
@@ -747,14 +925,113 @@ export class DocEventManagerService extends Disposable implements IRenderModule 
         return this._paragraphBounds;
     }
 
+    get tableBounds() {
+        this._buildParagraphBounds();
+        return this._tableBounds;
+    }
+
+    findTableCellBound(tableId: string, rowIndex: number, colIndex: number, pageIndex?: number) {
+        this._buildParagraphBounds();
+        return this._tableCellBounds.get(tableId)?.find((bound) => (
+            bound.rowIndex === rowIndex &&
+            bound.colIndex === colIndex &&
+            (pageIndex == null || bound.pageIndex === pageIndex)
+        ));
+    }
+
     findParagraphBoundByIndex(index: number) {
         this._buildParagraphBounds();
+        const tableParagraph = Array.from(this._tableParagraphBounds.values()).flat().find((bound) => bound.startIndex === index);
+        if (tableParagraph) {
+            return tableParagraph;
+        }
+
         const paragraph = this._paragraphBounds.get(index);
         if (paragraph) {
             return paragraph;
         }
-
-        const tableParagraph = Array.from(this._tableParagraphBounds.values()).flat().find((bound) => bound.startIndex === index);
-        return tableParagraph;
     }
+
+    findParagraphBoundsInRange(startIndex: number, endIndex: number): IMutiPageParagraphBound[] {
+        this._buildParagraphBounds();
+
+        const bodyBounds = [...this._paragraphBounds.values()];
+        const tableBounds = Array.from(this._tableParagraphBounds.values()).flat().map((bound) => ({
+            rect: bound.rect,
+            paragraphStart: bound.paragraphStart,
+            paragraphEnd: bound.paragraphEnd,
+            startIndex: bound.startIndex,
+            rects: [bound.rect],
+            pageIndex: bound.pageIndex,
+            segmentId: bound.segmentId,
+            firstLine: bound.firstLine,
+        }));
+
+        return getPreferredParagraphBoundsInRange(bodyBounds, tableBounds, startIndex, endIndex);
+    }
+
+    private _getTableViewportSignature(): string {
+        const pages = this._skeleton.getSkeletonData()?.pages ?? [];
+        const signatures: string[] = [];
+
+        pages.forEach((page) => {
+            page.skeTables?.forEach((table) => {
+                const tableId = getTableIdAndSliceIndex(table.tableId).tableId;
+                const viewport = getDocsTableRenderViewport(this._context.unitId, tableId);
+                if (!viewport) {
+                    signatures.push(`${tableId}:none`);
+                    return;
+                }
+
+                signatures.push(`${tableId}:${viewport.contentWidth}:${viewport.viewportWidth}:${viewport.scrollLeft}`);
+            });
+        });
+
+        return signatures.join('|');
+    }
+}
+
+export function getPreferredParagraphBoundsInRange(
+    bodyBounds: IMutiPageParagraphBound[],
+    tableBounds: IMutiPageParagraphBound[],
+    startIndex: number,
+    endIndex: number
+): IMutiPageParagraphBound[] {
+    const matchedTableBounds = tableBounds.filter((bound) => isRangeOverlappingParagraph(bound, startIndex, endIndex));
+    if (matchedTableBounds.length) {
+        return matchedTableBounds;
+    }
+
+    return bodyBounds.filter((bound) => isRangeOverlappingParagraph(bound, startIndex, endIndex));
+}
+
+function isRangeOverlappingParagraph(bound: Pick<IMutiPageParagraphBound, 'paragraphEnd' | 'paragraphStart'>, startIndex: number, endIndex: number): boolean {
+    return Math.max(bound.paragraphStart, startIndex) <= Math.min(bound.paragraphEnd, endIndex);
+}
+
+function clipParagraphBoundHorizontally(bound: ICustomRangeBoundBase, visibleLeft: number, visibleRight: number): ICustomRangeBoundBase | null {
+    const rect = clipRectHorizontally(bound.rect, visibleLeft, visibleRight);
+    if (!rect) {
+        return null;
+    }
+
+    return {
+        ...bound,
+        rect,
+        fisrtLine: clipRectHorizontally(bound.fisrtLine, visibleLeft, visibleRight) ?? rect,
+    };
+}
+
+function clipRectHorizontally(rect: IBoundRectNoAngle, visibleLeft: number, visibleRight: number): IBoundRectNoAngle | null {
+    const left = Math.max(rect.left, visibleLeft);
+    const right = Math.min(rect.right, visibleRight);
+    if (right <= left) {
+        return null;
+    }
+
+    return {
+        ...rect,
+        left,
+        right,
+    };
 }

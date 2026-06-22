@@ -20,6 +20,7 @@ import type {
     ICustomDecoration,
     ICustomRange,
     ICustomTable,
+    IDocumentBlockRange,
     IDocumentBody,
     IParagraph,
     ISectionBreak,
@@ -28,7 +29,11 @@ import type {
 import { shallowEqual } from '../../../../common/equal';
 import { horizontalLineSegmentsSubtraction, sortRulesFactory, Tools } from '../../../../shared';
 import { isSameStyleTextRun } from '../../../../shared/compare';
+import { cloneParagraphWithId } from '../../../paragraph-id';
 import { getBodySlice } from '../utils';
+
+// Internal TextX undo marker: restored delete bodies keep their captured paragraph ids.
+export const RESTORE_INSERTED_PARAGRAPH_IDS = '__textXRestoreParagraphIds';
 
 export function normalizeTextRuns(textRuns: ITextRun[], reserveEmptyTextRun = false): ITextRun[] {
     const results: ITextRun[] = [];
@@ -166,7 +171,8 @@ export function insertParagraphs(
     body: IDocumentBody,
     insertBody: IDocumentBody,
     textLength: number,
-    currentIndex: number
+    currentIndex: number,
+    preserveMissingParagraphIds = false
 ) {
     const { paragraphs } = body;
     if (paragraphs == null) {
@@ -174,6 +180,11 @@ export function insertParagraphs(
     }
 
     const { paragraphs: insertParagraphs } = insertBody;
+    normalizeInsertedParagraphIdsForDocument(paragraphs, insertParagraphs, currentIndex, {
+        freshenSplitParagraph: true,
+        preserveMissingParagraphIds,
+        preserveExplicitSplitParagraphIds: Boolean((insertBody as unknown as Record<string, unknown>)[RESTORE_INSERTED_PARAGRAPH_IDS]),
+    });
 
     const paragraphIndexList = [];
     let firstInsertParagraphNextIndex = -1;
@@ -210,6 +221,119 @@ export function insertParagraphs(
         paragraphs.push(...insertParagraphs);
         paragraphs.sort(sortRulesFactory('startIndex'));
     }
+}
+
+export function normalizeInsertedParagraphIdsForDocument(
+    paragraphs: IParagraph[] | undefined,
+    insertParagraphs: IParagraph[] | undefined,
+    currentIndex: number,
+    options: {
+        freshenSplitParagraph: boolean;
+        preserveExplicitSplitParagraphIds?: boolean;
+        preserveMissingParagraphIds?: boolean;
+        reservedParagraphIds?: Set<string>;
+    }
+) {
+    if (!paragraphs || !insertParagraphs?.length) {
+        return;
+    }
+
+    const splitParagraph = getParagraphSplitByInsert(paragraphs, currentIndex);
+    const firstSplitInsertIndex = splitParagraph ? getFirstInsertedParagraphIndex(insertParagraphs) : -1;
+    const splitParagraphId = splitParagraph?.paragraphId;
+    const firstInsertedParagraphId = firstSplitInsertIndex === -1 ? undefined : insertParagraphs[firstSplitInsertIndex].paragraphId;
+    const shouldPreserveExplicitSplitParagraphId = options.preserveExplicitSplitParagraphIds && firstInsertedParagraphId != null && firstInsertedParagraphId !== splitParagraphId;
+    const existingParagraphIds = collectParagraphIds(paragraphs);
+
+    if (splitParagraphId) {
+        existingParagraphIds.delete(splitParagraphId);
+    }
+
+    for (const paragraphId of options.reservedParagraphIds ?? []) {
+        existingParagraphIds.add(paragraphId);
+    }
+
+    let splitRemainderParagraph: IParagraph | undefined;
+
+    if (splitParagraphId && firstSplitInsertIndex !== -1 && !shouldPreserveExplicitSplitParagraphId) {
+        const firstInsertParagraph = insertParagraphs[firstSplitInsertIndex];
+        splitRemainderParagraph = firstInsertedParagraphId != null && firstInsertedParagraphId !== splitParagraphId
+            ? cloneInsertedParagraphWithId(firstInsertParagraph, existingParagraphIds, options.preserveMissingParagraphIds ?? false)
+            : cloneParagraphWithId(firstInsertParagraph, existingParagraphIds, false);
+
+        if (options.freshenSplitParagraph && splitRemainderParagraph.paragraphId) {
+            splitParagraph.paragraphId = splitRemainderParagraph.paragraphId;
+        }
+    }
+
+    for (let i = 0, len = insertParagraphs.length; i < len; i++) {
+        if (i !== firstSplitInsertIndex || splitParagraphId == null || shouldPreserveExplicitSplitParagraphId) {
+            insertParagraphs[i] = cloneInsertedParagraphWithId(insertParagraphs[i], existingParagraphIds, options.preserveMissingParagraphIds ?? false);
+            continue;
+        }
+
+        insertParagraphs[i] = options.freshenSplitParagraph || firstInsertedParagraphId == null || firstInsertedParagraphId === splitParagraphId
+            ? cloneParagraphWithId({
+                ...insertParagraphs[i],
+                paragraphId: splitParagraphId,
+            }, existingParagraphIds)
+            : splitRemainderParagraph!;
+    }
+
+    for (const insertParagraph of insertParagraphs) {
+        if (insertParagraph.paragraphId) {
+            options.reservedParagraphIds?.add(insertParagraph.paragraphId);
+        }
+    }
+}
+
+function collectParagraphIds(paragraphs: IParagraph[] | undefined): Set<string> {
+    const paragraphIds = new Set<string>();
+
+    for (const paragraph of paragraphs ?? []) {
+        if (paragraph.paragraphId) {
+            paragraphIds.add(paragraph.paragraphId);
+        }
+    }
+
+    return paragraphIds;
+}
+
+function cloneInsertedParagraphWithId(
+    insertParagraph: IParagraph,
+    existingParagraphIds: Set<string>,
+    preserveMissingParagraphIds: boolean
+): IParagraph {
+    if (preserveMissingParagraphIds && insertParagraph.paragraphId == null) {
+        return Tools.deepClone(insertParagraph);
+    }
+
+    return cloneParagraphWithId(insertParagraph, existingParagraphIds);
+}
+
+function getParagraphSplitByInsert(paragraphs: IParagraph[], currentIndex: number): IParagraph | undefined {
+    const sortedParagraphs = [...paragraphs].sort((left, right) => left.startIndex - right.startIndex);
+
+    for (let i = 0; i < sortedParagraphs.length; i++) {
+        const paragraph = sortedParagraphs[i];
+        const paragraphStart = i > 0 ? sortedParagraphs[i - 1].startIndex + 1 : 0;
+
+        if (currentIndex > paragraphStart && currentIndex < paragraph.startIndex) {
+            return paragraph;
+        }
+    }
+}
+
+function getFirstInsertedParagraphIndex(insertParagraphs: IParagraph[]): number {
+    let index = 0;
+
+    for (let i = 1; i < insertParagraphs.length; i++) {
+        if (insertParagraphs[i].startIndex < insertParagraphs[index].startIndex) {
+            index = i;
+        }
+    }
+
+    return index;
 }
 
 export function insertSectionBreaks(
@@ -312,6 +436,41 @@ export function insertTables(body: IDocumentBody, insertBody: IDocumentBody, tex
 
         tables.push(...insertTables);
         tables.sort(sortRulesFactory('startIndex'));
+    }
+}
+
+export function insertBlockRanges(body: IDocumentBody, insertBody: IDocumentBody, textLength: number, currentIndex: number) {
+    if (!body.blockRanges && !insertBody.blockRanges?.length) {
+        return;
+    }
+
+    if (!body.blockRanges) {
+        body.blockRanges = [];
+    }
+
+    const { blockRanges } = body;
+    for (let i = 0, len = blockRanges.length; i < len; i++) {
+        const blockRange = blockRanges[i];
+        const { startIndex, endIndex } = blockRange;
+
+        if (startIndex >= currentIndex) {
+            blockRange.startIndex += textLength;
+            blockRange.endIndex += textLength;
+        } else if (endIndex >= currentIndex) {
+            blockRange.endIndex += textLength;
+        }
+    }
+
+    const insertBlockRanges = insertBody.blockRanges;
+    if (insertBlockRanges) {
+        for (let i = 0, len = insertBlockRanges.length; i < len; i++) {
+            const blockRange = insertBlockRanges[i];
+            blockRange.startIndex += currentIndex;
+            blockRange.endIndex += currentIndex;
+        }
+
+        blockRanges.push(...insertBlockRanges);
+        blockRanges.sort(sortRulesFactory('startIndex'));
     }
 }
 
@@ -871,6 +1030,44 @@ export function deleteCustomRanges(body: IDocumentBody, textLength: number, curr
     }
 
     return removeCustomRanges;
+}
+
+export function deleteBlockRanges(body: IDocumentBody, textLength: number, currentIndex: number) {
+    const { blockRanges } = body;
+
+    const startIndex = currentIndex;
+    const endIndex = currentIndex + textLength - 1;
+    const removeBlockRanges: IDocumentBlockRange[] = [];
+
+    if (blockRanges) {
+        const newBlockRanges = [];
+        for (let i = 0, len = blockRanges.length; i < len; i++) {
+            const blockRange = blockRanges[i];
+            const { startIndex: st, endIndex: ed } = blockRange;
+            if (st >= startIndex && ed <= endIndex) {
+                removeBlockRanges.push(blockRange);
+                continue;
+            } else if (Math.max(startIndex, st) <= Math.min(endIndex, ed)) {
+                const segments = horizontalLineSegmentsSubtraction(st, ed, startIndex, endIndex);
+
+                if (segments.length === 0) {
+                    removeBlockRanges.push(blockRange);
+                    continue;
+                }
+
+                blockRange.startIndex = segments[0];
+                blockRange.endIndex = segments[1];
+            } else if (endIndex < st) {
+                blockRange.startIndex -= textLength;
+                blockRange.endIndex -= textLength;
+            }
+            newBlockRanges.push(blockRange);
+        }
+
+        body.blockRanges = newBlockRanges;
+    }
+
+    return removeBlockRanges;
 }
 
 export function deleteCustomDecorations(body: IDocumentBody, textLength: number, currentIndex: number, needOffset = true) {

@@ -23,15 +23,13 @@ import { getMenuHiddenObservable, KeyCode, MenuItemType, MetaKeys } from '@unive
 import { debounceTime, Observable } from 'rxjs';
 import { shouldDisableAddLink, ShowDocHyperLinkEditPopupOperation } from '../commands/operations/popup.operation';
 
-export const DOC_LINK_ICON = 'doc-hyper-link-icon';
-
 export function AddHyperLinkMenuItemFactory(accessor: IAccessor): IMenuButtonItem {
     return {
         id: ShowDocHyperLinkEditPopupOperation.id,
         type: MenuItemType.BUTTON,
-        icon: DOC_LINK_ICON,
-        title: 'docLink.menu.tooltip',
-        tooltip: 'docLink.menu.tooltip',
+        icon: 'LinkIcon',
+        title: 'docs-hyper-link-ui.menu.tooltip',
+        tooltip: 'docs-hyper-link-ui.menu.tooltip',
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_DOC),
         disabled$: new Observable(function (subscribe) {
             const textSelectionService = accessor.get(DocSelectionManagerService);
@@ -49,6 +47,6 @@ export function AddHyperLinkMenuItemFactory(accessor: IAccessor): IMenuButtonIte
 export const addLinkShortcut: IShortcutItem = {
     id: ShowDocHyperLinkEditPopupOperation.id,
     binding: MetaKeys.CTRL_COMMAND | KeyCode.K,
-    description: 'docLink.menu.tooltip',
+    description: 'docs-hyper-link-ui.menu.tooltip',
     preconditions: whenDocAndEditorFocused,
 };

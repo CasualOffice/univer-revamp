@@ -18,34 +18,41 @@ import './global.css';
 
 export type { IDocObjectParam } from './basics/component-tools';
 export { getDocObject, getDocObjectById, neoGetDocObject } from './basics/component-tools';
-export { addCustomDecorationBySelectionFactory, addCustomDecorationFactory, deleteCustomDecorationFactory } from './basics/custom-decoration-factory';
+export {
+    addCustomDecorationBySelectionFactory,
+    addCustomDecorationFactory,
+    deleteCustomDecorationFactory,
+} from './basics/custom-decoration-factory';
 export * from './basics/docs-view-key';
 export { hasParagraphInTable } from './basics/paragraph';
 export { docDrawingPositionToTransform, transformToDocDrawingPosition } from './basics/transform-position';
-export { AfterSpaceCommand, EnterCommand, type ITabCommandParams, TabCommand } from './commands/commands/auto-format.command';
+export { AfterSpaceCommand, EnterCommand, TabCommand } from './commands/commands/auto-format.command';
+export type { ITabCommandParams } from './commands/commands/auto-format.command';
 export { BreakLineCommand } from './commands/commands/break-line.command';
 export { generateParagraphs } from './commands/commands/break-line.command';
 export { DocCopyCommand, DocCutCommand, DocPasteCommand } from './commands/commands/clipboard.command';
-export { CutContentCommand, type IInnerPasteCommandParams, InnerPasteCommand } from './commands/commands/clipboard.inner.command';
+export { CutContentCommand, InnerPasteCommand } from './commands/commands/clipboard.inner.command';
+export type { IInnerPasteCommandParams } from './commands/commands/clipboard.inner.command';
 export type { IInnerCutCommandParams } from './commands/commands/clipboard.inner.command';
 export { getCustomBlockIdsInSelections, getCutActionsFromDocRanges } from './commands/commands/clipboard.inner.command';
+export { buildMoveDocBlockActions, MoveDocBlockCommand } from './commands/commands/doc-block-move.command';
+export type { IMoveDocBlockCommandParams } from './commands/commands/doc-block-move.command';
 export {
-    DeleteCommand,
-    EditorInsertTextCommandId,
-    type ICoverCommandParams,
-    type IDeleteCommandParams,
-    type IInsertCommandParams,
-    InsertCommand,
-    type IUpdateCommandParams,
-    UpdateCommand,
-} from './commands/commands/core-editing.command';
-export { DeleteCustomBlockCommand, DeleteLeftCommand, DeleteRightCommand, type IDeleteCustomBlockParams, MergeTwoParagraphCommand } from './commands/commands/doc-delete.command';
+    DeleteCustomBlockCommand,
+    DeleteLeftCommand,
+    DeleteRightCommand,
+    MergeTwoParagraphCommand,
+} from './commands/commands/doc-delete.command';
+export type { IDeleteCustomBlockParams } from './commands/commands/doc-delete.command';
 export { getCursorWhenDelete } from './commands/commands/doc-delete.command';
 export { HorizontalLineCommand } from './commands/commands/doc-horizontal-line.command';
 export { DocSelectAllCommand } from './commands/commands/doc-select-all.command';
-export { type IIMEInputCommandParams, IMEInputCommand } from './commands/commands/ime-input.command';
+export { IMEInputCommand } from './commands/commands/ime-input.command';
+export type { IIMEInputCommandParams } from './commands/commands/ime-input.command';
 export {
+    getStyleInTextRange,
     ResetInlineFormatTextBackgroundColorCommand,
+    ResetInlineFormatTextColorCommand,
     SetInlineFormatBoldCommand,
     SetInlineFormatCommand,
     SetInlineFormatFontFamilyCommand,
@@ -56,9 +63,11 @@ export {
     SetInlineFormatSuperscriptCommand,
     SetInlineFormatTextBackgroundColorCommand,
     SetInlineFormatTextColorCommand,
+    SetInlineFormatTextFillCommand,
     SetInlineFormatUnderlineCommand,
 } from './commands/commands/inline-format.command';
-export { type IInsertCustomRangeCommandParams, InsertCustomRangeCommand } from './commands/commands/insert-custom-range.command';
+export { InsertCustomRangeCommand } from './commands/commands/insert-custom-range.command';
+export type { IInsertCustomRangeCommandParams } from './commands/commands/insert-custom-range.command';
 export {
     BulletListCommand,
     ChangeListNestingLevelCommand,
@@ -78,13 +87,26 @@ export {
     AlignRightCommand,
 } from './commands/commands/paragraph-align.command';
 export { ReplaceTextRunsCommand } from './commands/commands/replace-content.command';
-export { CoverContentCommand, type IReplaceSelectionCommandParams, type IReplaceSnapshotCommandParams, ReplaceContentCommand, ReplaceSelectionCommand, ReplaceSnapshotCommand } from './commands/commands/replace-content.command';
+export {
+    CoverContentCommand,
+    ReplaceContentCommand,
+    ReplaceSelectionCommand,
+    ReplaceSnapshotCommand,
+} from './commands/commands/replace-content.command';
+export type {
+    IReplaceSelectionCommandParams,
+    IReplaceSnapshotCommandParams,
+} from './commands/commands/replace-content.command';
 export { SetDocZoomRatioCommand } from './commands/commands/set-doc-zoom-ratio.command';
 export { SetParagraphNamedStyleCommand } from './commands/commands/set-heading.command';
 export { SwitchDocModeCommand } from './commands/commands/switch-doc-mode.command';
-export { CreateDocTableCommand, type ICreateDocTableCommandParams } from './commands/commands/table/doc-table-create.command';
-export { DocTableDeleteColumnsCommand, DocTableDeleteRowsCommand, DocTableDeleteTableCommand } from './commands/commands/table/doc-table-delete.command';
-
+export { CreateDocTableCommand } from './commands/commands/table/doc-table-create.command';
+export type { ICreateDocTableCommandParams } from './commands/commands/table/doc-table-create.command';
+export {
+    DocTableDeleteColumnsCommand,
+    DocTableDeleteRowsCommand,
+    DocTableDeleteTableCommand,
+} from './commands/commands/table/doc-table-delete.command';
 export type {
     IDocTableDeleteColumnsCommandParams,
     IDocTableDeleteRowsCommandParams,
@@ -109,35 +131,78 @@ export {
 export type { IDocTableTabCommandParams } from './commands/commands/table/doc-table-tab.command';
 export { DocTableTabCommand } from './commands/commands/table/doc-table-tab.command';
 export { genTableSource, getEmptyTableCell, getEmptyTableRow, getTableColumn } from './commands/commands/table/table';
-
 export { DocCreateTableOperation } from './commands/operations/doc-create-table.operation';
-export { type IMoveCursorOperationParams, MoveSelectionOperation } from './commands/operations/doc-cursor.operation';
+export { MoveSelectionOperation } from './commands/operations/doc-cursor.operation';
+export type { IMoveCursorOperationParams } from './commands/operations/doc-cursor.operation';
 export { MoveCursorOperation } from './commands/operations/doc-cursor.operation';
-export { type ISetDocZoomRatioOperationParams, SetDocZoomRatioOperation } from './commands/operations/set-doc-zoom-ratio.operation';
-export { getCommandSkeleton, getRichTextEditPath } from './commands/util';
-export type { IUniverDocsUIConfig } from './config/config';
-export { DocUIController } from './controllers/doc-ui.controller';
+export { SetDocZoomRatioOperation } from './commands/operations/set-doc-zoom-ratio.operation';
+export type { ISetDocZoomRatioOperationParams } from './commands/operations/set-doc-zoom-ratio.operation';
+export { getCommandSkeleton } from './commands/util';
+export type { DocFitAlign, DocFitMode, DocFitTarget, IDocFitToWidthOptions, IUniverDocsUIConfig } from './config/config';
+export { DEFAULT_DOC_FIT_TO_WIDTH_OPTIONS } from './config/config';
 export { DocBackScrollRenderController } from './controllers/render-controllers/back-scroll.render-controller';
+export {
+    DocParagraphPlaceholderRenderController,
+} from './controllers/render-controllers/doc-paragraph-placeholder.render-controller';
 export { DocRenderController } from './controllers/render-controllers/doc.render-controller';
+export { DocUIController } from './controllers/ui.controller';
+export {
+    AlignMenuItemFactory,
+    BackgroundColorSelectorMenuItemFactory,
+    BoldMenuItemFactory,
+    FLOAT_TEXT_STYLE_MENU_ID,
+    FLOAT_TOOLBAR_MENU_POSITION,
+    FloatTextStyleMenuItemFactory,
+    FontFamilySelectorMenuItemFactory,
+    FontSizeSelectorMenuItemFactory,
+    hideMenuWhenSelectionInBlockRange,
+    isTextRangeInAnyBlockRange,
+    ItalicMenuItemFactory,
+    StrikeThroughMenuItemFactory,
+    TextColorSelectorMenuItemFactory,
+    UnderlineMenuItemFactory,
+} from './menu/menu';
+export {
+    DOC_CONTENT_INSERT_MENU_ID,
+    DOC_PARAGRAPH_T_ALIGN_MENU_ID,
+    DOC_PARAGRAPH_T_COLORS_MENU_ID,
+    DOC_PARAGRAPH_T_DIVIDER_MENU_ID,
+    DOC_PARAGRAPH_T_EDIT_MENU_ID,
+    DOC_PARAGRAPH_T_INSERT_BELOW_MENU_ID,
+    DOC_PARAGRAPH_T_INSERT_MENU_ID,
+    DOC_TABLE_BLOCK_MENU_ID,
+    EMPTY_PARAGRAPH_MENU_ID,
+    getDocBlockRangeMenuId,
+    INSERT_BELLOW_MENU_ID,
+    ParagraphMenuInsertBelowSubmenuItemFactory,
+} from './menu/paragraph-menu';
 export { menuSchema as DocsUIMenuSchema } from './menu/schema';
 export { UniverDocsUIPlugin } from './plugin';
 export * from './services';
-
 export { IDocClipboardService } from './services/clipboard/clipboard.service';
 export { convertBodyToHtml } from './services/clipboard/udm-to-html/convertor';
 export { DocAutoFormatService } from './services/doc-auto-format.service';
-export { DocEventManagerService } from './services/doc-event-manager.service';
+export {
+    DocEventManagerService,
+    getListMarkerFallbackBound,
+    getListParagraphContextMenuHit,
+} from './services/doc-event-manager.service';
+export type { IBulletBound, IMutiPageParagraphBound } from './services/doc-event-manager.service';
 export { DocIMEInputManagerService } from './services/doc-ime-input-manager.service';
+export { DocParagraphMenuService } from './services/doc-paragraph-menu.service';
 export { calcDocRangePositions, DocCanvasPopManagerService } from './services/doc-popup-manager.service';
-export { DocPrintInterceptorService, type IDocPrintComponentContext, type IDocPrintContext } from './services/doc-print-interceptor.service';
-export { DocStateChangeManagerService } from './services/doc-state-change-manager.service';
+export { DocPrintInterceptorService } from './services/doc-print-interceptor.service';
+export type { IDocPrintComponentContext, IDocPrintContext } from './services/doc-print-interceptor.service';
 export { DocsRenderService } from './services/docs-render.service';
 export { Editor } from './services/editor/editor';
 export { EditorService, IEditorService } from './services/editor/editor-manager.service';
-export { isInSameTableCell, isValidRectRange, NodePositionConvertToRectRange } from './services/selection/convert-rect-range';
+export {
+    isInSameTableCell,
+    isValidRectRange,
+    NodePositionConvertToRectRange,
+} from './services/selection/convert-rect-range';
 export { NodePositionConvertToCursor } from './services/selection/convert-text-range';
 export { getOneTextSelectionRange } from './services/selection/convert-text-range';
-
 export type { IEditorInputConfig } from './services/selection/doc-selection-render.service';
 export { DocSelectionRenderService } from './services/selection/doc-selection-render.service';
 export type { IDocRange } from './services/selection/range-interface';
@@ -146,5 +211,21 @@ export { getCanvasOffsetByEngine } from './services/selection/selection-utils';
 export { getAnchorBounding, getLineBounding, TEXT_RANGE_LAYER_INDEX, TextRange } from './services/selection/text-range';
 export { whenDocAndEditorFocused } from './shortcuts/utils';
 export { DOC_VERTICAL_PADDING } from './types/const/padding';
-export { type IRichTextEditorProps, RichTextEditor } from './views/rich-text-editor';
-export { type IKeyboardEventConfig, useEditor, useEditorClickOutside, useIsFocusing, useKeyboardEvent, useLeftAndRightArrow, useOnChange, useResize } from './views/rich-text-editor/hooks';
+export {
+    createEditorUndoRedoKeyboardConfig,
+    executeEditorUndoRedoCommand,
+    useEditor,
+    useEditorClickOutside,
+    useIsFocusing,
+    useKeyboardEvent,
+    useLeftAndRightArrow,
+    useOnChange,
+    useResize,
+} from './views/rich-text-editor/hooks';
+export type {
+    ICreateEditorUndoRedoKeyboardConfigOptions,
+    IExecuteEditorUndoRedoCommandOptions,
+    IKeyboardEventConfig,
+} from './views/rich-text-editor/hooks';
+export { RichTextEditor } from './views/RichTextEditor';
+export type { IRichTextEditorProps } from './views/RichTextEditor';

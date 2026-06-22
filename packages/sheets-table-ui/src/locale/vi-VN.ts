@@ -17,7 +17,7 @@
 import type enUS from './en-US';
 
 const locale: typeof enUS = {
-    'sheets-table': {
+    'sheets-table-ui': {
         title: 'Bảng',
         selectRange: 'Chọn phạm vi bảng',
         rename: 'Đổi tên bảng',
@@ -46,6 +46,11 @@ const locale: typeof enUS = {
             'insert-left': 'Insert 1 table column left',
             'insert-right': 'Insert 1 table column right',
             delete: 'Delete table column',
+        },
+
+        sort: {
+            'sort-asc': 'Tăng dần',
+            'sort-desc': 'Giảm dần',
         },
 
         insert: {

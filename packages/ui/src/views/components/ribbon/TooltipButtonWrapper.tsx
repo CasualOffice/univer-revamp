@@ -22,9 +22,9 @@ import { clsx, Dropdown, DropdownMenu, Tooltip } from '@univerjs/design';
 import { CheckMarkIcon } from '@univerjs/icons';
 import { createContext, forwardRef, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { combineLatest, of } from 'rxjs';
-import { CustomLabel } from '../../../components/custom-label/CustomLabel';
 import { IMenuManagerService } from '../../../services/menu/menu-manager.service';
 import { useDependency } from '../../../utils/di';
+import { CustomLabel } from '../../custom-label/CustomLabel';
 
 const TooltipWrapperContext = createContext({
     dropdownVisible: false,
@@ -114,7 +114,7 @@ export function DropdownWrapper(props: Omit<Partial<IDropdownProps>, 'overlay'> 
     );
 }
 
-function Label({ icon, value, option, onOptionSelect }: {
+export function DropdownMenuLabel({ icon, value, option, onOptionSelect }: {
     icon?: IMenuItem['icon'];
     value?: string | number;
     option: IValueOption;
@@ -125,26 +125,27 @@ function Label({ icon, value, option, onOptionSelect }: {
     };
 
     const hasCheckMark = typeof option.label === 'string' || (typeof option.label === 'object' && option.label?.selectable !== false);
+    const selected = hasCheckMark && String(value) === String(option.value);
 
     return (
-        <div
-            className={clsx('univer-relative univer-flex univer-items-center univer-gap-2', {
-                'univer-pl-6': hasCheckMark,
-            })}
-        >
-            {hasCheckMark && String(value) === String(option.value) && (
-                <CheckMarkIcon
-                    className="univer-absolute univer-left-1 univer-top-0.5 univer-text-primary-600"
+        <div className="univer-flex univer-w-full univer-items-center univer-justify-between univer-gap-2">
+            <div className="univer-flex univer-min-w-0 univer-items-center univer-gap-2">
+                <CustomLabel
+                    className="univer-text-sm"
+                    icon={icon}
+                    value$={option.value$}
+                    value={option.value}
+                    label={option.label}
+                    onChange={onChange}
                 />
+            </div>
+            {hasCheckMark && (
+                <span className="univer-ml-auto univer-flex univer-w-4 univer-flex-shrink-0 univer-justify-end">
+                    {selected && (
+                        <CheckMarkIcon className="univer-text-primary-600" />
+                    )}
+                </span>
             )}
-            <CustomLabel
-                className="univer-text-sm"
-                icon={icon}
-                value$={option.value$}
-                value={option.value}
-                label={option.label}
-                onChange={onChange}
-            />
         </div>
     );
 }
@@ -199,6 +200,11 @@ export function DropdownMenuWrapper({
         setDropdownVisible(visible);
     }
 
+    function handleOptionSelect(option: IValueOption) {
+        onOptionSelect(option);
+        setDropdownVisible(false);
+    }
+
     useEffect(() => {
         const subscriptions: Subscription[] = [];
 
@@ -239,11 +245,11 @@ export function DropdownMenuWrapper({
             <DropdownWrapper
                 disabled={disabled}
                 overlay={options.map((option, index) => (
-                    <Label
+                    <DropdownMenuLabel
                         key={index}
                         value={value}
                         option={option}
-                        onOptionSelect={onOptionSelect}
+                        onOptionSelect={handleOptionSelect}
                     />
                 ))}
             >
@@ -260,22 +266,28 @@ export function DropdownMenuWrapper({
                 'focus:univer-bg-white': typeof option.label !== 'string' && option.label?.hoverable === false,
             }),
             children: (
-                <Label
+                <DropdownMenuLabel
                     icon={option.icon}
                     value={value}
                     option={option}
-                    onOptionSelect={onOptionSelect}
+                    onOptionSelect={handleOptionSelect}
                 />
             ),
             disabled: option.disabled,
             onSelect: () => {
                 if (typeof option.value === 'undefined') return;
 
-                onOptionSelect?.({
+                handleOptionSelect({
                     ...option,
                 });
             },
         }));
+
+        if (filteredMenuItems.length) {
+            items.push({
+                type: 'separator',
+            });
+        }
 
         for (const menuItem of filteredMenuItems) {
             if (!menuItem.item) continue;
@@ -289,7 +301,7 @@ export function DropdownMenuWrapper({
             items.push({
                 type: 'item',
                 children: (
-                    <Label
+                    <DropdownMenuLabel
                         icon={icon}
                         value={value}
                         option={{
@@ -301,7 +313,7 @@ export function DropdownMenuWrapper({
                     />
                 ),
                 onSelect: () => {
-                    onOptionSelect?.({
+                    handleOptionSelect({
                         commandId,
                         id,
                     });
@@ -334,7 +346,7 @@ export function DropdownMenuWrapper({
                 items.push({
                     type: 'item',
                     children: (
-                        <Label
+                        <DropdownMenuLabel
                             icon={icon}
                             value={value}
                             option={{
@@ -346,7 +358,7 @@ export function DropdownMenuWrapper({
                         />
                     ),
                     onSelect: () => {
-                        onOptionSelect?.({
+                        handleOptionSelect({
                             commandId,
                             id,
                         });

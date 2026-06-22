@@ -16,7 +16,7 @@
 
 import type { Nullable } from '../../shared';
 import type { IParagraphStyle, ITextStyle } from '../interfaces';
-import { DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, DOCS_NORMAL_EDITOR_UNIT_ID_KEY, DOCS_ZEN_EDITOR_UNIT_ID_KEY } from '../../common/const';
+import { DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, DOCS_NORMAL_EDITOR_UNIT_ID_KEY } from '../../common/const';
 import {
     BooleanNumber,
     HorizontalAlign,
@@ -168,7 +168,7 @@ export const DEFAULT_STYLES = {
     },
 };
 
-export const SHEET_EDITOR_UNITS = [DOCS_NORMAL_EDITOR_UNIT_ID_KEY, DOCS_ZEN_EDITOR_UNIT_ID_KEY, DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY];
+export const SHEET_EDITOR_UNITS = [DOCS_NORMAL_EDITOR_UNIT_ID_KEY, DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY];
 
 export const NAMED_STYLE_MAP: Record<NamedStyleType, Nullable<ITextStyle>> = {
     [NamedStyleType.HEADING_1]: { fs: 20, bl: 1 }, // Heading 1: 20pt, bold
@@ -183,6 +183,11 @@ export const NAMED_STYLE_MAP: Record<NamedStyleType, Nullable<ITextStyle>> = {
 };
 
 const BOTTOM_P = 4;
+
+export const DEFAULT_DOCUMENT_PARAGRAPH_LINE_SPACING = 1.5;
+export const DEFAULT_DOCUMENT_PARAGRAPH_SPACE_ABOVE = 0;
+// Docs defaults keep fixed paragraph-after spacing in px to match the current product setting model.
+export const DEFAULT_DOCUMENT_PARAGRAPH_SPACE_BELOW = 12;
 
 export const NAMED_STYLE_SPACE_MAP: Record<NamedStyleType, Nullable<IParagraphStyle>> = {
     [NamedStyleType.HEADING_1]: {
@@ -227,10 +232,10 @@ export const NAMED_STYLE_SPACE_MAP: Record<NamedStyleType, Nullable<IParagraphSt
     },
     [NamedStyleType.NORMAL_TEXT]: {
         spaceAbove: {
-            v: 0,
+            v: DEFAULT_DOCUMENT_PARAGRAPH_SPACE_ABOVE,
         },
         spaceBelow: {
-            v: 0,
+            v: DEFAULT_DOCUMENT_PARAGRAPH_SPACE_BELOW,
         },
     },
     [NamedStyleType.TITLE]: {

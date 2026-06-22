@@ -19,8 +19,10 @@ import { DependentOn, generateRandomId, IConfigService, IConfirmService, IContex
 import { UniverRenderEnginePlugin } from '@univerjs/engine-render';
 import pkg from '../package.json';
 import { ComponentManager } from './common/component-manager';
+import { IconManager } from './common/icon-manager';
 import { ZIndexManager } from './common/z-index-manager';
 import { defaultPluginConfig, UI_PLUGIN_CONFIG_KEY } from './config/config';
+import { ComponentsController } from './controllers/components.controller';
 import { ErrorController } from './controllers/error/error.controller';
 import { SharedController } from './controllers/shared-shortcut.controller';
 import { ShortcutPanelController } from './controllers/shortcut-display/shortcut-panel.controller';
@@ -55,8 +57,6 @@ import { IShortcutService, ShortcutService } from './services/shortcut/shortcut.
 import { DesktopSidebarService } from './services/sidebar/desktop-sidebar.service';
 import { ISidebarService } from './services/sidebar/sidebar.service';
 import { ThemeSwitcherService } from './services/theme-switcher/theme-switcher.service';
-import { DesktopZenZoneService } from './services/zen-zone/desktop-zen-zone.service';
-import { IZenZoneService } from './services/zen-zone/zen-zone.service';
 
 export const DISABLE_AUTO_FOCUS_KEY = 'DISABLE_AUTO_FOCUS';
 
@@ -98,6 +98,8 @@ export class UniverMobileUIPlugin extends Plugin {
     override onStarting(): void {
         registerDependencies(this._injector, mergeOverrideWithDependencies([
             [ComponentManager],
+            [IconManager],
+            [ComponentsController],
             [ThemeSwitcherService],
             [ZIndexManager],
             [ShortcutPanelService],
@@ -115,7 +117,6 @@ export class UniverMobileUIPlugin extends Plugin {
             [IDialogService, { useClass: DesktopDialogService, lazy: true }],
             [IConfirmService, { useClass: DesktopConfirmService, lazy: true }],
             [ISidebarService, { useClass: DesktopSidebarService, lazy: true }],
-            [IZenZoneService, { useClass: DesktopZenZoneService, lazy: true }],
             [IMessageService, { useClass: DesktopMessageService, lazy: true }],
             [ILocalStorageService, { useClass: DesktopLocalStorageService, lazy: true }],
             [IBeforeCloseService, { useClass: DesktopBeforeCloseService }],
@@ -137,6 +138,7 @@ export class UniverMobileUIPlugin extends Plugin {
         ], this._config.override));
 
         touchDependencies(this._injector, [
+            [ComponentsController],
             [IUIController],
             [ErrorController],
         ]);

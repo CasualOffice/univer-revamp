@@ -14,11 +14,30 @@
  * limitations under the License.
  */
 
-import type { DataValidationOperator, DataValidationType, IDataValidationRule, IDataValidationRuleOptions, Injector, IRange, Workbook, Worksheet } from '@univerjs/core';
-import type { IRemoveSheetDataValidationCommandParams, IUpdateSheetDataValidationOptionsCommandParams, IUpdateSheetDataValidationRangeCommandParams, IUpdateSheetDataValidationSettingCommandParams } from '@univerjs/sheets-data-validation';
+import type {
+    DataValidationOperator,
+    DataValidationType,
+    IDataValidationRule,
+    IDataValidationRuleOptions,
+    Injector,
+    IRange,
+    Workbook,
+    Worksheet,
+} from '@univerjs/core';
+import type {
+    IRemoveSheetDataValidationCommandParams,
+    IUpdateSheetDataValidationOptionsCommandParams,
+    IUpdateSheetDataValidationRangeCommandParams,
+    IUpdateSheetDataValidationSettingCommandParams,
+} from '@univerjs/sheets-data-validation';
 import { DataValidationErrorStyle, ICommandService, IUniverInstanceService } from '@univerjs/core';
 import { DataValidationModel, getRuleOptions } from '@univerjs/data-validation';
-import { RemoveSheetDataValidationCommand, UpdateSheetDataValidationOptionsCommand, UpdateSheetDataValidationRangeCommand, UpdateSheetDataValidationSettingCommand } from '@univerjs/sheets-data-validation';
+import {
+    RemoveSheetDataValidationCommand,
+    UpdateSheetDataValidationOptionsCommand,
+    UpdateSheetDataValidationRangeCommand,
+    UpdateSheetDataValidationSettingCommand,
+} from '@univerjs/sheets-data-validation';
 import { FRange } from '@univerjs/sheets/facade';
 import { FDataValidationBuilder } from './f-data-validation-builder';
 
@@ -42,7 +61,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const rules = fWorksheet.getDataValidations();
      * rules.forEach((rule) => {
      *   console.log(rule, rule.getAllowInvalid());
@@ -59,7 +79,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const rules = fWorksheet.getDataValidations();
      * rules.forEach((rule) => {
      *   console.log(rule, rule.getCriteriaType());
@@ -76,7 +97,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const rules = fWorksheet.getDataValidations();
      * rules.forEach((rule) => {
      *   console.log(rule);
@@ -96,7 +118,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const fRange = fWorksheet.getRange('A1:B10');
      * const rule = univerAPI.newDataValidation()
      *   .requireNumberBetween(1, 10)
@@ -120,7 +143,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const fRange = fWorksheet.getRange('A1:B10');
      * const rule = univerAPI.newDataValidation()
      *   .requireNumberBetween(1, 10)
@@ -152,7 +176,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const rules = fWorksheet.getDataValidations();
      * rules.forEach((rule) => {
      *   console.log(rule, rule.getApplied());
@@ -182,7 +207,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const rules = fWorksheet.getDataValidations();
      * rules.forEach((rule) => {
      *   console.log(rule);
@@ -208,7 +234,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const fRange = fWorksheet.getRange('A1:B10');
      * console.log(fRange.getDataValidation().getUnitId());
      * ```
@@ -223,7 +250,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const fRange = fWorksheet.getRange('A1:B10');
      * console.log(fRange.getDataValidation().getSheetId());
      * ```
@@ -241,7 +269,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      *
      * // Create a new data validation rule that requires a number equal to 20 for the range A1:B10
      * const fRange = fWorksheet.getRange('A1:B10');
@@ -294,7 +323,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      *
      * // Create a new data validation rule that requires a number equal to 20 for the range A1:B10
      * const fRange = fWorksheet.getRange('A1:B10');
@@ -340,7 +370,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      *
      * // Create a new data validation rule that requires a number equal to 20 for the range A1:B10
      * const fRange = fWorksheet.getRange('A1:B10');
@@ -379,7 +410,8 @@ export class FDataValidation {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      *
      * // Create a new data validation rule that requires a number equal to 20 for the range A1:B10
      * const fRange = fWorksheet.getRange('A1:B10');

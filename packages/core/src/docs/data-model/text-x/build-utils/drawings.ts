@@ -18,9 +18,12 @@ import type { ITextRange, ITextRangeParam } from '../../../../sheets/typedef';
 import type { IDocumentBody } from '../../../../types/interfaces';
 import type { DocumentDataModel } from '../../document-data-model';
 import type { JSONXActions } from '../../json-x/json-x';
+import { createParagraphId } from '../../../paragraph-id';
 import { JSONX } from '../../json-x/json-x';
 import { TextXActionType } from '../action-types';
+import { DataStreamTreeTokenType } from '../../types';
 import { TextX } from '../text-x';
+import { getRichTextEditPath } from '../utils';
 import { deleteSelectionTextX } from './text-x-utils';
 
 export interface IAddDrawingParam {
@@ -52,26 +55,6 @@ export function getCustomBlockIdsInSelections(body: IDocumentBody, selections: I
     return customBlockIds;
 }
 
-export function getRichTextEditPath(docDataModel: DocumentDataModel, segmentId = '') {
-    if (!segmentId) {
-        return ['body'];
-    }
-
-    const { headers, footers } = docDataModel.getSnapshot();
-
-    if (headers == null && footers == null) {
-        throw new Error('Document data model must have headers or footers when update by segment id');
-    }
-
-    if (headers?.[segmentId] != null) {
-        return ['headers', segmentId, 'body'];
-    } else if (footers?.[segmentId] != null) {
-        return ['footers', segmentId, 'body'];
-    } else {
-        throw new Error('Segment id not found in headers or footers');
-    }
-}
-
 // eslint-disable-next-line max-lines-per-function
 export const addDrawing = (param: IAddDrawingParam) => {
     const { selection, documentDataModel, drawings } = param;
@@ -87,13 +70,14 @@ export const addDrawing = (param: IAddDrawingParam) => {
 
     const drawingOrderLength = documentDataModel.getSnapshot().drawingsOrder?.length ?? 0;
     let removeDrawingLen = 0;
+    const insertOffset = collapsed ? normalizeDrawingInsertOffset(body, startOffset ?? 0) : (startOffset ?? 0);
 
         // Step 1: Insert placeholder `\b` in dataStream and add drawing to customBlocks.
     if (collapsed) {
-        if (startOffset > 0) {
+        if (insertOffset > 0) {
             textX.push({
                 t: TextXActionType.RETAIN,
-                len: startOffset,
+                len: insertOffset,
             });
         }
     } else {
@@ -132,16 +116,11 @@ export const addDrawing = (param: IAddDrawingParam) => {
         }
     }
 
+    const insertBody = buildDrawingInsertBody(body, drawings, insertOffset);
     textX.push({
         t: TextXActionType.INSERT,
-        body: {
-            dataStream: '\b'.repeat(drawings.length),
-            customBlocks: drawings.map((drawing, i) => ({
-                startIndex: i,
-                blockId: drawing.drawingId,
-            })),
-        },
-        len: drawings.length,
+        body: insertBody,
+        len: insertBody.dataStream.length,
     });
 
     const path = getRichTextEditPath(documentDataModel, segmentId);
@@ -163,3 +142,29 @@ export const addDrawing = (param: IAddDrawingParam) => {
         return JSONX.compose(acc, cur as JSONXActions);
     }, null as JSONXActions);
 };
+
+function normalizeDrawingInsertOffset(body: IDocumentBody, offset: number): number {
+    return offset === 0 && body.dataStream[0] === DataStreamTreeTokenType.PARAGRAPH ? 1 : offset;
+}
+
+function buildDrawingInsertBody(body: IDocumentBody, drawings: any[], insertOffset: number): IDocumentBody {
+    const placeholders = DataStreamTreeTokenType.CUSTOM_BLOCK.repeat(drawings.length);
+    const needsTrailingParagraph = body.dataStream[insertOffset] === DataStreamTreeTokenType.SECTION_BREAK || body.dataStream[insertOffset] === undefined;
+    const dataStream = needsTrailingParagraph ? `${placeholders}${DataStreamTreeTokenType.PARAGRAPH}` : placeholders;
+
+    return {
+        dataStream,
+        customBlocks: drawings.map((drawing, i) => ({
+            startIndex: i,
+            blockId: drawing.drawingId,
+        })),
+        ...(needsTrailingParagraph
+            ? {
+                paragraphs: [{
+                    startIndex: placeholders.length,
+                    paragraphId: createParagraphId(new Set(body.paragraphs?.map((paragraph) => paragraph.paragraphId))),
+                }],
+            }
+            : {}),
+    };
+}

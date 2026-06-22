@@ -27,15 +27,31 @@ import type { DocumentViewModel } from '../view-model/document-view-model';
 import type { ILayoutContext } from './tools';
 import { PRESET_LIST_TYPE, SectionType, Skeleton } from '@univerjs/core';
 import { Subject } from 'rxjs';
-import { DocumentSkeletonPageType, GlyphType, LineType, PageLayoutType } from '../../../basics/i-document-skeleton-cached';
+import {
+    DocumentSkeletonPageType,
+    GlyphType,
+    LineType,
+    PageLayoutType,
+} from '../../../basics/i-document-skeleton-cached';
 import { Liquid } from '../liquid';
+import { getDocsTableRenderViewport, hasDocsTableHorizontalViewport } from '../table-render-viewport';
 import { DocumentEditArea } from '../view-model/document-view-model';
 import { dealWithSection } from './block/section';
+import { getTableIdAndSliceIndex } from './block/table';
 import { Hyphen } from './hyphenation/hyphen';
 import { LanguageDetector } from './hyphenation/language-detector';
 import { createSkeletonPage } from './model/page';
 import { createSkeletonSection } from './model/section';
-import { getLastPage, getNullSkeleton, getPageFromPath, prepareSectionBreakConfig, resetContext, setPageParent, updateBlockIndex, updateInlineDrawingCoordsAndBorder } from './tools';
+import {
+    getLastPage,
+    getNullSkeleton,
+    getPageFromPath,
+    prepareSectionBreakConfig,
+    resetContext,
+    setPageParent,
+    updateBlockIndex,
+    updateInlineDrawingCoordsAndBorder,
+} from './tools';
 
 export enum DocumentSkeletonState {
     PENDING = 'pending',
@@ -884,11 +900,24 @@ export class DocumentSkeleton extends Skeleton {
 
         let exactMatch = null;
         if (skeTables.size > 0) {
+            const unitId = this._docViewModel.getDataModel().getUnitId?.() ?? '';
             for (const table of skeTables.values()) {
                 const { top: tableTop, left: tableLeft, rows } = table;
+                const sourceTableId = getTableIdAndSliceIndex(table.tableId).tableId;
+                const viewport = getDocsTableRenderViewport(unitId, sourceTableId);
 
                 this._findLiquid?.translateSave();
                 this._findLiquid?.translate(tableLeft, tableTop);
+                if (hasDocsTableHorizontalViewport(viewport)) {
+                    const visibleLeft = this._findLiquid.x + page.marginLeft - (viewport.leadingInsetLeft ?? 0);
+                    const visibleRight = visibleLeft + viewport.viewportWidth;
+                    if (x < visibleLeft || x > visibleRight) {
+                        this._findLiquid?.translateRestore();
+                        continue;
+                    }
+
+                    this._findLiquid?.translate(-viewport.scrollLeft, 0);
+                }
 
                 for (const row of rows) {
                     const { top: rowTop, cells, isRepeatRow } = row;
@@ -1128,7 +1157,7 @@ export class DocumentSkeleton extends Skeleton {
 
             ctx.sectionBreakConfigCache.set(sectionNode.endIndex, sectionBreakConfig);
 
-            if (sectionType === SectionType.CONTINUOUS) {
+            if (sectionType === SectionType.CONTINUOUS && curSkeletonPage != null) {
                 updateBlockIndex(allSkeletonPages);
                 this._addNewSectionByContinuous(curSkeletonPage, columnProperties!, columnSeparatorType!);
                 isContinuous = true;

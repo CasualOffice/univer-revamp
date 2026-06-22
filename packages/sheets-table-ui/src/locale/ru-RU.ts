@@ -17,7 +17,7 @@
 import type enUS from './en-US';
 
 const locale: typeof enUS = {
-    'sheets-table': {
+    'sheets-table-ui': {
         title: 'Таблица',
         selectRange: 'Выбрать диапазон таблицы',
         rename: 'Переименовать таблицу',
@@ -46,6 +46,11 @@ const locale: typeof enUS = {
             'insert-left': 'Insert 1 table column left',
             'insert-right': 'Insert 1 table column right',
             delete: 'Delete table column',
+        },
+
+        sort: {
+            'sort-asc': 'По возрастанию',
+            'sort-desc': 'По убыванию',
         },
 
         insert: {

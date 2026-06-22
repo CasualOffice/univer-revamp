@@ -20,8 +20,11 @@ import { Button, clsx, Select } from '@univerjs/design';
 import { CreateCopyIcon } from '@univerjs/icons';
 import { ComponentManager, useDependency, useObservable } from '@univerjs/ui';
 import { useEffect, useRef, useState } from 'react';
-
-import { AutoImageCropOperation, CloseImageCropOperation, CropType } from '../../commands/operations/image-crop.operation';
+import {
+    AutoImageCropOperation,
+    CloseImageCropOperation,
+    CropType,
+} from '../../commands/operations/image-crop.operation';
 import { DrawingImageClipService, IMAGE_CLIP_SHAPE_PICKER_COMPONENT } from '../../services/drawing-image-clip.service';
 
 export interface IImageCropperProps {
@@ -50,7 +53,7 @@ export const ImageCropper = (props: IImageCropperProps) => {
 
     const cropOptions = [
         {
-            label: localeService.t('image-panel.crop.mode'),
+            label: localeService.t('drawing-ui.image-panel.crop.mode'),
             value: CropType.FREE,
         },
         {
@@ -134,13 +137,13 @@ export const ImageCropper = (props: IImageCropperProps) => {
                   dark:!univer-text-gray-200
                 `}
             >
-                <div>{localeService.t('image-panel.crop.title')}</div>
+                <div>{localeService.t('drawing-ui.image-panel.crop.title')}</div>
             </header>
 
             <div className="univer-flex univer-items-center univer-justify-center univer-gap-2">
                 <Button onClick={() => { onCropperBtnClick(cropValue as CropType); }}>
                     <CreateCopyIcon />
-                    {localeService.t('image-panel.crop.start')}
+                    {localeService.t('drawing-ui.image-panel.crop.start')}
                 </Button>
 
                 <Select value={cropValue} options={cropOptions} onChange={handleCropChange} />

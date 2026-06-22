@@ -1,6 +1,6 @@
 {
     "name": "@univerjs/mockdata",
-    "version": "0.24.0",
+    "version": "0.25.0",
     "private": true,
     "description": "",
     "author": "DreamNum <developer@univer.ai>",
@@ -36,6 +36,7 @@
         "@univerjs/docs-drawing-ui": "workspace:*",
         "@univerjs/docs-hyper-link-ui": "workspace:*",
         "@univerjs/docs-quick-insert-ui": "workspace:*",
+        "@univerjs/docs-thread-comment-ui": "workspace:*",
         "@univerjs/docs-ui": "workspace:*",
         "@univerjs/drawing": "workspace:*",
         "@univerjs/drawing-ui": "workspace:*",
@@ -60,11 +61,11 @@
         "@univerjs/sheets-numfmt-ui": "workspace:*",
         "@univerjs/sheets-sort": "workspace:*",
         "@univerjs/sheets-sort-ui": "workspace:*",
+        "@univerjs/sheets-table": "workspace:*",
         "@univerjs/sheets-table-ui": "workspace:*",
         "@univerjs/sheets-thread-comment": "workspace:*",
         "@univerjs/sheets-thread-comment-ui": "workspace:*",
         "@univerjs/sheets-ui": "workspace:*",
-        "@univerjs/sheets-zen-editor": "workspace:*",
         "@univerjs/slides": "workspace:*",
         "@univerjs/slides-ui": "workspace:*",
         "@univerjs/thread-comment": "workspace:*",
@@ -74,7 +75,6 @@
     },
     "devDependencies": {
         "@univerjs-infra/shared": "workspace:*",
-        "fs-extra": "^11.3.5",
         "typescript": "^6.0.3"
     }
 }

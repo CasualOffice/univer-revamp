@@ -142,6 +142,99 @@ describe('engine scene viewport extra', () => {
         document.body.innerHTML = '';
     });
 
+    it('keeps wheel scrolling visually consistent when the scene is scaled', () => {
+        const getViewportWheelDelta = (scale: number) => {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const engine = new Engine('unit-wheel', { elementWidth: 320, elementHeight: 180, dpr: 1 });
+            engine.mount(container, false);
+
+            const scene = new Scene('scene-wheel', engine);
+            scene.transformByState({
+                width: 700,
+                height: 500,
+                scaleX: 1,
+                scaleY: 1,
+            });
+
+            const viewport = new Viewport('doc-like-vp', scene, {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+                active: true,
+            });
+
+            new ScrollBar(viewport);
+            scene.scale(scale, scale);
+            viewport.resetCanvasSizeAndUpdateScroll();
+
+            viewport.onMouseWheel(
+                createInputEvent('wheel', { deltaY: 60 }),
+                { stopPropagation: vi.fn() } as any
+            );
+
+            const delta = viewport.viewportScrollY;
+            scene.dispose();
+            engine.dispose();
+            container.remove();
+
+            return delta;
+        };
+
+        const normalScaleDelta = getViewportWheelDelta(1);
+        const doubleScaleDelta = getViewportWheelDelta(2);
+
+        expect(doubleScaleDelta * 2).toBeCloseTo(normalScaleDelta, 3);
+    });
+
+    it('locks out minor cross-axis wheel jitter in viewport scrolling', () => {
+        const { engine, scene, viewport, container } = createFixture();
+        viewport.scrollToViewportPos({ viewportScrollX: 20, viewportScrollY: 20 });
+
+        viewport.onMouseWheel(
+            createInputEvent('wheel', { deltaX: 8, deltaY: 20 }),
+            { stopPropagation: vi.fn() } as any
+        );
+        expect(viewport.viewportScrollX).toBeCloseTo(20, 3);
+        expect(viewport.viewportScrollY).toBeGreaterThan(20);
+
+        viewport.onMouseWheel(
+            createInputEvent('wheel', { deltaX: 20, deltaY: 8 }),
+            { stopPropagation: vi.fn() } as any
+        );
+        expect(viewport.viewportScrollX).toBeGreaterThan(20);
+
+        scene.dispose();
+        engine.dispose();
+        container.remove();
+    });
+
+    it('locks vertical wheel jitter by raw delta before doc scrollbar scaling', () => {
+        const { engine, scene, viewport, container } = createFixture();
+        scene.transformByState({
+            width: 700,
+            height: 2400,
+            scaleX: 1,
+            scaleY: 1,
+        });
+        viewport.resetCanvasSizeAndUpdateScroll();
+        viewport.scrollToViewportPos({ viewportScrollX: 20, viewportScrollY: 20 });
+
+        viewport.onMouseWheel(
+            createInputEvent('wheel', { deltaX: 8, deltaY: 20 }),
+            { stopPropagation: vi.fn() } as any
+        );
+
+        expect(viewport.viewportScrollX).toBeCloseTo(20, 3);
+        expect(viewport.viewportScrollY).toBeGreaterThan(20);
+
+        scene.dispose();
+        engine.dispose();
+        container.remove();
+    });
+
     it('covers scene, viewport, layer and render loop flows', () => {
         const { engine, scene, viewport, container } = createFixture();
 
@@ -354,6 +447,26 @@ describe('engine scene viewport extra', () => {
         expect(moveBoundary.moveLeft).toBeLessThanOrEqual(0);
         expect(moveBoundary.moveTop).toBeLessThanOrEqual(0);
 
+        const freeMoveTransformer = new Transformer(sceneMock, {
+            moveBoundaryEnabled: false,
+        } as any);
+        const freeMoveBoundary = (freeMoveTransformer as any)._checkMoveBoundary(
+            {
+                left: 820,
+                top: -28,
+                width: 520,
+                height: 520,
+            },
+            0,
+            40,
+            0,
+            0,
+            1280,
+            720
+        );
+        expect(freeMoveBoundary.moveLeft).toBe(0);
+        expect(freeMoveBoundary.moveTop).toBe(40);
+
         (transformer as any)._startOffsetX = 10;
         (transformer as any)._startOffsetY = 10;
         expect((transformer as any)._moveBufferBlocker(11, 11)).toBe(true);
@@ -423,6 +536,27 @@ describe('engine scene viewport extra', () => {
         expect((transformer as any)._getRotateAnchorCursor('__SpreadsheetTransformerResizeLM__')).toBe(CURSOR_TYPE.WEST_RESIZE);
         expect((transformer as any)._getRotateAnchorCursor('__SpreadsheetTransformerResizeCB__')).toBe(CURSOR_TYPE.SOUTH_RESIZE);
         expect((transformer as any)._getRotateAnchorCursor('__SpreadsheetTransformerRotate__')).toBe(CURSOR_TYPE.MOVE);
+        expect((transformer as any)._getRotateAnchorPosition('__SpreadsheetTransformerRotate__', 40, 100, { transformerConfig: {} })).toEqual({
+            left: 45,
+            top: -34,
+        });
+        expect((transformer as any)._getRotateAnchorPosition('__SpreadsheetTransformerRotate__', 40, 100, {
+            transformerConfig: {
+                rotateAnchorPosition: 'bottom',
+                rotateSize: 16,
+            },
+        })).toEqual({
+            left: 42,
+            top: 64,
+        });
+        expect((transformer as any)._getRotateAnchorPosition('__SpreadsheetTransformerRotateLine__', 40, 100, {
+            transformerConfig: {
+                rotateAnchorPosition: 'bottom',
+            },
+        })).toEqual({
+            left: 50,
+            top: 43,
+        });
         expect((transformer as any)._checkTransformerType('__SpreadsheetTransformerResizeRT__123')).toBe('__SpreadsheetTransformerResizeRT__');
         expect((transformer as any)._getNorthEastPoints(10, 4)[0]).toHaveLength(6);
         expect((transformer as any)._getNorthWestPoints(10, 4)[0]).toHaveLength(6);
@@ -431,6 +565,59 @@ describe('engine scene viewport extra', () => {
         expect((transformer as any)._smoothAccuracy(1.23456)).toBe(1.2);
         expect((transformer as any)._smoothAccuracy(1.23456, true)).toBe(1.235);
 
+        transformer.dispose();
+    });
+
+    it('supports bottom rotate control without a connector line', () => {
+        const { engine, scene } = createFixture();
+        engine.setActiveScene(scene.sceneKey);
+
+        const rect = scene.getObject('rect-main') as Rect;
+        rect.transformerConfig = {
+            rotateAnchorPosition: 'bottom',
+            rotateLineEnabled: false,
+            rotateIconEnabled: true,
+        };
+        const transformer = new Transformer(scene, {
+            rotateEnabled: true,
+            resizeEnabled: true,
+            borderEnabled: true,
+        });
+
+        transformer.setSelectedControl(rect);
+        const control = (transformer as any)._transformerControlMap.get(rect.oKey) as Group;
+        const controlObjects = control.getObjects();
+
+        expect(controlObjects.some((o) => o.oKey.includes('__SpreadsheetTransformerRotateLine__'))).toBe(false);
+        expect(controlObjects.some((o) => o.oKey.includes('_ICON_'))).toBe(true);
+
+        transformer.dispose();
+        scene.dispose();
+        engine.dispose();
+    });
+
+    it('rotates around the scene center when the scene is scaled', () => {
+        const sceneMock = {
+            ancestorScaleX: 2,
+            ancestorScaleY: 2,
+        } as any;
+        const transformer = new Transformer(sceneMock);
+        const transformByState = vi.fn();
+
+        (transformer as any)._selectedObjectMap.set('s1', {
+            oKey: 's1',
+            transformByState,
+            dispose: vi.fn(),
+        });
+        (transformer as any)._moveBufferSkip = true;
+        (transformer as any)._viewportScrollX = 0;
+        (transformer as any)._viewportScrollY = 0;
+        (transformer as any)._startOffsetX = 200;
+        (transformer as any)._startOffsetY = 240;
+
+        (transformer as any)._rotateMoving(240, 200, 100, 100, 0);
+
+        expect(transformByState).toHaveBeenCalledWith({ angle: 270 });
         transformer.dispose();
     });
 
@@ -630,6 +817,20 @@ describe('engine scene viewport extra', () => {
         expect(defaultInfo.viewportKey).toBe('temp-vp-2');
         viewportNoScrollBar.render(undefined, []);
         viewportNoScrollBar.dispose();
+
+        scene.dispose();
+        engine.dispose();
+    });
+
+    it('does not bridge non-overlapping cache bounds when calculating cache diff', () => {
+        const { engine, scene, viewport } = createFixture();
+        const currentBound = { left: 0, top: 10000, right: 460, bottom: 10280 };
+        const diffBounds = (viewport as any)._calcDiffCacheBound(
+            { left: 0, top: 0, right: 460, bottom: 280 },
+            currentBound
+        );
+
+        expect(diffBounds).toEqual([currentBound]);
 
         scene.dispose();
         engine.dispose();

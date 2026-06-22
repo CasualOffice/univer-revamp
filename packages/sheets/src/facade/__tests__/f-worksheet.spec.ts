@@ -14,11 +14,87 @@
  * limitations under the License.
  */
 
-import type { Injector, Workbook } from '@univerjs/core';
+import type { Workbook } from '@univerjs/core';
 import type { FUniver } from '@univerjs/core/facade';
-import { ICommandService, IConfirmService, IUniverInstanceService, RANGE_TYPE, TestConfirmService, UniverInstanceType } from '@univerjs/core';
-import { AddWorksheetMergeCommand, AddWorksheetMergeMutation, CancelFrozenCommand, InsertColByRangeCommand, InsertColCommand, InsertColMutation, InsertRowByRangeCommand, InsertRowCommand, InsertRowMutation, MoveColsCommand, MoveColsMutation, MoveRowsCommand, MoveRowsMutation, RemoveColByRangeCommand, RemoveColCommand, RemoveColMutation, RemoveRowByRangeCommand, RemoveRowCommand, RemoveRowMutation, RemoveWorksheetMergeCommand, RemoveWorksheetMergeMutation, SetColDataCommand, SetColDataMutation, SetColHiddenCommand, SetColHiddenMutation, SetColVisibleMutation, SetColWidthCommand, SetFrozenCommand, SetFrozenMutation, SetHorizontalTextAlignCommand, SetRangeValuesCommand, SetRangeValuesMutation, SetRowDataCommand, SetRowDataMutation, SetRowHeightCommand, SetRowHiddenCommand, SetRowHiddenMutation, SetRowVisibleMutation, SetSelectionsOperation, SetSpecificColsVisibleCommand, SetSpecificRowsVisibleCommand, SetStyleCommand, SetTextWrapCommand, SetVerticalTextAlignCommand, SetWorksheetColWidthMutation, SetWorksheetRowHeightMutation, SetWorksheetRowIsAutoHeightCommand, SetWorksheetRowIsAutoHeightMutation, SheetsSelectionsService } from '@univerjs/sheets';
-import { beforeEach, describe, expect, it } from 'vitest';
+import {
+    ICommandService,
+    IConfirmService,
+    ILogService,
+    Injector,
+    IUniverInstanceService,
+    RANGE_TYPE,
+    TestConfirmService,
+    UniverInstanceType,
+} from '@univerjs/core';
+import {
+    AddWorksheetMergeCommand,
+    AddWorksheetMergeMutation,
+    AppendRowCommand,
+    CancelFrozenCommand,
+    ClearSelectionAllCommand,
+    ClearSelectionContentCommand,
+    ClearSelectionFormatCommand,
+    InsertColByRangeCommand,
+    InsertColCommand,
+    InsertColMutation,
+    InsertRowByRangeCommand,
+    InsertRowCommand,
+    InsertRowMutation,
+    MoveColsCommand,
+    MoveColsMutation,
+    MoveRowsCommand,
+    MoveRowsMutation,
+    RemoveColByRangeCommand,
+    RemoveColCommand,
+    RemoveColMutation,
+    RemoveRowByRangeCommand,
+    RemoveRowCommand,
+    RemoveRowMutation,
+    RemoveWorksheetMergeCommand,
+    RemoveWorksheetMergeMutation,
+    SetColDataCommand,
+    SetColDataMutation,
+    SetColHiddenCommand,
+    SetColHiddenMutation,
+    SetColVisibleMutation,
+    SetColWidthCommand,
+    SetFrozenCommand,
+    SetFrozenMutation,
+    SetHorizontalTextAlignCommand,
+    SetRangeValuesCommand,
+    SetRangeValuesMutation,
+    SetRowDataCommand,
+    SetRowDataMutation,
+    SetRowHeightCommand,
+    SetRowHiddenCommand,
+    SetRowHiddenMutation,
+    SetRowVisibleMutation,
+    SetSelectionsOperation,
+    SetSpecificColsVisibleCommand,
+    SetSpecificRowsVisibleCommand,
+    SetStyleCommand,
+    SetTextWrapCommand,
+    SetVerticalTextAlignCommand,
+    SetWorksheetActiveOperation,
+    SetWorksheetColumnCountCommand,
+    SetWorksheetColumnCountMutation,
+    SetWorksheetColWidthMutation,
+    SetWorksheetDefaultStyleMutation,
+    SetWorksheetHideCommand,
+    SetWorksheetHideMutation,
+    SetWorksheetNameCommand,
+    SetWorksheetNameMutation,
+    SetWorksheetRowCountCommand,
+    SetWorksheetRowCountMutation,
+    SetWorksheetRowHeightMutation,
+    SetWorksheetRowIsAutoHeightCommand,
+    SetWorksheetRowIsAutoHeightMutation,
+    SetWorksheetShowCommand,
+    SheetSkeletonService,
+    SheetsSelectionsService,
+} from '@univerjs/sheets';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SHEETS_CUSTOM_FIELD_WARNING_MESSAGE } from '../const';
 import { createWorksheetTestBed } from './create-worksheet-test-bed';
 
 describe('Test FWorksheet', () => {
@@ -42,6 +118,22 @@ describe('Test FWorksheet', () => {
         commandService.registerCommand(SetVerticalTextAlignCommand);
         commandService.registerCommand(SetHorizontalTextAlignCommand);
         commandService.registerCommand(SetTextWrapCommand);
+        commandService.registerCommand(AppendRowCommand);
+        commandService.registerCommand(ClearSelectionAllCommand);
+        commandService.registerCommand(ClearSelectionContentCommand);
+        commandService.registerCommand(ClearSelectionFormatCommand);
+        commandService.registerCommand(SetWorksheetDefaultStyleMutation);
+        commandService.registerCommand(SetWorksheetRowCountCommand);
+        commandService.registerCommand(SetWorksheetRowCountMutation);
+        commandService.registerCommand(SetWorksheetColumnCountCommand);
+        commandService.registerCommand(SetWorksheetColumnCountMutation);
+        commandService.registerCommand(SetWorksheetHideCommand);
+        commandService.registerCommand(SetWorksheetHideMutation);
+        commandService.registerCommand(SetWorksheetShowCommand);
+        commandService.registerCommand(SetWorksheetActiveOperation);
+        commandService.registerCommand(SetWorksheetNameCommand);
+        commandService.registerCommand(SetWorksheetNameMutation);
+        get(SheetSkeletonService).ensureSkeleton('test', 'sheet1');
 
         // row
         commandService.registerCommand(InsertRowCommand);
@@ -140,6 +232,40 @@ describe('Test FWorksheet', () => {
         const activeSheet = univerAPI.getActiveWorkbook()?.getSheetByName('sheet1');
         const range = activeSheet?.getRange(0, 3, 1, 1);
         expect(range).toBeDefined();
+    });
+
+    it('Worksheet manages sheet-level styles and clears content or formats independently', () => {
+        const activeSheet = univerAPI.getActiveWorkbook()!.getSheetByName('sheet1')!;
+
+        expect(activeSheet.getSheet().getSheetId()).toBe('sheet1');
+        expect(activeSheet.getWorkbook().getUnitId()).toBe('test');
+        expect(activeSheet.getInject()).toBe(get(Injector));
+
+        activeSheet.setDefaultStyle({ ff: 'Inter', fs: 13 });
+        activeSheet.setRowDefaultStyle(4, { fs: 16, bg: { rgb: '#fff2cc' } });
+        activeSheet.setColumnDefaultStyle(2, { ff: 'Mono', cl: { rgb: '#3366ff' } });
+
+        expect(activeSheet.getDefaultStyle()).toMatchObject({ ff: 'Inter', fs: 13 });
+        expect(activeSheet.getRowDefaultStyle(4)).toMatchObject({ fs: 16, bg: { rgb: '#fff2cc' } });
+        expect(activeSheet.getColumnDefaultStyle(2)).toMatchObject({ ff: 'Mono', cl: { rgb: '#3366ff' } });
+        expect(activeSheet.getRowDefaultStyle(4, true)).toMatchObject({ fs: 16, bg: { rgb: '#fff2cc' } });
+        expect(activeSheet.getColumnDefaultStyle(2, true)).toMatchObject({ ff: 'Mono', cl: { rgb: '#3366ff' } });
+
+        const cell = activeSheet.getRange('A1');
+        cell.setValue('Budget').setBackground('#ddeeff');
+        activeSheet.clear({ contentsOnly: true });
+        expect(cell.getValue()).toBeNull();
+        expect(cell.getBackground()).toBe('#ddeeff');
+
+        cell.setValue('Budget');
+        activeSheet.clear({ formatOnly: true });
+        expect(cell.getValue()).toBe('Budget');
+        expect(cell.getBackground()).not.toBe('#ddeeff');
+
+        cell.setValue('Budget').setBackground('#ddeeff');
+        activeSheet.clear();
+        expect(cell.getValue()).toBeNull();
+        expect(cell.getBackground()).not.toBe('#ddeeff');
     });
 
     it('Worksheet getMaxColumns', async () => {
@@ -475,6 +601,66 @@ describe('Test FWorksheet', () => {
         const currentWorksheet = get(IUniverInstanceService).getCurrentUnitOfType<Workbook>(UniverInstanceType.UNIVER_SHEET)?.getActiveSheet();
         const currentColCustom = currentWorksheet?.getColumnManager().getColumn(0)?.custom;
         expect(currentColCustom).toEqual({ color: 'red' });
+    });
+
+    it('Worksheet custom APIs should warn about custom field usage', () => {
+        const logService = get(ILogService);
+        Object.defineProperty(logService, 'warn', { configurable: true, value: vi.fn() });
+        const warnSpy = vi.spyOn(logService, 'warn');
+        const activeSheet = univerAPI.getActiveWorkbook()?.getSheetByName('sheet1');
+
+        activeSheet?.setRowCustom({ 0: { color: 'red' } });
+        activeSheet?.setColumnCustom({ 0: { color: 'blue' } });
+        activeSheet?.setCustomMetadata({ sheet: 'metadata' });
+        activeSheet?.getCustomMetadata();
+        activeSheet?.setRowCustomMetadata(1, { row: 'metadata' });
+        activeSheet?.getRowCustomMetadata(1);
+        activeSheet?.setColumnCustomMetadata(1, { column: 'metadata' });
+        activeSheet?.getColumnCustomMetadata(1);
+
+        expect(warnSpy).toHaveBeenCalledTimes(8);
+        for (let index = 1; index <= 8; index++) {
+            expect(warnSpy).toHaveBeenNthCalledWith(index, SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+        }
+
+        warnSpy.mockRestore();
+    });
+
+    it('Worksheet appends rows and updates sheet dimensions through facade APIs', () => {
+        const activeSheet = univerAPI.getActiveWorkbook()!.getActiveSheet();
+
+        const initialLastRow = activeSheet.getLastRow();
+        activeSheet.appendRow(['North', 100, true]);
+        expect(activeSheet.getRange(initialLastRow + 1, 0, 1, 3).getValues()).toEqual([['North', 100, 1]]);
+        expect(activeSheet.getDataRange().getA1Notation()).toBe(`A1:C${initialLastRow + 2}`);
+
+        activeSheet.setRowCount(120);
+        activeSheet.setColumnCount(80);
+        expect(activeSheet.getMaxRows()).toBe(120);
+        expect(activeSheet.getMaxColumns()).toBe(80);
+    });
+
+    it('Worksheet exposes merge, active range, visibility, name, and equality state', () => {
+        const workbook = univerAPI.getActiveWorkbook()!;
+        const activeSheet = workbook.getActiveSheet();
+        const sameSheet = workbook.getSheetByName(activeSheet.getSheetName())!;
+
+        expect(activeSheet.equalTo(sameSheet)).toBe(true);
+        activeSheet.getRange('J1:K2').merge();
+        expect(activeSheet.getMergeData().map((range) => range.getA1Notation())).toContain('J1:K2');
+        expect(activeSheet.getMergedRanges().map((range) => range.getA1Notation())).toContain('J1:K2');
+        expect(activeSheet.getCellMergeData(0, 9)?.getA1Notation()).toBe('J1:K2');
+
+        activeSheet.setActiveRange(activeSheet.getRange('C3:D4'));
+        expect(activeSheet.getActiveRange()?.getA1Notation()).toBe('C3:D4');
+        expect(activeSheet.getActiveCell()?.getA1Notation()).toBe('C3');
+
+        expect(() => activeSheet.hideSheet()).toThrow('Cannot hide the only visible sheet');
+        expect(activeSheet.isSheetHidden()).toBe(false);
+
+        activeSheet.setName('Renamed');
+        expect(activeSheet.getSheetName()).toBe('Renamed');
+        expect(activeSheet.getIndex()).toBe(0);
     });
 
     // #endregion

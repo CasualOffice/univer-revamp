@@ -1,23 +1,6 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import { CellValueType, LocaleType, LogLevel, Univer, UserManagerService } from '@univerjs/core';
 import { FUniver } from '@univerjs/core/facade';
 import { UniverDocsPlugin } from '@univerjs/docs';
-import { UniverDocsDrawingUIPlugin } from '@univerjs/docs-drawing-ui';
 import { UniverDocsMentionUIPlugin } from '@univerjs/docs-mention-ui';
 import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
 import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
@@ -36,13 +19,11 @@ import { UniverSheetsSortPlugin } from '@univerjs/sheets-sort';
 import { UniverSheetsThreadCommentPlugin } from '@univerjs/sheets-thread-comment';
 import { UniverSheetsThreadCommentUIPlugin } from '@univerjs/sheets-thread-comment-ui';
 import { UniverSheetsUIPlugin } from '@univerjs/sheets-ui';
-import { UniverSheetsZenEditorPlugin } from '@univerjs/sheets-zen-editor';
 import { UniverThreadCommentUIPlugin } from '@univerjs/thread-comment-ui';
 import { UniverUIPlugin } from '@univerjs/ui';
 import { SwitchUnits } from './switch-units';
 import '@univerjs/sheets/facade';
 import '@univerjs/ui/facade';
-import '@univerjs/docs-ui/facade';
 import '@univerjs/sheets-ui/facade';
 import '@univerjs/sheets-data-validation/facade';
 import '@univerjs/engine-formula/facade';
@@ -55,7 +36,6 @@ import '@univerjs/sheets-conditional-formatting/facade';
 import '@univerjs/sheets-find-replace/facade';
 import '@univerjs/sheets-drawing/facade';
 import '@univerjs/sheets-drawing-ui/facade';
-import '@univerjs/sheets-zen-editor/facade';
 import '@univerjs/sheets-crosshair-highlight/facade';
 import '@univerjs/sheets-sort/facade';
 import '../global.css';
@@ -87,13 +67,11 @@ univer.registerPlugin(UniverUIPlugin, {
     ribbonType: 'classic',
 });
 univer.registerPlugin(UniverDocsUIPlugin);
-univer.registerPlugin(UniverDocsDrawingUIPlugin);
 univer.registerPlugin(UniverDocsMentionUIPlugin);
 
 univer.registerPlugin(UniverSheetsPlugin);
 univer.registerPlugin(UniverSheetsUIPlugin);
 univer.registerPlugin(UniverSheetsNumfmtPlugin);
-univer.registerPlugin(UniverSheetsZenEditorPlugin);
 univer.registerPlugin(UniverFormulaEnginePlugin);
 univer.registerPlugin(UniverSheetsNumfmtUIPlugin);
 univer.registerPlugin(UniverSheetsFormulaPlugin);
@@ -296,7 +274,7 @@ univerAPI.createWorkbook({
 });
 
 declare global {
-    // eslint-disable-next-line ts/naming-convention
+
     interface Window {
         univer?: Univer;
         univerAPI?: ReturnType<typeof FUniver.newAPI>;

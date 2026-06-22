@@ -17,16 +17,77 @@
 import type { Dependency, ICellData, IDisposable, IRange, IWorkbookData, Nullable, Workbook } from '@univerjs/core';
 import type { ISetRangeValuesMutationParams } from '@univerjs/sheets';
 import type { ICellDataWithSpanInfo } from '@univerjs/sheets-ui';
-import { DisposableCollection, ICommandService, ILogService, Inject, Injector, IUniverInstanceService, LocaleService, LocaleType, LogLevel, ObjectMatrix, Plugin, RANGE_TYPE, UndoCommand, Univer, UniverInstanceType } from '@univerjs/core';
-import { CalculateFormulaService, DefinedNamesService, FormulaCurrentConfigService, FormulaDataModel, FormulaRuntimeService, HyperlinkEngineFormulaService, ICalculateFormulaService, IDefinedNamesService, IFormulaCurrentConfigService, IFormulaRuntimeService, IHyperlinkEngineFormulaService, LexerTreeBuilder, SetArrayFormulaDataMutation, SetFormulaDataMutation } from '@univerjs/engine-formula';
+import {
+    DisposableCollection,
+    ICommandService,
+    ILogService,
+    Inject,
+    Injector,
+    IUniverInstanceService,
+    LocaleService,
+    LocaleType,
+    LogLevel,
+    ObjectMatrix,
+    Plugin,
+    RANGE_TYPE,
+    UndoCommand,
+    Univer,
+    UniverInstanceType,
+} from '@univerjs/core';
+import {
+    CalculateFormulaService,
+    DefinedNamesService,
+    FormulaCurrentConfigService,
+    FormulaDataModel,
+    FormulaRuntimeService,
+    HyperlinkEngineFormulaService,
+    ICalculateFormulaService,
+    IDefinedNamesService,
+    IFormulaCurrentConfigService,
+    IFormulaRuntimeService,
+    IHyperlinkEngineFormulaService,
+    LexerTreeBuilder,
+    SetArrayFormulaDataMutation,
+    SetFormulaDataMutation,
+} from '@univerjs/engine-formula';
 import { IRenderManagerService, RenderManagerService } from '@univerjs/engine-render';
-import { discreteRangeToRange, MoveRangeMutation, SetRangeValuesMutation, SetSelectionsOperation, SetWorksheetActiveOperation, SetWorksheetRowAutoHeightMutation, SheetInterceptorService, SheetSkeletonService, SheetsSelectionsService } from '@univerjs/sheets';
+import {
+    discreteRangeToRange,
+    MoveRangeMutation,
+    SetRangeValuesMutation,
+    SetSelectionsOperation,
+    SetWorksheetActiveOperation,
+    SetWorksheetRowAutoHeightMutation,
+    SheetInterceptorService,
+    SheetSkeletonService,
+    SheetsSelectionsService,
+} from '@univerjs/sheets';
 import { UpdateFormulaController } from '@univerjs/sheets-formula';
-import { COPY_TYPE, IMarkSelectionService, ISheetClipboardService, ISheetSelectionRenderService, PREDEFINED_HOOK_NAME_PASTE, SheetClipboardController, SheetClipboardService, SheetSelectionRenderService, SheetSkeletonManagerService } from '@univerjs/sheets-ui';
-import { BrowserClipboardService, DesktopMessageService, IClipboardInterfaceService, IMessageService, INotificationService, IPlatformService, IUIPartsService, UIPartsService } from '@univerjs/ui';
+import {
+    COPY_TYPE,
+    IMarkSelectionService,
+    ISheetClipboardService,
+    ISheetSelectionRenderService,
+    PREDEFINED_HOOK_NAME_COPY,
+    PREDEFINED_HOOK_NAME_PASTE,
+    SheetClipboardController,
+    SheetClipboardService,
+    SheetSelectionRenderService,
+    SheetSkeletonManagerService,
+} from '@univerjs/sheets-ui';
+import {
+    BrowserClipboardService,
+    DesktopMessageService,
+    IClipboardInterfaceService,
+    IMessageService,
+    INotificationService,
+    IPlatformService,
+    IUIPartsService,
+    UIPartsService,
+} from '@univerjs/ui';
 import { BehaviorSubject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getSetCellFormulaMutations } from '../formula-clipboard.controller';
+import { FormulaClipboardController, getSetCellFormulaMutations } from '../formula-clipboard.controller';
 import { createCommandTestBed } from './create-command-test-bed';
 
 interface ITestSheetClipboardService extends ISheetClipboardService {
@@ -81,6 +142,112 @@ class testPlatformService {
     isMac: boolean = true;
     isLinux: boolean = false;
 }
+
+describe('FormulaClipboardController formula-only copy hook', () => {
+    it('copies only formulas, resolves shared formula strings and reports filtered rows', () => {
+        const hooks: any[] = [];
+        const worksheet = {
+            getSheetId: () => 'sheet1',
+            getUnitId: () => 'unit1',
+            getCellRaw: (row: number, col: number) => {
+                if (row === 0 && col === 0) return { f: '=A1' };
+                if (row === 0 && col === 1) return { si: 'shared-1' };
+                if (row === 0 && col === 2) return { v: 10 };
+                return null;
+            },
+            getRowFiltered: (row: number) => row === 2,
+        };
+        const workbook = {
+            getSheetBySheetId: () => worksheet,
+        };
+        const controller = new FormulaClipboardController(
+            {
+                getUnit: () => workbook,
+                getCurrentUnitOfType: () => ({ getActiveSheet: () => worksheet }),
+            } as never,
+            {} as never,
+            {
+                addClipboardHook: (hook: unknown) => {
+                    hooks.push(hook);
+                    return { dispose: () => undefined };
+                },
+            } as never,
+            {} as never,
+            { getFormulaStringByCell: () => '=A2' } as never
+        );
+        const formulaOnlyHook = hooks.find((hook) => hook.id === PREDEFINED_HOOK_NAME_COPY.SPECIAL_COPY_FORMULA_ONLY);
+
+        formulaOnlyHook.onBeforeCopy('unit1', 'sheet1');
+
+        expect(formulaOnlyHook.onCopyCellContent(0, 0)).toBe('=A1');
+        expect(formulaOnlyHook.onCopyCellContent(0, 1)).toBe('=A2');
+        expect(formulaOnlyHook.onCopyCellContent(0, 2)).toBe('');
+        expect(formulaOnlyHook.getFilteredOutRows('unit1', 'sheet1', {
+            startRow: 0,
+            endRow: 3,
+            startColumn: 0,
+            endColumn: 0,
+        })).toEqual([2]);
+
+        formulaOnlyHook.onAfterCopy();
+        expect(formulaOnlyHook.onCopyCellContent(0, 0)).toBe('');
+
+        controller.dispose();
+    });
+
+    it('writes formulas to copy matrices and clears non-formula cells in formula-only copy', () => {
+        const hooks: any[] = [];
+        const worksheet = {
+            getSheetId: () => 'sheet1',
+            getUnitId: () => 'unit1',
+            getCellRaw: () => null,
+            getRowFiltered: () => false,
+        };
+        const workbook = {
+            getSheetBySheetId: () => worksheet,
+        };
+        const controller = new FormulaClipboardController(
+            {
+                getUnit: () => workbook,
+                getCurrentUnitOfType: () => ({ getActiveSheet: () => worksheet }),
+            } as never,
+            {} as never,
+            {
+                addClipboardHook: (hook: unknown) => {
+                    hooks.push(hook);
+                    return { dispose: () => undefined };
+                },
+            } as never,
+            {} as never,
+            { getFormulaStringByCell: () => '=A2' } as never
+        );
+        const formulaOnlyHook = hooks.find((hook) => hook.id === PREDEFINED_HOOK_NAME_COPY.SPECIAL_COPY_FORMULA_ONLY);
+        const matrix = new ObjectMatrix<ICellDataWithSpanInfo>({
+            0: {
+                0: { f: '=A1' },
+                1: { si: 'shared-1' },
+                2: { v: 10 },
+            },
+        });
+        const matrixFragment = new ObjectMatrix<ICellDataWithSpanInfo>();
+        const plainMatrix = new ObjectMatrix<ICellDataWithSpanInfo>();
+
+        formulaOnlyHook.onBeforeCopy('unit1', 'sheet1');
+        formulaOnlyHook.handleMatrixOnCell(0, 0, 0, 0, matrix, matrixFragment, plainMatrix);
+        formulaOnlyHook.handleMatrixOnCell(0, 1, 0, 1, matrix, matrixFragment, plainMatrix);
+        formulaOnlyHook.handleMatrixOnCell(0, 2, 0, 2, matrix, matrixFragment, plainMatrix);
+
+        expect(matrixFragment.getValue(0, 0)).toMatchObject({ f: '=A1' });
+        expect(plainMatrix.getValue(0, 0)).toMatchObject({ f: '=A1', displayV: '=A1' });
+        expect(matrixFragment.getValue(0, 1)).toMatchObject({ f: '=A2' });
+        expect(plainMatrix.getValue(0, 1)).toMatchObject({ f: '=A2', displayV: '=A2' });
+        expect(matrixFragment.getValue(0, 2)).toMatchObject({ v: null, f: null, si: null, p: null });
+        expect(plainMatrix.getValue(0, 2)).toMatchObject({ v: null, f: null, si: null, p: null });
+        expect(matrix.getValue(0, 2)).toMatchObject({ v: null, f: null, si: null, p: null });
+
+        controller.dispose();
+    });
+});
 
 export function clipboardTestBed(workbookData?: IWorkbookData, dependencies?: Dependency[]) {
     const univer = new Univer();
@@ -175,6 +342,7 @@ export function clipboardTestBed(workbookData?: IWorkbookData, dependencies?: De
         activated$: new BehaviorSubject(true),
         activate: () => {},
         deactivate: () => {},
+        isDisposed: () => false,
     });
 
     return {
@@ -690,7 +858,6 @@ describe('Test paste with formula', () => {
                                     },
                                 },
                             },
-                            options: {},
                         },
                     },
                 ],
@@ -1061,7 +1228,6 @@ describe('Test paste with formula', () => {
                                     },
                                 },
                             },
-                            options: {},
                         },
                     },
                 ],
@@ -1207,5 +1373,189 @@ describe('Test paste with formula', () => {
 
             expect(redoUndoList).toStrictEqual(result);
         });
+    });
+});
+
+describe('getSetCellFormulaMutations matrix branches', () => {
+    let univer: Univer;
+    let get: Injector['get'];
+    let has: Injector['has'];
+
+    beforeEach(() => {
+        const testBed = createCommandTestBed();
+        univer = testBed.univer;
+        get = testBed.get;
+        has = testBed.has;
+    });
+
+    afterEach(() => {
+        univer.dispose();
+    });
+
+    function accessor() {
+        return { get, has };
+    }
+
+    it('converts pasted formula-looking text into cell formulas when there is no paste source', () => {
+        const matrix = new ObjectMatrix<ICellDataWithSpanInfo>({
+            0: {
+                0: { v: '=SUM(A1)' },
+                1: { v: 'plain' },
+            },
+        });
+
+        const result = getSetCellFormulaMutations(
+            'test',
+            'sheet1',
+            { rows: [8], cols: [4, 5] },
+            matrix,
+            accessor(),
+            { copyType: COPY_TYPE.COPY, pasteType: PREDEFINED_HOOK_NAME_PASTE.DEFAULT_PASTE },
+            { moveFormulaRefOffset: (formula: string) => formula } as any,
+            { getSheetFormulaData: () => ({}) } as any,
+            false,
+            null
+        );
+
+        expect(result.redos[0]).toMatchObject({
+            id: SetRangeValuesMutation.id,
+            params: {
+                unitId: 'test',
+                subUnitId: 'sheet1',
+                cellValue: {
+                    8: {
+                        4: { v: null, f: '=SUM(A1)', si: null, p: null },
+                    },
+                },
+            },
+        });
+    });
+
+    it('special-paste value removes formulas while preserving display values and rich text text', () => {
+        const matrix = new ObjectMatrix<ICellDataWithSpanInfo>({
+            0: {
+                0: { v: 12, f: '=A1' },
+                1: { v: null, p: { body: { dataStream: 'rich text\r\n' } } as any },
+            },
+        });
+
+        const result = getSetCellFormulaMutations(
+            'test',
+            'sheet1',
+            { rows: [9], cols: [1, 2] },
+            matrix,
+            accessor(),
+            { copyType: COPY_TYPE.COPY, pasteType: PREDEFINED_HOOK_NAME_PASTE.SPECIAL_PASTE_VALUE },
+            { moveFormulaRefOffset: (formula: string) => formula } as any,
+            {
+                getArrayFormulaCellData: () => ({}),
+                getSheetFormulaData: () => ({ 9: { 2: { f: '=OLD()' } } }),
+            } as any,
+            false,
+            {
+                unitId: 'test',
+                subUnitId: 'sheet1',
+                range: { rows: [0], cols: [0, 1] },
+            }
+        );
+
+        expect(result.redos[0]).toMatchObject({
+            params: {
+                cellValue: {
+                    9: {
+                        1: { v: 12, f: null, si: null, p: null },
+                        2: { v: 'rich text', f: null, si: null, p: null },
+                    },
+                },
+            },
+        });
+    });
+
+    it('special-paste formula shifts formula refs across sheets and reuses shared ids inside the pasted block', () => {
+        const moveFormulaRefOffset = (formula: string, offsetX: number, offsetY: number) => `${formula}:${offsetX}:${offsetY}`;
+        const matrix = new ObjectMatrix<ICellDataWithSpanInfo>({
+            0: {
+                0: { si: 'shared-source' },
+                1: { f: '=A1' },
+            },
+            1: {
+                0: { si: 'shared-source' },
+                1: { f: '=A1' },
+            },
+        });
+
+        const result = getSetCellFormulaMutations(
+            'test',
+            'sheet1',
+            { rows: [10, 11], cols: [5, 6] },
+            matrix,
+            accessor(),
+            { copyType: COPY_TYPE.COPY, pasteType: PREDEFINED_HOOK_NAME_PASTE.SPECIAL_PASTE_FORMULA },
+            { moveFormulaRefOffset } as any,
+            {
+                getFormulaStringByCell: () => '=B2',
+            } as any,
+            true,
+            {
+                unitId: 'test',
+                subUnitId: 'sheet2',
+                range: { rows: [0, 1], cols: [0, 1] },
+            }
+        );
+
+        const cellValue = (result.redos[0].params as ISetRangeValuesMutationParams).cellValue;
+        if (!cellValue) {
+            throw new Error('Expected formula paste to generate cell values.');
+        }
+        const firstSharedCell = cellValue[10]?.[6];
+        const secondSharedCell = cellValue[11]?.[6];
+        if (!firstSharedCell || !secondSharedCell) {
+            throw new Error('Expected formula paste to generate shared formula target cells.');
+        }
+        expect(cellValue[10][5]).toEqual({ v: null, si: null, f: '=B2:5:10', p: null });
+        expect(cellValue[11][5]).toEqual({ v: null, si: null, f: '=B2:5:10', p: null });
+        expect(cellValue[10][6]).toMatchObject({ v: null, f: '=A1:5:10', p: null });
+        expect(cellValue[11][6]).toMatchObject({ v: null, f: '=A1:5:10', p: null });
+        expect(firstSharedCell.si).toEqual(expect.any(String));
+        expect(secondSharedCell.si).toEqual(expect.any(String));
+    });
+
+    it('default cut paste keeps cut formulas stable and expands external shared formula references into formula strings', () => {
+        const matrix = new ObjectMatrix<ICellDataWithSpanInfo>({
+            0: {
+                0: { f: '=A1', si: 'shared-cut' },
+                1: { si: 'shared-cut' },
+            },
+        });
+
+        const result = getSetCellFormulaMutations(
+            'test',
+            'sheet1',
+            { rows: [12], cols: [3, 4] },
+            matrix,
+            accessor(),
+            { copyType: COPY_TYPE.CUT, pasteType: PREDEFINED_HOOK_NAME_PASTE.DEFAULT_PASTE },
+            { moveFormulaRefOffset: (formula: string) => formula } as any,
+            {
+                getFormulaStringByCell: (row: number, col: number) => `=R${row}C${col}`,
+                getSheetFormulaData: () => ({
+                    0: { 2: { si: 'shared-cut' } },
+                }),
+            } as any,
+            false,
+            {
+                unitId: 'test',
+                subUnitId: 'sheet1',
+                range: { rows: [0], cols: [0, 1] },
+            }
+        );
+
+        const cellValue = (result.redos[0].params as ISetRangeValuesMutationParams).cellValue;
+        if (!cellValue) {
+            throw new Error('Expected cut paste to generate cell values.');
+        }
+        expect(cellValue[12][3]).toEqual({ f: '=A1', si: 'shared-cut', v: null, p: null });
+        expect(cellValue[12][4]).toEqual({ f: null, si: 'shared-cut', v: null, p: null });
+        expect(cellValue[0][2]).toEqual({ f: '=R0C2', si: null, v: null, p: null });
     });
 });

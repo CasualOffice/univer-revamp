@@ -34,6 +34,7 @@ export { LRUHelper, LRUMap } from './lru/lru-map';
 export * from './max-row-column';
 export type { INumfmtLocaleTag } from './numfmt';
 export {
+    currencySymbols,
     DEFAULT_NUMBER_FORMAT,
     DEFAULT_TEXT_FORMAT,
     DEFAULT_TEXT_FORMAT_EXCEL,
@@ -45,6 +46,7 @@ export {
 } from './numfmt';
 export * from './object-matrix';
 export { queryObjectMatrix } from './object-matrix-query';
+export * from './random-id';
 export { moveRangeByOffset, splitIntoGrid } from './range';
 export * from './rectangle';
 export { RefAlias } from './ref-alias';

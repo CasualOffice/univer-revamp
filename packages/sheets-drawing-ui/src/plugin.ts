@@ -34,6 +34,7 @@ import { IRenderManagerService } from '@univerjs/engine-render';
 import { UniverSheetsDrawingPlugin } from '@univerjs/sheets-drawing';
 import pkg from '../package.json';
 import { defaultPluginConfig, SHEETS_DRAWING_UI_PLUGIN_CONFIG_KEY } from './config/config';
+import { ComponentsController } from './controllers/components.controller';
 import { DrawingContextMenuController } from './controllers/drawing-context-menu.controller';
 import { SheetCellImageHoverRenderController } from './controllers/render-controllers/sheet-celll-image-hover.render-controller';
 import { SheetsDrawingRenderController } from './controllers/render-controllers/sheet-drawing.render-controller';
@@ -46,7 +47,7 @@ import { SheetDrawingPermissionController } from './controllers/sheet-drawing-pe
 import { SheetDrawingPrintingController } from './controllers/sheet-drawing-printing.controller';
 import { SheetDrawingTransformAffectedController } from './controllers/sheet-drawing-transform-affected.controller';
 import { SheetDrawingUpdateController } from './controllers/sheet-drawing-update.controller';
-import { SheetDrawingUIController } from './controllers/sheet-drawing.controller';
+import { SheetDrawingUIController } from './controllers/ui.controller';
 import { DrawingPopupMenuController } from './menu/drawing-popup-menu.controller';
 import { BatchSaveImagesService, IBatchSaveImagesService } from './services/batch-save-images.service';
 import { SheetCanvasFloatDomManagerService } from './services/canvas-float-dom-manager.service';
@@ -80,6 +81,7 @@ export class UniverSheetsDrawingUIPlugin extends Plugin {
 
     override onStarting(): void {
         registerDependencies(this._injector, [
+            [ComponentsController],
             [SheetCanvasFloatDomManagerService],
             [SheetDrawingUIController],
             [DrawingPopupMenuController],
@@ -97,6 +99,7 @@ export class UniverSheetsDrawingUIPlugin extends Plugin {
         touchDependencies(this._injector, [
             [SheetCanvasFloatDomManagerService],
         ]);
+        this._injector.get(ComponentsController);
     }
 
     override onReady(): void {

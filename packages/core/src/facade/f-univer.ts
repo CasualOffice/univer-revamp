@@ -14,10 +14,44 @@
  * limitations under the License.
  */
 
-import type { CommandListener, DocumentDataModel, IDisposable, IDocumentData, IExecutionOptions, ILanguagePack, IParagraphStyle, ITextDecoration, ITextStyle, LifecycleStages, LocaleType } from '@univerjs/core';
+import type {
+    CommandListener,
+    DocumentDataModel,
+    IDisposable,
+    IDocumentData,
+    IExecutionOptions,
+    ILanguagePack,
+    IParagraphStyle,
+    ITextDecoration,
+    ITextStyle,
+    LifecycleStages,
+    LocaleType,
+} from '@univerjs/core';
 import type { Subscription } from 'rxjs';
 import type { ICommandEvent, IEventParamConfig } from './f-event';
-import { CanceledError, Disposable, ICommandService, Inject, Injector, IUniverInstanceService, LifecycleService, LocaleService, ParagraphStyleBuilder, ParagraphStyleValue, RedoCommand, RichTextBuilder, RichTextValue, TextDecorationBuilder, TextStyleBuilder, TextStyleValue, ThemeService, toDisposable, UndoCommand, Univer, UniverInstanceType } from '@univerjs/core';
+import {
+    CanceledError,
+    Disposable,
+    ICommandService,
+    Inject,
+    Injector,
+    IUniverInstanceService,
+    LifecycleService,
+    LocaleService,
+    ParagraphStyleBuilder,
+    ParagraphStyleValue,
+    RedoCommand,
+    RichTextBuilder,
+    RichTextValue,
+    TextDecorationBuilder,
+    TextStyleBuilder,
+    TextStyleValue,
+    ThemeService,
+    toDisposable,
+    UndoCommand,
+    Univer,
+    UniverInstanceType,
+} from '@univerjs/core';
 import { FBlob } from './f-blob';
 import { FDoc } from './f-doc';
 import { FEnum } from './f-enum';
@@ -382,6 +416,34 @@ export class FUniver extends Disposable {
     }
 
     /**
+     * Get the current locale.
+     * @returns {string} The current locale identifier.
+     * @example
+     * ```ts
+     * const currentLocale = univerAPI.getCurrentLocale();
+     * console.log(currentLocale);
+     * ```
+     */
+    getCurrentLocale(): string {
+        const localeService = this._injector.get(LocaleService);
+        return localeService.getCurrentLocale();
+    }
+
+    /**
+     * Get the locales for the current locale.
+     * @returns {ILanguagePack | undefined} The locales object for the current locale, it returns undefined if the locales is not loaded.
+     * @example
+     * ```ts
+     * const locales = univerAPI.getLocales();
+     * console.log(locales);
+     * ```
+     */
+    getLocales(): ILanguagePack | undefined {
+        const localeService = this._injector.get(LocaleService);
+        return localeService.getLocales();
+    }
+
+    /**
      * Register a callback that will be triggered before invoking a command.
      * @deprecated use `univerAPI.addEvent(univerAPI.Event.BeforeCommandExecute, (event) => {})` instead.
      * @param {CommandListener} callback The callback.
@@ -530,7 +592,9 @@ export class FUniver extends Disposable {
      * @example
      * ```ts
      * const richText = univerAPI.newRichText({ body: { dataStream: 'Hello World\r\n' } });
-     * const range = univerAPI.getActiveWorkbook().getActiveSheet().getRange('A1');
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
+     * const range = fWorksheet.getRange('A1');
      * range.setRichTextValueForCell(richText);
      * ```
      */
@@ -545,7 +609,9 @@ export class FUniver extends Disposable {
      * @example
      * ```ts
      * const richTextValue = univerAPI.newRichTextValue({ body: { dataStream: 'Hello World\r\n' } });
-     * const range = univerAPI.getActiveWorkbook().getActiveSheet().getRange('A1');
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
+     * const range = fWorksheet.getRange('A1');
      * range.setRichTextValueForCell(richTextValue);
      * ```
      */
@@ -562,7 +628,9 @@ export class FUniver extends Disposable {
      * const richText = univerAPI.newRichText({ body: { dataStream: 'Hello World\r\n' } });
      * const paragraphStyle = univerAPI.newParagraphStyle({ textStyle: { ff: 'Arial', fs: 12, it: univerAPI.Enum.BooleanNumber.TRUE, bl: univerAPI.Enum.BooleanNumber.TRUE } });
      * richText.insertParagraph(paragraphStyle);
-     * const range = univerAPI.getActiveWorkbook().getActiveSheet().getRange('A1');
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
+     * const range = fWorksheet.getRange('A1');
      * range.setRichTextValueForCell(richText);
      * ```
      */

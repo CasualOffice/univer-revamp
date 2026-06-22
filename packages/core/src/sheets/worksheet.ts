@@ -24,10 +24,11 @@ import type { CustomData, ICellData, ICellDataForSheetInterceptor, ICellDataWith
 import { BuildTextUtils, DocumentDataModel } from '../docs';
 import { convertTextRotation, getFontStyleString } from '../docs/data-model/utils';
 import { composeStyles, ObjectMatrix, toDisposable, Tools } from '../shared';
+import { generateRandomId } from '../shared/random-id';
 import { createRowColIter } from '../shared/row-col-iter';
-import { generateRandomId } from '../shared/tools';
 import { DEFAULT_STYLES } from '../types/const';
 import { CellValueType } from '../types/enum';
+import { DocumentFlavor } from '../types/interfaces';
 import { cloneWorksheetData } from './clone';
 import { ColumnManager } from './column-manager';
 import { Range } from './range';
@@ -1269,6 +1270,8 @@ export class Worksheet {
             width: Number.POSITIVE_INFINITY,
             height: Number.POSITIVE_INFINITY,
         };
+        documentData.documentStyle.documentFlavor = DocumentFlavor.UNSPECIFIED;
+        documentData.documentStyle.paragraphLineGapDefault = 0;
 
         documentData.documentStyle.renderConfig = {
             ...documentData.documentStyle.renderConfig,

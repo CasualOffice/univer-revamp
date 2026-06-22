@@ -24,13 +24,18 @@ import { IRenderManagerService } from '@univerjs/engine-render';
 import { UniverUIPlugin } from '@univerjs/ui';
 import pkg from '../package.json';
 import { defaultPluginConfig, DOCS_DRAWING_UI_PLUGIN_CONFIG_KEY } from './config/config';
+import { ComponentsController } from './controllers/components.controller';
 import { DocDrawingAddRemoveController } from './controllers/doc-drawing-notification.controller';
 import { DocDrawingPrintingController } from './controllers/doc-drawing-printing.controller';
 import { DocDrawingTransformerController } from './controllers/doc-drawing-transformer-update.controller';
-import { DocDrawingUIController } from './controllers/doc-drawing.controller';
 import { DocFloatDomController } from './controllers/doc-float-dom.controller';
-import { DocDrawingTransformUpdateController } from './controllers/render-controllers/doc-drawing-transform-update.controller';
-import { DocDrawingUpdateRenderController } from './controllers/render-controllers/doc-drawing-update.render-controller';
+import {
+    DocDrawingTransformUpdateController,
+} from './controllers/render-controllers/doc-drawing-transform-update.controller';
+import {
+    DocDrawingUpdateRenderController,
+} from './controllers/render-controllers/doc-drawing-update.render-controller';
+import { DocDrawingUIController } from './controllers/ui.controller';
 import { DocDrawingPopupMenuController } from './menu/drawing-popup-menu.controller';
 import { DocRefreshDrawingsService } from './services/doc-refresh-drawings.service';
 
@@ -60,6 +65,7 @@ export class UniverDocsDrawingUIPlugin extends Plugin {
 
     override onStarting(): void {
         const dependencies: Dependency[] = [
+            [ComponentsController],
             [DocDrawingUIController],
             [DocDrawingPopupMenuController],
             [DocDrawingTransformerController],
@@ -70,6 +76,7 @@ export class UniverDocsDrawingUIPlugin extends Plugin {
         ];
 
         dependencies.forEach((dependency) => this._injector.add(dependency));
+        this._injector.get(ComponentsController);
     }
 
     override onReady(): void {

@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import type { ICustomBlock, ICustomDecoration, ICustomRange, IDocumentBody, IParagraph, ISectionBreak, ITextRun } from '../../../types/interfaces/i-document-data';
+import type { ICustomBlock, ICustomDecoration, ICustomRange, IDocumentBlockRange, IDocumentBody, IParagraph, ISectionBreak, ITextRun } from '../../../types/interfaces/i-document-data';
+import type { DocumentDataModel } from '../../data-model';
 import type { IRetainAction } from './action-types';
 import { UpdateDocsAttributeType } from '../../../shared/command-enum';
 import { Tools } from '../../../shared/tools';
@@ -92,29 +93,80 @@ export function getTableSlice(
         const clonedTable = Tools.deepClone(table);
         const { startIndex, endIndex } = clonedTable;
 
-        if (startIndex >= startOffset && endIndex <= endOffset) {
+        if (Math.max(startIndex, startOffset) < Math.min(endIndex, endOffset)) {
             newTables.push({
                 ...clonedTable,
-                startIndex: startIndex - startOffset,
-                endIndex: endIndex - startOffset,
+                startIndex: Math.max(startIndex, startOffset) - startOffset,
+                endIndex: Math.min(endIndex, endOffset) - startOffset,
             });
         }
     }
     return newTables;
 }
 
-export function getParagraphsSlice(
+export function getBlockRangeSlice(
     body: IDocumentBody,
     startOffset: number,
     endOffset: number
 ) {
+    const { blockRanges = [] } = body;
+    const newBlockRanges: IDocumentBlockRange[] = [];
+
+    for (const blockRange of blockRanges) {
+        const clonedBlockRange = Tools.deepClone(blockRange);
+        const { startIndex, endIndex } = clonedBlockRange;
+
+        if (startIndex >= startOffset && endIndex < endOffset) {
+            newBlockRanges.push({
+                ...clonedBlockRange,
+                startIndex: startIndex - startOffset,
+                endIndex: endIndex - startOffset,
+            });
+        }
+    }
+
+    return newBlockRanges;
+}
+
+export function getParagraphsSlice(
+    body: IDocumentBody,
+    startOffset: number,
+    endOffset: number,
+    type = SliceBodyType.cut
+) {
     const { paragraphs = [] } = body;
     const newParagraphs: IParagraph[] = [];
 
-    for (const paragraph of paragraphs) {
-        const { startIndex } = paragraph;
-        if (startIndex >= startOffset && startIndex < endOffset) {
+    if (type === SliceBodyType.cut) {
+        for (const paragraph of paragraphs) {
+            const { startIndex } = paragraph;
+            if (startIndex >= startOffset && startIndex < endOffset) {
+                newParagraphs.push(Tools.deepClone(paragraph));
+            }
+        }
+
+        if (newParagraphs.length) {
+            return newParagraphs.map((p) => ({
+                ...p,
+                startIndex: p.startIndex - startOffset,
+            }));
+        }
+
+        return;
+    }
+
+    const sortedParagraphs = [...paragraphs].sort((a, b) => a.startIndex - b.startIndex);
+
+    for (let index = 0; index < sortedParagraphs.length; index++) {
+        const paragraph = sortedParagraphs[index];
+        const paragraphStart = index > 0 ? sortedParagraphs[index - 1].startIndex + 1 : 0;
+        const paragraphEnd = paragraph.startIndex;
+        const paragraphMarkInRange = paragraphEnd >= startOffset && paragraphEnd < endOffset;
+        const paragraphTextIntersectsRange = Math.max(paragraphStart, startOffset) < Math.min(paragraphEnd, endOffset);
+
+        if (paragraphMarkInRange || paragraphTextIntersectsRange) {
             const copy = Tools.deepClone(paragraph);
+            copy.startIndex = Math.min(Math.max(paragraphEnd, startOffset), endOffset);
             newParagraphs.push(copy);
         }
     }
@@ -193,7 +245,12 @@ export function getBodySlice(
         docBody.tables = newTables;
     }
 
-    docBody.paragraphs = getParagraphsSlice(body, startOffset, endOffset);
+    const newBlockRanges = getBlockRangeSlice(body, startOffset, endOffset);
+    if (newBlockRanges.length) {
+        docBody.blockRanges = newBlockRanges;
+    }
+
+    docBody.paragraphs = getParagraphsSlice(body, startOffset, endOffset, type);
 
     if (type === SliceBodyType.cut) {
         const customDecorations = getCustomDecorationSlice(body, startOffset, endOffset);
@@ -216,7 +273,7 @@ export function getBodySlice(
 }
 
 export function normalizeBody(body: IDocumentBody): IDocumentBody {
-    const { dataStream, textRuns, paragraphs, customRanges, customDecorations, tables } = body;
+    const { dataStream, textRuns, paragraphs, customRanges, customDecorations, tables, blockRanges } = body;
     let leftOffset = 0;
     let rightOffset = 0;
 
@@ -274,6 +331,7 @@ export function normalizeBody(body: IDocumentBody): IDocumentBody {
         customRanges,
         customDecorations,
         tables,
+        blockRanges,
     };
 }
 
@@ -409,12 +467,14 @@ export function composeBody(
         paragraphs: thisParagraphs = [],
         customRanges: thisCustomRanges,
         customDecorations: thisCustomDecorations = [],
+        blockRanges: thisBlockRanges = [],
     } = thisBody;
     const {
         textRuns: otherTextRuns,
         paragraphs: otherParagraphs = [],
         customRanges: otherCustomRanges,
         customDecorations: otherCustomDecorations = [],
+        blockRanges: otherBlockRanges = [],
     } = otherBody;
 
     retBody.textRuns = composeTextRuns(otherTextRuns, thisTextRuns, coverType);
@@ -463,7 +523,30 @@ export function composeBody(
         retBody.paragraphs = paragraphs;
     }
 
+    const blockRanges = composeDocumentBlockRanges(thisBlockRanges, otherBlockRanges);
+    if (blockRanges.length) {
+        retBody.blockRanges = blockRanges;
+    }
+
     return retBody;
+}
+
+function composeDocumentBlockRanges(
+    thisRanges: IDocumentBlockRange[],
+    otherRanges: IDocumentBlockRange[]
+): IDocumentBlockRange[] {
+    if (!thisRanges.length) {
+        return otherRanges;
+    }
+
+    if (!otherRanges.length) {
+        return thisRanges;
+    }
+
+    const byId = new Map(thisRanges.map((range) => [range.blockId, Tools.deepClone(range)]));
+    otherRanges.forEach((range) => byId.set(range.blockId, Tools.deepClone(range)));
+
+    return Array.from(byId.values()).sort((left, right) => left.startIndex - right.startIndex);
 }
 
 export function isUselessRetainAction(action: IRetainAction): boolean {
@@ -473,11 +556,31 @@ export function isUselessRetainAction(action: IRetainAction): boolean {
         return true;
     }
 
-    const { textRuns, paragraphs, customRanges, customBlocks, customDecorations, tables } = body;
+    const { textRuns, paragraphs, customRanges, customBlocks, customDecorations, tables, blockRanges } = body;
 
-    if (textRuns == null && paragraphs == null && customRanges == null && customBlocks == null && customDecorations == null && tables == null) {
+    if (textRuns == null && paragraphs == null && customRanges == null && customBlocks == null && customDecorations == null && tables == null && blockRanges == null) {
         return true;
     }
 
     return false;
+}
+
+export function getRichTextEditPath(docDataModel: DocumentDataModel, segmentId = '') {
+    if (!segmentId) {
+        return ['body'];
+    }
+
+    const { headers, footers } = docDataModel.getSnapshot();
+
+    if (headers == null && footers == null) {
+        throw new Error('Document data model must have headers or footers when update by segment id');
+    }
+
+    if (headers?.[segmentId] != null) {
+        return ['headers', segmentId, 'body'];
+    } else if (footers?.[segmentId] != null) {
+        return ['footers', segmentId, 'body'];
+    } else {
+        throw new Error('Segment id not found in headers or footers');
+    }
 }

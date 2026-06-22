@@ -15,7 +15,7 @@
  */
 
 const locale = {
-    'sheets-table': {
+    'sheets-table-ui': {
         title: 'Table',
         selectRange: 'Select Table Range',
         rename: 'Rename Table',
@@ -44,6 +44,11 @@ const locale = {
             'insert-left': 'Insert 1 table column left',
             'insert-right': 'Insert 1 table column right',
             delete: 'Delete table column',
+        },
+
+        sort: {
+            'sort-asc': 'Ascending',
+            'sort-desc': 'Descending',
         },
 
         insert: {

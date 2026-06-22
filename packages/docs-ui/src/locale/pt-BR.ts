@@ -1,0 +1,172 @@
+/**
+ * Copyright 2023-present DreamNum Co., Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import type enUS from './en-US';
+
+const locale: typeof enUS = {
+    'docs-ui': {
+        toolbar: {
+            undo: 'Desfazer',
+            redo: 'Refazer',
+            font: 'Fonte',
+            fontSize: 'Tamanho da fonte',
+            bold: 'Negrito',
+            italic: 'Itálico',
+            strikethrough: 'Tachado',
+            subscript: 'Subscrito',
+            superscript: 'Sobrescrito',
+            underline: 'Sublinhado',
+            textColor: {
+                main: 'Cor do texto',
+            },
+            fillColor: {
+                main: 'Cor de fundo do texto',
+            },
+            table: {
+                main: 'Tabela',
+                insert: 'Inserir tabela',
+                colCount: 'Número de colunas',
+                rowCount: 'Número de linhas',
+            },
+            resetColor: 'Redefinir',
+            order: 'Lista ordenada',
+            unorder: 'Lista não ordenada',
+            checklist: 'Lista de tarefas',
+            documentFlavor: 'Modo Moderno',
+            alignLeft: 'Alinhar à esquerda',
+            alignCenter: 'Alinhar ao centro',
+            alignRight: 'Alinhar à direita',
+            alignJustify: 'Justificar',
+            horizontalLine: 'Linha horizontal',
+            headerFooter: 'Cabeçalho e rodapé',
+            pageSetup: 'Configurar página',
+        },
+        table: {
+            insert: 'Inserir',
+            insertRowAbove: 'Inserir linha acima',
+            insertRowBelow: 'Inserir linha abaixo',
+            insertColumnLeft: 'Inserir coluna à esquerda',
+            insertColumnRight: 'Inserir coluna à direita',
+            delete: 'Excluir tabela',
+            deleteRows: 'Excluir linha',
+            deleteColumns: 'Excluir coluna',
+            deleteTable: 'Excluir tabela',
+        },
+        headerFooter: {
+            header: 'Cabeçalho',
+            footer: 'Rodapé',
+            panel: 'Configurações de cabeçalho e rodapé',
+            firstPageCheckBox: 'Primeira página diferente',
+            oddEvenCheckBox: 'Páginas ímpares e pares diferentes',
+            headerTopMargin: 'Margem superior do cabeçalho (px)',
+            footerBottomMargin: 'Margem inferior do rodapé (px)',
+            closeHeaderFooter: 'Fechar cabeçalho e rodapé',
+            disableText: 'As configurações de cabeçalho e rodapé estão desativadas',
+        },
+        placeholder: {
+            heading1: 'Heading 1',
+            heading2: 'Heading 2',
+            heading3: 'Heading 3',
+            heading4: 'Heading 4',
+            heading5: 'Heading 5',
+            normalText: 'Type text or press "/" for commands',
+            listItem: 'Item',
+        },
+        doc: {
+            menu: {
+                paragraphSetting: 'Configurações de parágrafo',
+            },
+            slider: {
+                paragraphSetting: 'Configurações de parágrafo',
+            },
+            paragraphSetting: {
+                alignment: 'Alinhamento',
+                indentation: 'Recuo',
+                left: 'Esquerda',
+                right: 'Direita',
+                firstLine: 'Primeira linha',
+                hanging: 'Recuo negativo',
+                spacing: 'Espaçamento',
+                before: 'Antes',
+                after: 'Depois',
+                lineSpace: 'Espaçamento entre linhas',
+                multiSpace: 'Espaçamento múltiplo',
+                atLeast: 'At Least (px)',
+                exactly: 'Exactly (px)',
+                fixedValue: 'Valor fixo (px)',
+            },
+        },
+        rightClick: {
+            copy: 'Copiar',
+            cut: 'Recortar',
+            paste: 'Colar',
+            delete: 'Excluir',
+            bulletList: 'Lista com marcadores',
+            orderList: 'Lista ordenada',
+            checkList: 'Lista de tarefas',
+            insertBellow: 'Inserir abaixo',
+        },
+        paragraphMenu: {
+            alignAndIndent: 'Align and indent',
+            align: 'Align',
+            indent: 'Indent',
+            color: 'Colors',
+            increase: 'Increase',
+            decrease: 'Decrease',
+            increaseIndent: 'Increase indent',
+            decreaseIndent: 'Decrease indent',
+            defaultTextColor: 'Default text color',
+            noBackground: 'No background',
+        },
+        'page-settings': {
+            'document-setting': 'Configuração do documento',
+            mode: 'Modo',
+            'modern-mode': 'Moderno',
+            'classic-mode': 'Clássico',
+            'modern-width': 'Largura do conteúdo',
+            'modern-width-narrow': 'Estreito',
+            'modern-width-medium': 'Médio',
+            'modern-width-wide': 'Amplo',
+            'paper-size': 'Tamanho do papel',
+            'page-size': {
+                main: 'Tamanho do papel',
+                a4: 'A4',
+                a3: 'A3',
+                a5: 'A5',
+                b4: 'B4',
+                b5: 'B5',
+                letter: 'Letter',
+                legal: 'Legal',
+                tabloid: 'Tabloid',
+                statement: 'Statement',
+                executive: 'Executive',
+                folio: 'Folio',
+            },
+            orientation: 'Orientação',
+            portrait: 'Retrato',
+            landscape: 'Paisagem',
+            'custom-paper-size': 'Tamanho de papel personalizado',
+            top: 'Superior',
+            bottom: 'Inferior',
+            left: 'Esquerda',
+            right: 'Direita',
+            cancel: 'Cancelar',
+            confirm: 'Confirmar',
+        },
+    },
+};
+
+export default locale;

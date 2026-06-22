@@ -15,13 +15,33 @@
  */
 
 import type { DocumentDataModel } from '@univerjs/core';
-import type { IRichTextEditingMutationParams } from '@univerjs/docs';
-import type { IDeleteCommandParams, IIMEInputCommandParams, IInsertCommandParams, IMoveCursorOperationParams } from '@univerjs/docs-ui';
-import { DeleteDirection, Direction, Disposable, ICommandService, Inject, IUniverInstanceService, UniverInstanceType } from '@univerjs/core';
-import { DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs';
-import { DeleteCommand, DeleteLeftCommand, IMEInputCommand, InsertCommand, MoveCursorOperation } from '@univerjs/docs-ui';
+import type {
+    IDeleteTextCommandParams,
+    IInsertTextCommandParams,
+    IRichTextEditingMutationParams,
+} from '@univerjs/docs';
+import type { IIMEInputCommandParams, IMoveCursorOperationParams } from '@univerjs/docs-ui';
+import {
+    DeleteDirection,
+    Direction,
+    Disposable,
+    ICommandService,
+    Inject,
+    IUniverInstanceService,
+    UniverInstanceType,
+} from '@univerjs/core';
+import {
+    DeleteTextCommand,
+    DocSelectionManagerService,
+    InsertTextCommand,
+    RichTextEditingMutation,
+} from '@univerjs/docs';
+import { DeleteLeftCommand, IMEInputCommand, MoveCursorOperation } from '@univerjs/docs-ui';
 import { IShortcutService, KeyCode } from '@univerjs/ui';
-import { CloseQuickInsertPopupOperation, ShowQuickInsertPopupOperation } from '../commands/operations/quick-insert-popup.operation';
+import {
+    CloseQuickInsertPopupOperation,
+    ShowQuickInsertPopupOperation,
+} from '../commands/operations/quick-insert-popup.operation';
 import { builtInMenuCommandIds, textMenu } from '../menu/menu';
 import { DocQuickInsertPopupService } from '../services/doc-quick-insert-popup.service';
 
@@ -57,8 +77,8 @@ export class DocQuickInsertTriggerController extends Disposable {
                     return;
                 }
 
-                if (commandInfo.id === InsertCommand.id) {
-                    const params = commandInfo.params as IInsertCommandParams;
+                if (commandInfo.id === InsertTextCommand.id) {
+                    const params = commandInfo.params as IInsertTextCommandParams;
                     if (_docQuickInsertPopupService.editPopup) {
                         _docQuickInsertPopupService.setInputOffset({
                             start: _docQuickInsertPopupService.inputOffset.start,
@@ -114,8 +134,8 @@ export class DocQuickInsertTriggerController extends Disposable {
                     }
                 }
 
-                if (commandInfo.id === DeleteCommand.id) {
-                    const params = commandInfo.params as IDeleteCommandParams;
+                if (commandInfo.id === DeleteTextCommand.id) {
+                    const params = commandInfo.params as IDeleteTextCommandParams;
                     if (_docQuickInsertPopupService.editPopup && params.direction === DeleteDirection.LEFT) {
                         const len = params.len ?? 0;
                         _docQuickInsertPopupService.setInputOffset({ start: _docQuickInsertPopupService.inputOffset.start, end: params.range.endOffset - len });

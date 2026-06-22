@@ -14,14 +14,83 @@
  * limitations under the License.
  */
 
-import type { CellValue, CustomData, ICellData, IColumnData, IColumnRange, IFreeze, IObjectArrayPrimitiveType, IRange, IRowData, IRowRange, IStyleData, Nullable, Workbook, Worksheet } from '@univerjs/core';
-import type { ISetColDataCommandParams, ISetGridlinesColorCommandParams, ISetRowDataCommandParams, ISetTextWrapCommandParams, IToggleGridlinesCommandParams } from '@univerjs/sheets';
+import type {
+    CellValue,
+    CustomData,
+    ICellData,
+    IColumnData,
+    IColumnRange,
+    IFreeze,
+    IObjectArrayPrimitiveType,
+    IRange,
+    IRowData,
+    IRowRange,
+    IStyleData,
+    Nullable,
+    Workbook,
+    Worksheet,
+} from '@univerjs/core';
+import type {
+    ISetColDataCommandParams,
+    ISetGridlinesColorCommandParams,
+    ISetRowDataCommandParams,
+    ISetTextWrapCommandParams,
+    IToggleGridlinesCommandParams,
+} from '@univerjs/sheets';
 import type { FDefinedName } from './f-defined-name';
 import type { FWorkbook } from './f-workbook';
-import { BooleanNumber, covertCellValue, Direction, generateIntervalsByPoints, ICommandService, ILogService, Inject, Injector, ObjectMatrix, RANGE_TYPE, WrapStrategy } from '@univerjs/core';
+import {
+    BooleanNumber,
+    covertCellValue,
+    Direction,
+    generateIntervalsByPoints,
+    ICommandService,
+    ILogService,
+    Inject,
+    Injector,
+    ObjectMatrix,
+    RANGE_TYPE,
+    WrapStrategy,
+} from '@univerjs/core';
 import { FBaseInitialable } from '@univerjs/core/facade';
 import { deserializeRangeWithSheet } from '@univerjs/engine-formula';
-import { AppendRowCommand, CancelFrozenCommand, ClearSelectionAllCommand, ClearSelectionContentCommand, ClearSelectionFormatCommand, copyRangeStyles, InsertColByRangeCommand, InsertRowByRangeCommand, MoveColsCommand, MoveRowsCommand, RemoveColByRangeCommand, RemoveRowByRangeCommand, SetColDataCommand, SetColHiddenCommand, SetColWidthCommand, SetFrozenCommand, SetGridlinesColorCommand, SetRowDataCommand, SetRowHeightCommand, SetRowHiddenCommand, SetSpecificColsVisibleCommand, SetSpecificRowsVisibleCommand, SetTabColorCommand, SetTextWrapCommand, SetWorksheetColumnCountCommand, SetWorksheetDefaultStyleMutation, SetWorksheetHideCommand, SetWorksheetNameCommand, SetWorksheetRowCountCommand, SetWorksheetRowIsAutoHeightCommand, SetWorksheetRowIsAutoHeightMutation, SetWorksheetShowCommand, SheetsSelectionsService, ToggleGridlinesCommand } from '@univerjs/sheets';
+import {
+    AppendRowCommand,
+    CancelFrozenCommand,
+    ClearSelectionAllCommand,
+    ClearSelectionContentCommand,
+    ClearSelectionFormatCommand,
+    copyRangeStyles,
+    InsertColByRangeCommand,
+    InsertRowByRangeCommand,
+    MoveColsCommand,
+    MoveRowsCommand,
+    RemoveColByRangeCommand,
+    RemoveRowByRangeCommand,
+    SetColDataCommand,
+    SetColHiddenCommand,
+    SetColWidthCommand,
+    SetFrozenCommand,
+    SetGridlinesColorCommand,
+    SetRowDataCommand,
+    SetRowHeightCommand,
+    SetRowHiddenCommand,
+    SetSpecificColsVisibleCommand,
+    SetSpecificRowsVisibleCommand,
+    SetTabColorCommand,
+    SetTextWrapCommand,
+    SetWorksheetColumnCountCommand,
+    SetWorksheetDefaultStyleMutation,
+    SetWorksheetHideCommand,
+    SetWorksheetNameCommand,
+    SetWorksheetRowCountCommand,
+    SetWorksheetRowIsAutoHeightCommand,
+    SetWorksheetRowIsAutoHeightMutation,
+    SetWorksheetShowCommand,
+    SheetsSelectionsService,
+    ToggleGridlinesCommand,
+} from '@univerjs/sheets';
+import { SHEETS_CUSTOM_FIELD_WARNING_MESSAGE } from './const';
 import { FDefinedNameBuilder } from './f-defined-name';
 import { FRange } from './f-range';
 import { FSelection } from './f-selection';
@@ -75,7 +144,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {Worksheet} The worksheet instance.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const sheet = fWorksheet.getSheet();
      * console.log(sheet);
      * ```
@@ -89,7 +159,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {Injector} The injector instance.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const injector = fWorksheet.getInject();
      * console.log(injector);
      * ```
@@ -103,7 +174,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {Workbook} The workbook instance.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const workbook = fWorksheet.getWorkbook();
      * console.log(workbook);
      * ```
@@ -117,7 +189,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {string} The id of the worksheet.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const sheetId = fWorksheet.getSheetId();
      * console.log(sheetId);
      * ```
@@ -131,7 +204,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {string} The name of the worksheet.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const sheetName = fWorksheet.getSheetName();
      * console.log(sheetName);
      * ```
@@ -145,7 +219,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FSelection} return the current selections of the worksheet or null if there is no selection.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const selection = fWorksheet.getSelection();
      * console.log(selection);
      * ```
@@ -168,7 +243,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {IStyleData} Default style of the worksheet.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const defaultStyle = fWorksheet.getDefaultStyle();
      * console.log(defaultStyle);
      * ```
@@ -184,7 +260,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {(Nullable<IStyleData> | string)} The default style of the worksheet row name or style data
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get default style for row 0 (1)
      * const rowStyle = fWorksheet.getRowDefaultStyle(0);
      * console.log(rowStyle);
@@ -205,7 +282,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {(Nullable<IStyleData> | string)} The default style of the worksheet column name or style data
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get default style for column 0 (A)
      * const colStyle = fWorksheet.getColumnDefaultStyle(0);
      * console.log(colStyle);
@@ -225,7 +303,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * fWorksheet.setDefaultStyle('default');
      * // or
      * // fWorksheet.setDefaultStyle({fs: 12, ff: 'Arial'});
@@ -251,7 +330,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * fWorksheet.setColumnDefaultStyle(0, 'default');
      * // or
      * // fWorksheet.setColumnDefaultStyle(0, {fs: 12, ff: 'Arial'});
@@ -283,7 +363,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * fWorksheet.setRowDefaultStyle(0, 'default');
      * // or
      * // fWorksheet.setRowDefaultStyle(0, {fs: 12, ff: 'Arial'});
@@ -316,7 +397,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FRange} A Range object representing the specified cell.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get range for cell at row 0, column 0 (A1)
      * const range = fWorksheet.getRange(0, 0);
      * console.log(range);
@@ -340,7 +422,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FRange} A Range object representing the specified range.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get range for cells A1:C3
      * const range = fWorksheet.getRange(0, 0, 3, 3);
      * console.log(range);
@@ -353,7 +436,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FRange} A Range object representing the specified range.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get range for cells A1:C3
      * const range = fWorksheet.getRange("A1:C3");
      * console.log(range);
@@ -425,7 +509,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {number} The maximum columns count of the sheet
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const totalColumns = fWorksheet.getMaxColumns();
      * console.log(`Sheet has ${totalColumns} columns`);
      * ```
@@ -439,7 +524,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {number}The maximum rows count of the sheet
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const totalRows = fWorksheet.getMaxRows();
      * console.log(`Sheet has ${totalRows} rows`);
      * ```
@@ -454,7 +540,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert a row after the third row
      * fWorksheet.insertRowAfter(2);
      * // Insert a row after the first row
@@ -471,7 +558,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert a row before the third row
      * fWorksheet.insertRowBefore(2);
      * // Insert a row before the first row
@@ -489,7 +577,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert 3 rows before the third row
      * fWorksheet.insertRows(2, 3);
      * // Insert 1 row before the first row
@@ -507,7 +596,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert 3 rows after the third row
      * fWorksheet.insertRowsAfter(2, 3);
      * // Insert 1 row after the first row
@@ -550,7 +640,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert 3 rows before the third row
      * fWorksheet.insertRowsBefore(2, 3);
      * // Insert 1 row before the first row
@@ -592,7 +683,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Delete the third row
      * fWorksheet.deleteRow(2);
      * // Delete the first row
@@ -610,7 +702,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Delete 3 rows at row index 2 (rows 3-5)
      * fWorksheet.deleteRows(2, 3);
      * // Delete 1 row at row index 0 (first row)
@@ -640,7 +733,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Delete rows at index 2, and range from index 4 to 6 (rows 3, 5-7)
      * fWorksheet.deleteRowsByPoints([2, [4, 6]]);
      * ```
@@ -660,7 +754,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Move 3 rows at row index 2 (rows 3-5) to row index 0
      * const rowSpec1 = fWorksheet.getRange('3:5');
      * fWorksheet.moveRows(rowSpec1, 0);
@@ -698,7 +793,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Hide 3 rows starting from row index 1 (rows 2-4)
      * const row1 = fWorksheet.getRange('2:4');
      * fWorksheet.hideRow(row1);
@@ -728,7 +824,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Hide 3 rows starting from row index 1 (rows 2-4)
      * fWorksheet.hideRows(1, 3);
      * // Hide single row at index 0 (first row)
@@ -760,7 +857,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining.
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Unhide 3 rows starting from row index 1 (rows 2-4)
      * const row1 = fWorksheet.getRange('2:4');
      * fWorksheet.unhideRow(row1);
@@ -790,7 +888,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Show 3 rows starting from row index 1 (rows 2-4)
      * fWorksheet.showRows(1, 3);
      * // Show single row at index 0 (first row)
@@ -824,7 +923,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Set the height of the second row to 30 pixels
      * fWorksheet.setRowHeight(1, 30);
      * // Set the height of the first row to 20 pixels
@@ -842,7 +942,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.autoFitRow(24);
      * ```
      */
@@ -879,7 +980,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * fWorksheet.setRowHeights(1, 10, 30);
      * ```
      */
@@ -935,7 +1037,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      *
      * // Set the value of the cell A1 to 'Hello, Univer!', set the font size to 30 and font weight to bold
      * const fRange = fWorksheet.getRange('A1');
@@ -956,7 +1059,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * fWorksheet.setRowAutoHeight(1, 10);
      * ```
      */
@@ -987,7 +1091,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const ranges = [
      * { startRow: 1, endRow: 10, startColumn: 0, endColumn: 10 },
      * { startRow: 11, endRow: 20, startColumn: 0, endColumn: 10 },
@@ -1015,7 +1120,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * fWorksheet.setRowHeightsForced(1, 10, 30);
      * ```
      */
@@ -1049,11 +1155,14 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.setRowCustom({ 0: { key: 'value' } });
      * ```
      */
     setRowCustom(custom: IObjectArrayPrimitiveType<CustomData>): FWorksheet {
+        this._logService.warn(SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
         const unitId = this._workbook.getUnitId();
         const subUnitId = this._worksheet.getSheetId();
 
@@ -1083,7 +1192,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert a column after column C
      * fWorksheet.insertColumnAfter(2);
      * // Insert a column after column A
@@ -1100,7 +1210,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert a column before column C
      * fWorksheet.insertColumnBefore(2);
      * // Insert a column before column A
@@ -1118,7 +1229,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert 3 columns before column C
      * fWorksheet.insertColumns(2, 3);
      * // Insert 1 column before column A
@@ -1136,7 +1248,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert 3 columns after column C
      * fWorksheet.insertColumnsAfter(2, 3);
      * // Insert 1 column after column A
@@ -1179,7 +1292,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Insert 3 columns before column C
      * fWorksheet.insertColumnsBefore(2, 3);
      * // Insert 1 column before column A
@@ -1221,7 +1335,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Delete column C
      * fWorksheet.deleteColumn(2);
      * // Delete column A
@@ -1239,7 +1354,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Delete 3 columns at column index 2 (columns C, D, E)
      * fWorksheet.deleteColumns(2, 3);
      * // Delete 1 column at column index 0 (column A)
@@ -1269,7 +1385,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Delete columns at index 2, and range from index 4 to 6 (columns C, E-G)
      * fWorksheet.deleteColumnsByPoints([2, [4, 6]]);
      * ```
@@ -1289,7 +1406,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Move columns C, D, E to column index 2 (columns B, C, D)
      * const columnSpec1 = fWorksheet.getRange('C:E');
      * fWorksheet.moveColumns(columnSpec1, 1);
@@ -1327,7 +1445,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Hide columns C, D, E
      * const column1 = fWorksheet.getRange('C:E');
      * fWorksheet.hideColumn(column1);
@@ -1357,7 +1476,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Hide columns C, D, E
      * fWorksheet.hideColumns(2, 3);
      * // Hide column A
@@ -1390,7 +1510,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Unhide columns C, D, E
      * const column1 = fWorksheet.getRange('C:E');
      * fWorksheet.unhideColumn(column1);
@@ -1420,7 +1541,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Unhide columns C, D, E
      * fWorksheet.showColumns(2, 3);
      * // Unhide column A
@@ -1454,7 +1576,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Set width of column B to 100 pixels
      * fWorksheet.setColumnWidth(1, 100);
      * ```
@@ -1471,7 +1594,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Set width of columns B-D (index 1-3) to 100 pixels
      * fWorksheet.setColumnWidths(1, 3, 100);
      * ```
@@ -1505,7 +1629,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      *
      * // Set the long text value in cell A1
      * const fRange = fWorksheet.getRange('A1');
@@ -1530,11 +1655,14 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.setColumnCustom({ 0: { key: 'value' } });
      * ```
      */
     setColumnCustom(custom: IObjectArrayPrimitiveType<CustomData>): FWorksheet {
+        this._logService.warn(SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
         const unitId = this._workbook.getUnitId();
         const subUnitId = this._worksheet.getSheetId();
 
@@ -1563,7 +1691,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FRange[]} All the merged cells in the worksheet
      * @example
      * ```ts
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get all merged ranges in the sheet
      * const mergedData = fWorksheet.getMergeData();
      * // Process each merged range
@@ -1581,7 +1710,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FRange[]} all merged cells
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get all merged ranges in the sheet
      * const mergedRanges = fWorksheet.getMergedRanges();
      * // Process each merged range
@@ -1602,7 +1732,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FRange|undefined} The merged cell data, or undefined if the cell is not merged
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * const merge = fWorkSheet.getCellMergeData(0, 0);
      * if (merge) {
      *   console.log('Merged range:', merge.getA1Notation());
@@ -1624,7 +1755,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FRange | null} the active range
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get the currently active range
      * const activeRange = fWorksheet.getActiveRange();
      * if (activeRange) {
@@ -1642,7 +1774,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This sheet, for chaining
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.setActiveRange(fWorkSheet.getRange('A10:B10'));
      * ```
      */
@@ -1662,7 +1795,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FRange | null} The active cell
      * @example
      * ```typescript
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * console.log(fWorkSheet.getActiveCell().getA1Notation());
      * ```
      */
@@ -1676,7 +1810,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns This sheet, for chaining
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.setActiveSelection(fWorkSheet.getRange('A10:B10'));
      * ```
      */
@@ -1689,7 +1824,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Freeze first 3 rows and 2 columns
      * fWorksheet.setFreeze({
      *   startRow: 3,
@@ -1713,7 +1849,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This worksheet instance for chaining
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Cancel freeze
      * fWorksheet.cancelFreeze();
      * ```
@@ -1732,7 +1869,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {IFreeze} The freeze state of the current sheet
      * @example
      * ```typescript
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * // Get the freeze state of the current sheet
      * const freeze = fWorksheet.getFreeze();
      * console.log(freeze);
@@ -1749,7 +1887,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This FWorksheet instance.
      * @example
      * ```typescript
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // freeze the first 3 columns.
      * fWorkSheet.setFrozenColumns(3);
      * ```
@@ -1765,7 +1904,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This FWorksheet instance.
      * @example
      * ```typescript
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // freeze the column B and C, and column A will be invisible.
      * fWorkSheet.setFrozenColumns(1, 2);
      * ```
@@ -1804,7 +1944,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This FWorksheet instance.
      * @example
      * ```typescript
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // freeze the first 3 rows.
      * fWorkSheet.setFrozenRows(3);
      * ```
@@ -1820,7 +1961,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} This FWorksheet instance.
      * @example
      * ```typescript
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // freeze the second and third rows, and the first row will be invisible.
      * fWorkSheet.setFrozenRows(1, 2);
      * ```
@@ -1857,7 +1999,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {number} The number of frozen columns, returns 0 if no columns are frozen.
      * @example
      * ```typescript
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // Get the number of frozen columns
      * const frozenColumns = fWorkSheet.getFrozenColumns();
      * console.log(frozenColumns);
@@ -1876,7 +2019,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {number} The number of frozen rows. returns 0 if no rows are frozen.
      * @example
      * ```typescript
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // Get the number of frozen rows
      * const frozenRows = fWorkSheet.getFrozenRows();
      * console.log(frozenRows);
@@ -1895,7 +2039,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {IRowRange} The range of the frozen rows.
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // Get the range of the frozen rows
      * const frozenRows = fWorkSheet.getFrozenRowRange();
      * console.log(frozenRows);
@@ -1914,7 +2059,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {IColumnRange} The range of the frozen columns.
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // Get the range of the frozen columns
      * const frozenColumns = fWorkSheet.getFrozenColumnRange();
      * console.log(frozenColumns);
@@ -1933,7 +2079,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {boolean} True if the sheet's gridlines are hidden; otherwise false.
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // check if the gridlines are hidden
      * if (fWorkSheet.hasHiddenGridLines()) {
      *    console.log('Gridlines are hidden');
@@ -1950,7 +2097,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} Returns the current worksheet instance for method chaining
      * @example
      * ``` ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // hide the gridlines
      * fWorkSheet.setHiddenGridlines(true);
      * ```
@@ -1970,7 +2118,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheet} Returns the current worksheet instance for method chaining
      * @example
      * ```ts
-     * const fWorkSheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorkSheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // set the gridlines color to red
      * fWorkSheet.setGridLinesColor('#ff0000');
      * ```
@@ -1990,7 +2139,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // get the gridlines color of the sheet
      * console.log(fWorkSheet.getGridLinesColor());
      * ```
@@ -2006,7 +2156,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // set the tab color to red
      * fWorkSheet.setTabColor('#ff0000');
      * ```
@@ -2027,7 +2178,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // get the tab color of the sheet
      * console.log(fWorkSheet.getTabColor());
      * ```
@@ -2042,7 +2194,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // hide the active sheet
      * fWorkSheet.hideSheet();
      * ```
@@ -2106,7 +2259,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // set the sheet name to 'Sheet1'
      * fWorkSheet.setName('NewSheet1');
      * ```
@@ -2143,7 +2297,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // get the position of the active sheet
      * const position = fWorkSheet.getIndex();
      * console.log(position);
@@ -2162,7 +2317,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // clear the sheet of content and formatting information
      * fWorkSheet.clear();
      * // clear the sheet of content only
@@ -2204,7 +2360,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // clear the sheet of content only
      * fWorkSheet.clearContents();
      * ```
@@ -2235,7 +2392,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```typescript
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // clear the sheet of formatting only
      * fWorkSheet.clearFormats();
      * ```
@@ -2268,7 +2426,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // Assume the sheet is a empty sheet
      * const cellRange = fWorkSheet.getRange('J50');
      * cellRange.setValue('Hello World');
@@ -2286,7 +2445,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // Assume the sheet is a empty sheet
      * const cellRange = fWorkSheet.getRange('J50');
      * cellRange.setValue('Hello World');
@@ -2303,7 +2463,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * // Assume the sheet is a empty sheet
      * const cellRange = fWorkSheet.getRange('J50');
      * cellRange.setValue('Hello World');
@@ -2322,7 +2483,8 @@ export class FWorksheet extends FBaseInitialable {
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
      * const sheets = fWorkbook.getSheets();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * console.log(fWorkSheet.equalTo(sheets[0])); // true, if the active sheet is the first sheet.
      * ```
      */
@@ -2340,7 +2502,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * // The code below inserts a defined name
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * fWorksheet.insertDefinedName('MyDefinedName', 'Sheet1!$A$1');
      * ```
      */
@@ -2360,7 +2523,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * // The code below gets all the defined names in the worksheet
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const definedNames = fWorksheet.getDefinedNames();
      * console.log(definedNames, definedNames[0]?.getFormulaOrRefString());
      * ```
@@ -2377,11 +2541,14 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.setCustomMetadata({ key: 'value' });
      * ```
      */
     setCustomMetadata(custom: CustomData | undefined): FWorksheet {
+        this._logService.warn(SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
         this._worksheet.setCustomMetadata(custom);
         return this;
     }
@@ -2392,12 +2559,15 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * const custom = fWorkSheet.getCustomMetadata();
      * console.log(custom);
      * ```
      */
     getCustomMetadata(): CustomData | undefined {
+        this._logService.warn(SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
         return this._worksheet.getCustomMetadata();
     }
 
@@ -2409,11 +2579,14 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.setRowCustomMetadata(0, { key: 'value' });
      * ```
      */
     setRowCustomMetadata(index: number, custom: CustomData | undefined): FWorksheet {
+        this._logService.warn(SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
         this._worksheet.getRowManager().setCustomMetadata(index, custom);
         return this;
     }
@@ -2426,11 +2599,14 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.setColumnCustomMetadata(0, { key: 'value' });
      * ```
      */
     setColumnCustomMetadata(index: number, custom: CustomData | undefined): FWorksheet {
+        this._logService.warn(SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
         this._worksheet.getColumnManager().setCustomMetadata(index, custom);
         return this;
     }
@@ -2442,12 +2618,15 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * const custom = fWorkSheet.getRowCustomMetadata(0);
      * console.log(custom);
      * ```
      */
     getRowCustomMetadata(index: number): CustomData | undefined {
+        this._logService.warn(SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
         return this._worksheet.getRowManager().getCustomMetadata(index);
     }
 
@@ -2458,12 +2637,15 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * const custom = fWorkSheet.getColumnCustomMetadata(0);
      * console.log(custom);
      * ```
      */
     getColumnCustomMetadata(index: number): CustomData | undefined {
+        this._logService.warn(SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
         return this._worksheet.getColumnManager().getCustomMetadata(index);
     }
 
@@ -2476,7 +2658,8 @@ export class FWorksheet extends FBaseInitialable {
      * // Appends a new row with 4 columns to the bottom of the current
      * // data region in the sheet containing the values in the array.
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      * fWorkSheet.appendRow([1, 'Hello Univer', true, '=A1']);
      * ```
      */
@@ -2512,7 +2695,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      *
      * // Set the number of rows in the worksheet to 40
      * fWorkSheet.setRowCount(40);
@@ -2534,7 +2718,8 @@ export class FWorksheet extends FBaseInitialable {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorkSheet = fWorkbook.getActiveSheet();
+     * const fWorkSheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorkSheet) return;
      *
      * // Set the number of columns in the worksheet to 10
      * fWorkSheet.setColumnCount(10);
@@ -2555,7 +2740,8 @@ export class FWorksheet extends FBaseInitialable {
      * @returns {FWorksheetPermission} - The WorksheetPermission instance.
      * @example
      * ```ts
-     * const fWorksheet = univerAPI.getActiveWorkbook().getActiveSheet();
+     * const fWorksheet = univerAPI.getActiveWorkbook().getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const permission = fWorksheet.getWorksheetPermission();
      *
      * // Set worksheet to read-only mode

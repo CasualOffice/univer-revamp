@@ -84,7 +84,6 @@ describe('DesktopUIController', () => {
             registerComponent: vi.fn(() => ({ dispose: vi.fn() })),
         };
         const componentManager = {
-            register: vi.fn(() => ({ dispose: vi.fn() })),
             dispose: vi.fn(),
         };
 
@@ -104,7 +103,6 @@ describe('DesktopUIController', () => {
 
         expect(menuManagerService.mergeMenu).toHaveBeenCalledTimes(1);
         expect(uiPartsService.registerComponent).toHaveBeenCalledTimes(3);
-        expect(componentManager.register).toHaveBeenCalledTimes(6);
         expect(render).toHaveBeenCalledWith(expect.any(Object), container);
 
         controller.dispose();
@@ -120,7 +118,7 @@ describe('DesktopUIController', () => {
         const deps = createCommonDeps();
         const menuManagerService = { mergeMenu: vi.fn() };
         const uiPartsService = { registerComponent: vi.fn(() => ({ dispose: vi.fn() })) };
-        const componentManager = { register: vi.fn(() => ({ dispose: vi.fn() })), dispose: vi.fn() };
+        const componentManager = { dispose: vi.fn() };
 
         const withMissingId = new DesktopUIController(
             { container: 'missing-container' } as any,
@@ -167,7 +165,7 @@ describe('DesktopUIController', () => {
         const mountContainer = document.createElement('div');
         const menuManagerService = { mergeMenu: vi.fn() };
         const uiPartsService = { registerComponent: vi.fn(() => ({ dispose: vi.fn() })) };
-        const componentManager = { register: vi.fn(() => ({ dispose: vi.fn() })), dispose: vi.fn() };
+        const componentManager = { dispose: vi.fn() };
 
         const controller = new DesktopUIController(
             { container: mountContainer } as any,
@@ -208,7 +206,6 @@ describe('MobileUIController', () => {
             registerComponent: vi.fn(() => ({ dispose: vi.fn() })),
         };
         const componentManager = {
-            register: vi.fn(() => ({ dispose: vi.fn() })),
             dispose: vi.fn(),
         };
 
@@ -228,7 +225,6 @@ describe('MobileUIController', () => {
 
         expect(menuManagerService.mergeMenu).toHaveBeenCalledTimes(1);
         expect(uiPartsService.registerComponent).toHaveBeenCalledTimes(3);
-        expect(componentManager.register).toHaveBeenCalledTimes(6);
         expect(render).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ id: 'missing-mobile' }));
 
         controller.dispose();
@@ -254,7 +250,6 @@ describe('MobileUIController', () => {
             registerComponent: vi.fn(() => ({ dispose: vi.fn() })),
         };
         const componentManager = {
-            register: vi.fn(() => ({ dispose: vi.fn() })),
             dispose: vi.fn(),
         };
 

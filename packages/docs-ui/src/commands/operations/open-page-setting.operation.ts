@@ -14,11 +14,19 @@
  * limitations under the License.
  */
 
-import type { ICommand, PaperType } from '@univerjs/core';
+import type { ICommand, ModernDocumentWidthMode, PaperType } from '@univerjs/core';
 import type { IConfirmPartMethodOptions } from '@univerjs/ui';
 import type { IDocPageSetupCommandParams } from '../commands/doc-page-setup.command';
-import { CommandType, ICommandService, IConfirmService, LocaleService, PAGE_SIZE } from '@univerjs/core';
-import { PAGE_SETTING_COMPONENT_ID } from '../../views/page-settings';
+import {
+    CommandType,
+    DocumentFlavor,
+    ICommandService,
+    IConfirmService,
+    LocaleService,
+    MODERN_DOCUMENT_WIDTH,
+    PAGE_SIZE,
+} from '@univerjs/core';
+import { PAGE_SETTING_COMPONENT_ID } from '../../views/PageSettings';
 import { DocPageSetupCommand } from '../commands/doc-page-setup.command';
 
 export const DocOpenPageSettingCommand: ICommand = {
@@ -31,7 +39,7 @@ export const DocOpenPageSettingCommand: ICommand = {
         const disposable = confirmService.open({
             id: PAGE_SETTING_COMPONENT_ID,
             title: {
-                label: localeService.t('page-settings.document-setting'),
+                label: localeService.t('docs-ui.page-settings.document-setting'),
             },
             children: {
                 label: PAGE_SETTING_COMPONENT_ID,
@@ -43,8 +51,16 @@ export const DocOpenPageSettingCommand: ICommand = {
             onConfirm: (result) => {
                 disposable.dispose();
                 if (!result) return;
-                const paperSize = PAGE_SIZE[result.paperSize as PaperType];
+
+                const paperSize = result.mode === DocumentFlavor.MODERN
+                    ? {
+                        width: MODERN_DOCUMENT_WIDTH[result.modernWidth as ModernDocumentWidthMode],
+                        height: PAGE_SIZE.A4.height,
+                    }
+                    : PAGE_SIZE[result.paperSize as PaperType];
+
                 commandService.executeCommand(DocPageSetupCommand.id, {
+                    documentFlavor: result.mode,
                     pageOrient: result.orientation,
                     marginTop: result.margins.top,
                     marginBottom: result.margins.bottom,
@@ -53,8 +69,8 @@ export const DocOpenPageSettingCommand: ICommand = {
                     pageSize: paperSize,
                 } as IDocPageSetupCommandParams);
             },
-            confirmText: localeService.t('page-settings.confirm'),
-            cancelText: localeService.t('page-settings.cancel'),
+            confirmText: localeService.t('docs-ui.page-settings.confirm'),
+            cancelText: localeService.t('docs-ui.page-settings.cancel'),
         });
 
         return true;

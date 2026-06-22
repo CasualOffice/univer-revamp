@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-import { getOffsetRectForDom } from '@univerjs/engine-render';
+import type { INodePosition } from '@univerjs/engine-render';
+import { getOffsetRectForDom, setDocsTableRenderViewportProvider } from '@univerjs/engine-render';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NodePositionConvertToRectRange } from '../convert-rect-range';
 import { RectRange } from '../rect-range';
 import {
     getCanvasOffsetByEngine,
     getParagraphInfoByGlyph,
+    getRangeListFromCharIndex,
     getRangeListFromSelection,
     getRectRangeFromCharIndex,
     getTextRangeFromCharIndex,
@@ -28,6 +30,289 @@ import {
     serializeTextRange,
 } from '../selection-utils';
 import { TextRange } from '../text-range';
+
+interface IMockCellPage {
+    segmentId: string;
+    left: number;
+    top: number;
+    pageWidth: number;
+    width: number;
+    height: number;
+    sections: Array<{
+        columns: Array<{
+            lines: unknown[];
+        }>;
+    }>;
+    parent?: unknown;
+}
+
+interface IMockRow {
+    index: number;
+    top: number;
+    height: number;
+    cells: IMockCellPage[];
+    parent?: unknown;
+}
+
+function createCellPage(left: number, width: number, segmentId = 'table-1'): IMockCellPage {
+    return {
+        segmentId,
+        left,
+        top: 0,
+        pageWidth: width,
+        width,
+        height: 20,
+        sections: [{
+            columns: [{
+                lines: [{
+                    divides: [{
+                        glyphGroup: [{ count: 1, content: 'A' }],
+                    }],
+                }],
+            }],
+        }],
+    };
+}
+
+function createEmptyCellPage(left: number, width: number, segmentId = 'table-1'): IMockCellPage {
+    return {
+        segmentId,
+        left,
+        top: 0,
+        pageWidth: width,
+        width,
+        height: 20,
+        sections: [{
+            columns: [{
+                lines: [],
+            }],
+        }],
+    };
+}
+
+function createRectRangeConvertorHarness() {
+    const cell00 = createCellPage(0, 200);
+    const cell01 = createCellPage(100, 0);
+    const cell10 = createCellPage(0, 100);
+    const cell11 = createCellPage(100, 100);
+    const row0 = { index: 0, top: 0, height: 20, cells: [cell00, cell01] } as never;
+    const row1 = { index: 1, top: 20, height: 20, cells: [cell10, cell11] } as never;
+    const table = { tableId: 'table-1', top: 0, left: 0, rows: [row0, row1] } as never;
+    const page = { skeTables: new Map([['table-1', table]]), marginTop: 0, marginLeft: 0, width: 300, height: 200 } as never;
+
+    (cell00 as { parent?: unknown }).parent = row0;
+    (cell01 as { parent?: unknown }).parent = row0;
+    (cell10 as { parent?: unknown }).parent = row1;
+    (cell11 as { parent?: unknown }).parent = row1;
+    (row0 as { parent?: unknown }).parent = table;
+    (row1 as { parent?: unknown }).parent = table;
+
+    const skeleton = {
+        getSkeletonData: () => ({
+            pages: [page],
+        }),
+        getViewModel: () => ({
+            getSnapshot: () => ({
+                tableSource: {
+                    'table-1': {
+                        tableRows: [
+                            {
+                                tableCells: [
+                                    { columnSpan: 2 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    {},
+                                    {},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            }),
+        }),
+    };
+
+    return {
+        anchor: createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 1]),
+        focus: createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 1, 'cells', 1]),
+        skeleton,
+    };
+}
+
+function createVerticalMergeConvertorHarness() {
+    const rows = Array.from({ length: 4 }, (_, rowIndex) => {
+        const cells = Array.from({ length: 4 }, (_, columnIndex) => createCellPage(columnIndex * 100, 100));
+        const row: IMockRow = { index: rowIndex, top: rowIndex * 20, height: 20, cells };
+        cells.forEach((cell) => {
+            (cell as { parent?: unknown }).parent = row;
+        });
+
+        return row;
+    });
+    const table = { tableId: 'table-1', top: 0, left: 0, rows } as never;
+    const page = { skeTables: new Map([['table-1', table]]), marginTop: 0, marginLeft: 0, width: 500, height: 200 } as never;
+    rows.forEach((row) => {
+        (row as { parent?: unknown }).parent = table;
+    });
+
+    const tableNode = {
+        children: rows.map((_row, rowIndex) => ({
+            children: Array.from({ length: 4 }, (_cell, columnIndex) => ({
+                startIndex: rowIndex * 100 + columnIndex * 10,
+                endIndex: rowIndex * 100 + columnIndex * 10 + 8,
+            })),
+        })),
+    };
+    const findNodePositionByCharIndex = vi.fn((index: number) => createNodePosition(['char', index]));
+    const skeleton = {
+        getSkeletonData: () => ({
+            pages: [page],
+        }),
+        findCharIndexByPosition: vi
+            .fn()
+            .mockReturnValueOnce(0)
+            .mockReturnValueOnce(999),
+        findNodePositionByCharIndex,
+        getViewModel: () => ({
+            getSnapshot: () => ({
+                tableSource: {
+                    'table-1': {
+                        tableRows: [
+                            {
+                                tableCells: [
+                                    { rowSpan: 3, columnSpan: 2 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    {},
+                                    {},
+                                    {},
+                                    {},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            }),
+            findTableNodeById: () => tableNode,
+        }),
+    };
+
+    return {
+        anchor: createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 0]),
+        focus: createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 3, 'cells', 1]),
+        findNodePositionByCharIndex,
+        skeleton,
+    };
+}
+
+function createRowSpanMergePointHarness() {
+    const rows = Array.from({ length: 4 }, (_, rowIndex) => {
+        const cells = Array.from({ length: 4 }, (_cell, columnIndex) => createCellPage(columnIndex * 100, 100));
+        const row: IMockRow = { index: rowIndex, top: rowIndex * 20, height: 20, cells };
+        cells.forEach((cell) => {
+            (cell as { parent?: unknown }).parent = row;
+        });
+
+        return row;
+    });
+
+    rows[0].cells[1] = createCellPage(100, 200);
+    rows[0].cells[2] = createEmptyCellPage(200, 0);
+    rows[1].cells[1] = createEmptyCellPage(100, 0);
+    rows[1].cells[2] = createEmptyCellPage(200, 0);
+    rows[2].cells[1] = createEmptyCellPage(100, 0);
+    rows[2].cells[2] = createEmptyCellPage(200, 0);
+
+    rows.forEach((row) => {
+        row.cells.forEach((cell) => {
+            (cell as { parent?: unknown }).parent = row;
+        });
+    });
+
+    const table = { tableId: 'table-1', top: 0, left: 0, rows } as never;
+    const page = { skeTables: new Map([['table-1', table]]), marginTop: 0, marginLeft: 0, width: 500, height: 200 } as never;
+    rows.forEach((row) => {
+        (row as { parent?: unknown }).parent = table;
+    });
+
+    const skeleton = {
+        getSkeletonData: () => ({
+            pages: [page],
+        }),
+        getViewModel: () => ({
+            getSnapshot: () => ({
+                tableSource: {
+                    'table-1': {
+                        tableRows: [
+                            {
+                                tableCells: [
+                                    {},
+                                    { rowSpan: 3, columnSpan: 2 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    {},
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    {},
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    {},
+                                    {},
+                                    {},
+                                    {},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            }),
+        }),
+    };
+
+    return {
+        anchor: createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 0]),
+        focus: createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 2, 'cells', 1]),
+        skeleton,
+    };
+}
 
 vi.mock('@univerjs/engine-render', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@univerjs/engine-render')>();
@@ -38,7 +323,7 @@ vi.mock('@univerjs/engine-render', async (importOriginal) => {
     };
 });
 
-function createNodePosition(path: Array<string | number>, glyph = 0) {
+function createNodePosition(path: Array<string | number>, glyph = 0): INodePosition {
     return {
         path,
         page: 0,
@@ -50,7 +335,7 @@ function createNodePosition(path: Array<string | number>, glyph = 0) {
         isBack: false,
         segmentPage: -1,
         pageType: 0,
-    } as never;
+    } as INodePosition;
 }
 
 function createGlyphInCell(cellPage: object) {
@@ -85,6 +370,7 @@ describe('selection utils', () => {
     });
 
     afterEach(() => {
+        setDocsTableRenderViewportProvider(null);
         vi.restoreAllMocks();
     });
 
@@ -109,6 +395,17 @@ describe('selection utils', () => {
         expect(rectRange).toBeInstanceOf(RectRange);
         expect(rectRange?.anchorNodePosition).toEqual(startPosition);
         expect(rectRange?.focusNodePosition).toEqual(endPosition);
+    });
+
+    it('does not create ranges when a character boundary cannot be resolved', () => {
+        const skeleton = {
+            findNodePositionByCharIndex: vi.fn(() => undefined),
+        } as never;
+        const document = createDocument();
+
+        expect(getTextRangeFromCharIndex(1, 2, {} as never, document, skeleton, {} as never, '', -1)).toBeUndefined();
+        expect(getRectRangeFromCharIndex(1, 2, {} as never, document, skeleton, {} as never, '', -1)).toBeUndefined();
+        expect(getRangeListFromCharIndex(1, 2, {} as never, document, skeleton, {} as never, '', -1)).toBeUndefined();
     });
 
     it('routes same-cell and rect selections into the expected range buckets', () => {
@@ -164,6 +461,252 @@ describe('selection utils', () => {
         expect(rectRange?.rectRanges[0]).toBeInstanceOf(RectRange);
     });
 
+    it('expands core rect selection records to cover intersecting merged cells', () => {
+        const { anchor, focus, skeleton } = createRectRangeConvertorHarness();
+        const convertor = new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, skeleton as never);
+
+        const result = convertor.getRangePointData(anchor, focus);
+
+        expect(result).toMatchObject({
+            startRow: 0,
+            endRow: 1,
+            startColumn: 0,
+            endColumn: 1,
+            tableId: 'table-1',
+        });
+    });
+
+    it('keeps merge-expanded rect selection as one range to avoid overlapping highlights', () => {
+        const { anchor, focus, findNodePositionByCharIndex, skeleton } = createVerticalMergeConvertorHarness();
+        const convertor = new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, skeleton as never);
+
+        const groups = convertor.getNodePositionGroup(anchor, focus);
+
+        expect(groups).toEqual([{ anchor, focus }]);
+        expect(findNodePositionByCharIndex).not.toHaveBeenCalled();
+    });
+
+    it('draws row-spanning merged cells as full merged rectangles without row gaps', () => {
+        const { anchor, focus, skeleton } = createRowSpanMergePointHarness();
+        const convertor = new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, skeleton as never);
+
+        const result = convertor.getRangePointData(anchor, focus);
+
+        expect(result).toMatchObject({
+            startRow: 0,
+            endRow: 2,
+            startColumn: 0,
+            endColumn: 2,
+        });
+        expect(result?.pointGroup).toHaveLength(1);
+        expect(result?.pointGroup[0]).toEqual([
+            { x: 0, y: 0 },
+            { x: 300, y: 0 },
+            { x: 300, y: 60 },
+            { x: 0, y: 60 },
+            { x: 0, y: 0 },
+        ]);
+    });
+
+    it('draws a full row-spanning merge when the drag only reaches its first row', () => {
+        const { anchor, skeleton } = createRowSpanMergePointHarness();
+        const focus = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 1]);
+        const convertor = new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, skeleton as never);
+
+        const result = convertor.getRangePointData(anchor, focus);
+
+        expect(result).toMatchObject({
+            startRow: 0,
+            endRow: 2,
+            startColumn: 0,
+            endColumn: 2,
+        });
+        expect(result?.pointGroup).toHaveLength(1);
+        expect(result?.pointGroup[0]).toEqual([
+            { x: 0, y: 0 },
+            { x: 300, y: 0 },
+            { x: 300, y: 60 },
+            { x: 0, y: 60 },
+            { x: 0, y: 0 },
+        ]);
+    });
+
+    it('draws merge-expanded rect selection as one solid rectangle', () => {
+        const { anchor, focus, skeleton } = createVerticalMergeConvertorHarness();
+        const convertor = new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, skeleton as never);
+
+        const result = convertor.getRangePointData(anchor, focus);
+
+        expect(result?.pointGroup).toHaveLength(1);
+        expect(result?.pointGroup[0]).toEqual([
+            { x: 0, y: 0 },
+            { x: 200, y: 0 },
+            { x: 200, y: 80 },
+            { x: 0, y: 80 },
+            { x: 0, y: 0 },
+        ]);
+    });
+
+    it('clips table rect selection to the horizontal render viewport', () => {
+        const { anchor, focus, skeleton } = createRowSpanMergePointHarness();
+        setDocsTableRenderViewportProvider((unitId, tableId) => {
+            if (unitId !== 'unit-1' || tableId !== 'table-1') {
+                return null;
+            }
+
+            return {
+                contentWidth: 400,
+                scrollLeft: 150,
+                viewportWidth: 200,
+            };
+        });
+        (skeleton as unknown as {
+            getViewModel: () => {
+                getDataModel: () => {
+                    getUnitId: () => string;
+                };
+                getSnapshot: () => unknown;
+            };
+        }).getViewModel = () => ({
+            getDataModel: () => ({
+                getUnitId: () => 'unit-1',
+            }),
+            getSnapshot: () => ({
+                tableSource: {
+                    'table-1': {
+                        tableRows: [
+                            {
+                                tableCells: [
+                                    {},
+                                    { rowSpan: 3, columnSpan: 2 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    {},
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    {},
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    { rowSpan: 0, columnSpan: 0 },
+                                    {},
+                                ],
+                            },
+                            {
+                                tableCells: [
+                                    {},
+                                    {},
+                                    {},
+                                    {},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            }),
+        });
+        const convertor = new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, skeleton as never);
+
+        const result = convertor.getRangePointData(anchor, focus);
+
+        expect(result?.pointGroup).toHaveLength(1);
+        expect(result?.pointGroup[0]).toEqual([
+            { x: 0, y: 0 },
+            { x: 150, y: 0 },
+            { x: 150, y: 60 },
+            { x: 0, y: 60 },
+            { x: 0, y: 0 },
+        ]);
+    });
+
+    it('keeps drags inside one merged cell as text selection', () => {
+        const { anchor, skeleton } = createRectRangeConvertorHarness();
+        const focus = {
+            ...anchor,
+            glyph: 1,
+        };
+        const cellPage = createCellPage(0, 200);
+        const row = { index: 0, cells: [cellPage] };
+        (cellPage as { parent?: unknown }).parent = row;
+        (skeleton as { findGlyphByPosition?: unknown }).findGlyphByPosition = vi.fn(() => createGlyphInCell(cellPage));
+        (skeleton as { findCharIndexByPosition?: unknown }).findCharIndexByPosition = vi.fn(() => undefined);
+
+        const result = getRangeListFromSelection(anchor, focus, {} as never, createDocument(), skeleton as never, {} as never, '', -1);
+
+        expect(result?.textRanges).toHaveLength(1);
+        expect(result?.textRanges[0]).toBeInstanceOf(TextRange);
+        expect(result?.rectRanges).toHaveLength(0);
+    });
+
+    it('routes drags from another cell through a merged cell into core rect selection', () => {
+        const { anchor: mergedFocus, focus: normalAnchor, skeleton } = createRectRangeConvertorHarness();
+        const mergedCellPage = createCellPage(0, 200);
+        const normalCellPage = createCellPage(100, 100);
+        const mergedRow = { index: 0, cells: [mergedCellPage] };
+        const normalRow = { index: 1, cells: [normalCellPage] };
+        (mergedCellPage as { parent?: unknown }).parent = mergedRow;
+        (normalCellPage as { parent?: unknown }).parent = normalRow;
+        (skeleton as { findGlyphByPosition?: unknown }).findGlyphByPosition = vi
+            .fn()
+            .mockReturnValueOnce(createGlyphInCell(normalCellPage))
+            .mockReturnValueOnce(createGlyphInCell(mergedCellPage));
+        vi.spyOn(NodePositionConvertToRectRange.prototype, 'getNodePositionGroup').mockReturnValue([
+            {
+                anchor: normalAnchor,
+                focus: mergedFocus,
+            },
+        ] as never);
+
+        const result = getRangeListFromSelection(normalAnchor, mergedFocus, {} as never, createDocument(), skeleton as never, {} as never, '', -1);
+
+        expect(result?.textRanges).toHaveLength(0);
+        expect(result?.rectRanges).toHaveLength(1);
+        expect(result?.rectRanges[0]).toBeInstanceOf(RectRange);
+    });
+
     it('builds normal text ranges outside tables and skips when offsets are missing', () => {
         const startNode = { glyph: 10 };
         const endNode = { glyph: 20 };
@@ -215,6 +758,353 @@ describe('selection utils', () => {
             -1
         );
         expect(missing).toBeUndefined();
+    });
+
+    it('falls back to original boundary positions when the first character index cannot be resolved back to a node', () => {
+        const focusPosition = createNodePosition(['body'], 0);
+        focusPosition.isBack = true;
+        const anchorPosition = createNodePosition(['body'], 4);
+        const endNode = createNodePosition(['char', 468], 4);
+        const paragraph = {
+            startIndex: 0,
+            endIndex: 500,
+            children: [],
+        };
+        const skeleton = {
+            findCharIndexByPosition: vi
+                .fn()
+                .mockReturnValueOnce(468)
+                .mockReturnValueOnce(0),
+            findNodePositionByCharIndex: vi
+                .fn()
+                .mockReturnValueOnce(undefined)
+                .mockReturnValueOnce(endNode),
+            getViewModel: () => ({
+                getSelfOrHeaderFooterViewModel: () => ({
+                    getChildren: () => [{ children: [paragraph] }],
+                }),
+            }),
+        } as never;
+
+        const result = getRangeListFromSelection(
+            anchorPosition,
+            focusPosition,
+            {} as never,
+            createDocument(),
+            skeleton,
+            {} as never,
+            '',
+            -1
+        );
+
+        expect(result?.textRanges).toHaveLength(1);
+        expect(result?.textRanges[0].anchorNodePosition).toBe(endNode);
+        expect(result?.textRanges[0].focusNodePosition).toBe(focusPosition);
+    });
+
+    it('splits a body selection that crosses a table into text and table ranges', () => {
+        const anchorPosition = createNodePosition(['body'], 0);
+        const focusPosition = createNodePosition(['body'], 1);
+        const tableStartPosition = createNodePosition(['table-start']);
+        const tableEndPosition = createNodePosition(['table-end']);
+        const bodyStartPosition = createNodePosition(['body-start']);
+        const bodyBeforeTableEndPosition = createNodePosition(['body-before-table-end']);
+        const bodyAfterTableStartPosition = createNodePosition(['body-after-table-start']);
+        const bodyEndPosition = createNodePosition(['body-end']);
+        const paragraph = {
+            startIndex: 0,
+            endIndex: 100,
+            children: [{
+                startIndex: 20,
+                endIndex: 50,
+                children: [
+                    { startIndex: 20, endIndex: 35 },
+                    { startIndex: 36, endIndex: 50 },
+                ],
+            }],
+        };
+        const skeleton = {
+            findCharIndexByPosition: vi
+                .fn()
+                .mockReturnValueOnce(0)
+                .mockReturnValueOnce(100),
+            findNodePositionByCharIndex: vi
+                .fn()
+                .mockReturnValueOnce(tableStartPosition)
+                .mockReturnValueOnce(tableEndPosition)
+                .mockReturnValueOnce(bodyStartPosition)
+                .mockReturnValueOnce(bodyBeforeTableEndPosition)
+                .mockReturnValueOnce(bodyAfterTableStartPosition)
+                .mockReturnValueOnce(bodyEndPosition),
+            getViewModel: () => ({
+                getSelfOrHeaderFooterViewModel: () => ({
+                    getChildren: () => [{ children: [paragraph] }],
+                }),
+            }),
+        } as never;
+
+        vi.spyOn(NodePositionConvertToRectRange.prototype, 'getNodePositionGroup').mockReturnValue([
+            {
+                anchor: tableStartPosition,
+                focus: tableEndPosition,
+            },
+        ] as never);
+
+        const result = getRangeListFromSelection(
+            anchorPosition,
+            focusPosition,
+            {} as never,
+            createDocument(),
+            skeleton,
+            {} as never,
+            '',
+            -1
+        );
+
+        expect(result?.textRanges).toHaveLength(2);
+        expect(result?.textRanges[0].anchorNodePosition).toBe(bodyStartPosition);
+        expect(result?.textRanges[0].focusNodePosition).toBe(bodyBeforeTableEndPosition);
+        expect(result?.textRanges[1].anchorNodePosition).toBe(bodyAfterTableStartPosition);
+        expect(result?.textRanges[1].focusNodePosition).toBe(bodyEndPosition);
+        expect(result?.rectRanges).toHaveLength(1);
+        expect(result?.rectRanges[0].anchorNodePosition).toBe(tableStartPosition);
+        expect(result?.rectRanges[0].focusNodePosition).toBe(tableEndPosition);
+    });
+
+    it('tracks rect range table coverage and updates its highlight shape', () => {
+        vi.mocked(RectRange.prototype.refresh).mockRestore();
+        const anchor = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 0]);
+        const focus = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 1, 'cells', 1]);
+        const addedObjects: unknown[] = [];
+        const scene = {
+            addObject: (object: unknown) => {
+                addedObjects.push(object);
+            },
+        } as never;
+        const skeleton = {
+            findCharIndexByPosition: (position: INodePosition) => position === anchor ? 10 : 20,
+            getViewModel: () => ({
+                getSnapshot: () => ({
+                    tableSource: {
+                        'table-1': {
+                            tableColumns: [{}, {}],
+                            tableRows: [{}, {}],
+                        },
+                    },
+                }),
+            }),
+        } as never;
+        vi.spyOn(NodePositionConvertToRectRange.prototype, 'getRangePointData').mockReturnValue({
+            pointGroup: [[
+                { x: 0, y: 0 },
+                { x: 200, y: 0 },
+                { x: 200, y: 80 },
+                { x: 0, y: 80 },
+                { x: 0, y: 0 },
+            ]],
+            startRow: 0,
+            endRow: 1,
+            startColumn: 0,
+            endColumn: 1,
+            tableId: 'table-1',
+        } as never);
+
+        const range = new RectRange(scene, createDocument(), skeleton, anchor, focus, {} as never, 'segment-1', 2);
+
+        expect(range.startOffset).toBe(10);
+        expect(range.endOffset).toBe(20);
+        expect(range.segmentId).toBe('segment-1');
+        expect(range.segmentPage).toBe(2);
+        expect(range.tableId).toBe('table-1');
+        expect(range.spanEntireRow).toBe(true);
+        expect(range.spanEntireColumn).toBe(true);
+        expect(range.spanEntireTable).toBe(true);
+        expect(addedObjects).toHaveLength(1);
+
+        range.activate();
+        expect(range.isActive()).toBe(true);
+        range.deactivate();
+        expect(range.isActive()).toBe(false);
+
+        range.refresh();
+        expect(addedObjects).toHaveLength(1);
+        range.dispose();
+    });
+
+    it('checks intersections between table rect ranges', () => {
+        const first = Object.create(RectRange.prototype) as RectRange;
+        const second = Object.create(RectRange.prototype) as RectRange;
+        const third = Object.create(RectRange.prototype) as RectRange;
+
+        Object.assign(first, { _startRow: 0, _endRow: 2, _startCol: 0, _endCol: 2 });
+        Object.assign(second, { _startRow: 1, _endRow: 3, _startCol: 1, _endCol: 3 });
+        Object.assign(third, { _startRow: 4, _endRow: 5, _startCol: 4, _endCol: 5 });
+
+        expect(first.isIntersection(second)).toBe(true);
+        expect(first.isIntersection(third)).toBe(false);
+    });
+
+    it('does not build table rect data when skeleton data or table metadata is missing', () => {
+        const anchor = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 0]);
+        const focus = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 1]);
+        const emptySkeleton = {
+            getSkeletonData: () => null,
+            findCharIndexByPosition: () => 0,
+        } as never;
+        const missingTableNodeSkeleton = {
+            ...createRectRangeConvertorHarness().skeleton,
+            findCharIndexByPosition: (position: INodePosition) => position === anchor ? 0 : 10,
+            getViewModel: () => ({
+                getSnapshot: () => ({
+                    tableSource: {
+                        'table-1': {
+                            tableRows: [
+                                { tableCells: [{}, {}] },
+                            ],
+                        },
+                    },
+                }),
+                findTableNodeById: () => null,
+            }),
+        } as never;
+
+        expect(new NodePositionConvertToRectRange({} as never, emptySkeleton).getRangePointData(anchor, focus)).toBeUndefined();
+        expect(new NodePositionConvertToRectRange({} as never, emptySkeleton).getNodePositionGroup(anchor, focus)).toBeUndefined();
+        expect(new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, missingTableNodeSkeleton).getNodePositionGroup(anchor, focus)).toBeUndefined();
+    });
+
+    it('converts a full-row table drag into one text range group', () => {
+        const cell00 = createCellPage(0, 100);
+        const cell01 = createCellPage(100, 100);
+        const cell10 = createCellPage(0, 100);
+        const cell11 = createCellPage(100, 100);
+        const row0: IMockRow = { index: 0, top: 0, height: 20, cells: [cell00, cell01] };
+        const row1: IMockRow = { index: 1, top: 20, height: 20, cells: [cell10, cell11] };
+        const table = { tableId: 'table-1', top: 0, left: 0, rows: [row0, row1] } as never;
+        const page = { skeTables: new Map([['table-1', table]]), marginTop: 0, marginLeft: 0, width: 300, height: 200 } as never;
+        const anchor = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 0]);
+        const focus = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 1, 'cells', 1]);
+        const startNode = createNodePosition(['char', 1]);
+        const endNode = createNodePosition(['char', 28]);
+
+        cell00.parent = row0 as never;
+        cell01.parent = row0 as never;
+        cell10.parent = row1 as never;
+        cell11.parent = row1 as never;
+        row0.parent = table;
+        row1.parent = table;
+
+        const skeleton = {
+            getSkeletonData: () => ({
+                pages: [page],
+            }),
+            findCharIndexByPosition: (position: INodePosition) => position === anchor ? 0 : 100,
+            findNodePositionByCharIndex: vi
+                .fn()
+                .mockReturnValueOnce(startNode)
+                .mockReturnValueOnce(endNode),
+            getViewModel: () => ({
+                getSnapshot: () => ({
+                    tableSource: {
+                        'table-1': {
+                            tableRows: [
+                                { tableCells: [{}, {}] },
+                                { tableCells: [{}, {}] },
+                            ],
+                        },
+                    },
+                }),
+                findTableNodeById: () => ({
+                    children: [
+                        { children: [{ startIndex: 0, endIndex: 8 }, { startIndex: 10, endIndex: 18 }] },
+                        { children: [{ startIndex: 20, endIndex: 28 }, { startIndex: 30, endIndex: 40 }] },
+                    ],
+                }),
+            }),
+        } as never;
+
+        expect(new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, skeleton).getNodePositionGroup(anchor, focus)).toEqual([{
+            anchor: startNode,
+            focus: endNode,
+        }]);
+    });
+
+    it('converts a column-only table drag into one text range group per row', () => {
+        const cell00 = createCellPage(0, 100);
+        const cell01 = createCellPage(100, 100);
+        const cell10 = createCellPage(0, 100);
+        const cell11 = createCellPage(100, 100);
+        const row0: IMockRow = { index: 0, top: 0, height: 20, cells: [cell00, cell01] };
+        const row1: IMockRow = { index: 1, top: 20, height: 20, cells: [cell10, cell11] };
+        const table = { tableId: 'table-1', top: 0, left: 0, rows: [row0, row1] } as never;
+        const page = { skeTables: new Map([['table-1', table]]), marginTop: 0, marginLeft: 0, width: 300, height: 200 } as never;
+        const anchor = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 0, 'cells', 1]);
+        const focus = createNodePosition(['pages', 0, 'skeTables', 'table-1', 'rows', 1, 'cells', 1]);
+        const row0Start = createNodePosition(['char', 11]);
+        const row0End = createNodePosition(['char', 16]);
+        const row1Start = createNodePosition(['char', 31]);
+        const row1End = createNodePosition(['char', 38]);
+
+        cell00.parent = row0 as never;
+        cell01.parent = row0 as never;
+        cell10.parent = row1 as never;
+        cell11.parent = row1 as never;
+        row0.parent = table;
+        row1.parent = table;
+
+        const skeleton = {
+            getSkeletonData: () => ({
+                pages: [page],
+            }),
+            findCharIndexByPosition: (position: INodePosition) => position === anchor ? 10 : 100,
+            findNodePositionByCharIndex: vi
+                .fn()
+                .mockReturnValueOnce(row0Start)
+                .mockReturnValueOnce(row0End)
+                .mockReturnValueOnce(row1Start)
+                .mockReturnValueOnce(row1End),
+            getViewModel: () => ({
+                getSnapshot: () => ({
+                    tableSource: {
+                        'table-1': {
+                            tableRows: [
+                                { tableCells: [{}, {}] },
+                                { tableCells: [{}, {}] },
+                            ],
+                        },
+                    },
+                }),
+                findTableNodeById: () => ({
+                    children: [
+                        { children: [{ startIndex: 0, endIndex: 8 }, { startIndex: 10, endIndex: 18 }] },
+                        { children: [{ startIndex: 20, endIndex: 28 }, { startIndex: 30, endIndex: 40 }] },
+                    ],
+                }),
+            }),
+        } as never;
+
+        expect(new NodePositionConvertToRectRange({
+            docsLeft: 0,
+            docsTop: 0,
+            pageLayoutType: 0,
+            pageMarginLeft: 0,
+            pageMarginTop: 0,
+        } as never, skeleton).getNodePositionGroup(anchor, focus)).toEqual([
+            { anchor: row0Start, focus: row0End },
+            { anchor: row1Start, focus: row1End },
+        ]);
     });
 
     it('reads canvas offsets, paragraph glyph info, and serializes ranges', () => {

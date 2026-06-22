@@ -16,10 +16,10 @@
 
 import type { ICommand, IMutationInfo, IParagraphStyle } from '@univerjs/core';
 import type { IRichTextEditingMutationParams } from '@univerjs/docs';
-
 import {
     BuildTextUtils,
     CommandType,
+    getRichTextEditPath,
     HorizontalAlign,
     ICommandService,
     IUniverInstanceService,
@@ -30,7 +30,6 @@ import {
     UpdateDocsAttributeType,
 } from '@univerjs/core';
 import { DocSelectionManagerService, RichTextEditingMutation } from '@univerjs/docs';
-import { getRichTextEditPath } from '../util';
 
 interface IAlignOperationCommandParams {
     alignType: HorizontalAlign;

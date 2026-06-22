@@ -21,12 +21,18 @@ import type {
     IDocumentSkeletonDivide,
     IDocumentSkeletonGlyph,
 } from '../../../../basics/i-document-skeleton-cached';
-
 import type { IFontCreateConfig } from '../../../../basics/interfaces';
 import type { IOpenTypeGlyphInfo } from '../shaping-engine/text-shaping';
 import { BooleanNumber, BulletAlignment, DataStreamTreeTokenType as DT, GridType } from '@univerjs/core';
 import { GlyphType } from '../../../../basics/i-document-skeleton-cached';
-import { hasCJK, hasCJKText, isCjkCenterAlignedPunctuation, isCjkLeftAlignedPunctuation, isCjkRightAlignedPunctuation, ptToPixel } from '../../../../basics/tools';
+import {
+    hasCJK,
+    hasCJKText,
+    isCjkCenterAlignedPunctuation,
+    isCjkLeftAlignedPunctuation,
+    isCjkRightAlignedPunctuation,
+    ptToPixel,
+} from '../../../../basics/tools';
 import { FontCache } from '../shaping-engine/font-cache';
 import { validationGrid } from '../tools';
 
@@ -155,6 +161,8 @@ export function _createSkeletonWordOrLetter(
         DT.TABLE_ROW_END,
         DT.TABLE_CELL_START,
         DT.TABLE_CELL_END,
+        DT.BLOCK_START,
+        DT.BLOCK_END,
         DT.CUSTOM_RANGE_START,
         DT.CUSTOM_RANGE_END,
         DT.COLUMN_BREAK,

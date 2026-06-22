@@ -24,12 +24,11 @@ import {
 import { SetWorksheetActiveOperation } from '@univerjs/sheets';
 import { Slider, useDependency, useObservable } from '@univerjs/ui';
 import { useCallback, useEffect, useState } from 'react';
-
 import { SetZoomRatioCommand } from '../../commands/commands/set-zoom-ratio.command';
 import { SetZoomRatioOperation } from '../../commands/operations/set-zoom-ratio.operation';
 import { SHEET_ZOOM_RANGE } from '../../common/keys';
-import { useActiveWorkbook } from '../../components/hook';
 import { IEditorBridgeService } from '../../services/editor-bridge.service';
+import { useActiveWorkbook } from '../hook';
 
 const ZOOM_MAP = [50, 75, 100, 125, 150, 175, 200, 400];
 

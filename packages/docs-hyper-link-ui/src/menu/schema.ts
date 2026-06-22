@@ -15,6 +15,7 @@
  */
 
 import type { MenuSchemaType } from '@univerjs/ui';
+import { EMPTY_PARAGRAPH_MENU_ID, FLOAT_TOOLBAR_MENU_POSITION, INSERT_BELLOW_MENU_ID } from '@univerjs/docs-ui';
 import { ContextMenuGroup, ContextMenuPosition, RibbonInsertGroup } from '@univerjs/ui';
 import { ShowDocHyperLinkEditPopupOperation } from '../commands/operations/popup.operation';
 import { AddHyperLinkMenuItemFactory } from './menu';
@@ -26,11 +27,35 @@ export const menuSchema: MenuSchemaType = {
             menuItemFactory: AddHyperLinkMenuItemFactory,
         },
     },
+    [FLOAT_TOOLBAR_MENU_POSITION]: {
+        [ShowDocHyperLinkEditPopupOperation.id]: {
+            order: 20,
+            menuItemFactory: AddHyperLinkMenuItemFactory,
+        },
+    },
     [ContextMenuPosition.MAIN_AREA]: {
         [ContextMenuGroup.DATA]: {
             [ShowDocHyperLinkEditPopupOperation.id]: {
                 order: 0,
                 menuItemFactory: AddHyperLinkMenuItemFactory,
+            },
+        },
+    },
+    [ContextMenuPosition.PARAGRAPH]: {
+        [ContextMenuGroup.LAYOUT]: {
+            [INSERT_BELLOW_MENU_ID]: {
+                [ShowDocHyperLinkEditPopupOperation.id]: {
+                    order: 6,
+                    menuItemFactory: AddHyperLinkMenuItemFactory,
+                },
+            },
+        },
+        [EMPTY_PARAGRAPH_MENU_ID]: {
+            [ContextMenuGroup.LAYOUT]: {
+                [ShowDocHyperLinkEditPopupOperation.id]: {
+                    order: 6,
+                    menuItemFactory: AddHyperLinkMenuItemFactory,
+                },
             },
         },
     },

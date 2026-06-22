@@ -15,13 +15,11 @@
  */
 
 import type { IRange, Nullable } from '@univerjs/core';
-import type { IDirtyUnitSheetDefinedNameMap, IExprTreeNode, ISuperTable } from '../../basics/common';
-
+import type { IDirtyUnitDefinedNameMap, IExprTreeNode, ISuperTable } from '../../basics/common';
 import type { IFunctionNames } from '../../basics/function';
 import type { IDefinedNamesServiceParam } from '../../services/defined-names.service';
 import type { ISequenceArray, ISequenceNode } from '../utils/sequence';
 import { AbsoluteRefType, Disposable, isValidRange, moveRangeByOffset, Tools } from '@univerjs/core';
-
 import { FormulaAstLRU } from '../../basics/cache-lru';
 import { ERROR_TYPE_COUNT_ARRAY, ERROR_TYPE_SET, ErrorType } from '../../basics/error-type';
 import { isFormulaLexerToken, isTokenCannotBeAtEnd, isTokenCannotPrecedeSuffixToken } from '../../basics/match-token';
@@ -44,7 +42,12 @@ import {
     DEFAULT_TOKEN_TYPE_ROOT,
 } from '../../basics/token-type';
 import { NEW_EXCEL_FUNCTIONS } from '../../functions/new-excel-functions';
-import { isReferenceStringWithEffectiveColumn, replaceRefPrefixString, serializeRangeToRefString, splitTableStructuredRef } from '../utils/reference';
+import {
+    isReferenceStringWithEffectiveColumn,
+    replaceRefPrefixString,
+    serializeRangeToRefString,
+    splitTableStructuredRef,
+} from '../utils/reference';
 import { deserializeRangeWithSheetWithCache } from '../utils/reference-cache';
 import { generateStringWithSequence, sequenceNodeType } from '../utils/sequence';
 import { LexerNode } from './lexer-node';
@@ -78,7 +81,7 @@ export const FormulaSequenceNodeCache = new FormulaAstLRU<Array<string | ISequen
 interface IInjectDefinedNameParam {
     unitId: Nullable<string>;
     getValueByName(unitId: string, name: string): Nullable<IDefinedNamesServiceParam>;
-    getDirtyDefinedNameMap(): IDirtyUnitSheetDefinedNameMap;
+    getDirtyDefinedNameMap(): IDirtyUnitDefinedNameMap;
     getSheetName: (unitId: string, sheetId: string) => string;
 }
 

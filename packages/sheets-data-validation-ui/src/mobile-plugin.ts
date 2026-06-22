@@ -28,13 +28,14 @@ import {
     ToggleValidationPanelOperation,
 } from './commands/operations/data-validation.operation';
 import { defaultPluginConfig, SHEETS_DATA_VALIDATION_UI_PLUGIN_CONFIG_KEY } from './config/config';
+import { ComponentsController } from './controllers/components.controller';
 import { DataValidationAlertController } from './controllers/dv-alert.controller';
 import { DataValidationAutoFillController } from './controllers/dv-auto-fill.controller';
 import { DataValidationCopyPasteController } from './controllers/dv-copy-paste.controller';
 import { DataValidationPermissionController } from './controllers/dv-permission.controller';
 import { SheetsDataValidationRenderController } from './controllers/dv-render.controller';
 import { SheetsDataValidationReRenderController } from './controllers/dv-rerender.controller';
-import { SheetsDataValidationUIController } from './controllers/dv-ui.controller';
+import { SheetsDataValidationUIController } from './controllers/ui.controller';
 import { DataValidationPanelService } from './services/data-validation-panel.service';
 import { DataValidationDropdownManagerService } from './services/dropdown-manager.service';
 
@@ -65,6 +66,8 @@ export class UniverSheetsDataValidationMobileUIPlugin extends Plugin {
     }
 
     override onStarting(): void {
+        this._injector.add([ComponentsController]);
+        this._injector.get(ComponentsController);
         ([
             [DataValidationPanelService],
             [DataValidationDropdownManagerService],

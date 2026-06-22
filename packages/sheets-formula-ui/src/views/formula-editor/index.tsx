@@ -24,14 +24,20 @@ import type { IRefSelection } from './hooks/use-highlight';
 import {
     BuildTextUtils,
     createInternalEditorID,
+    DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY,
+    DOCS_NORMAL_EDITOR_UNIT_ID_KEY,
+    DocumentFlavor,
     generateRandomId,
+    HorizontalAlign,
+    ICommandService,
     IConfigService,
     IUniverInstanceService,
     noop,
     UniverInstanceType,
+    VerticalAlign,
 } from '@univerjs/core';
 import { clsx } from '@univerjs/design';
-import { DocBackScrollRenderController, DocSelectionRenderService, IEditorService, useKeyboardEvent, useResize } from '@univerjs/docs-ui';
+import { createEditorUndoRedoKeyboardConfig, DocBackScrollRenderController, DocSelectionRenderService, IEditorService, useKeyboardEvent, useResize } from '@univerjs/docs-ui';
 import { IRenderManagerService } from '@univerjs/engine-render';
 import { EMBEDDING_FORMULA_EDITOR } from '@univerjs/sheets-ui';
 import { useDependency, useEvent, useObservable, useUpdateEffect } from '@univerjs/ui';
@@ -80,10 +86,41 @@ export interface IFormulaEditorProps {
     disableSelectionOnClick?: boolean;
     disableContextMenu?: boolean;
     style?: CSSProperties;
+    borderless?: boolean;
+    canvasStyle?: {
+        backgroundColor?: string;
+        fontSize?: number;
+    };
 }
 
 export interface IFormulaEditorRef {
     isClickOutSide: (e: MouseEvent) => boolean;
+}
+
+interface IFormulaEditorSelectionSyncService {
+    getEditor: (editorId: string) => Pick<Editor, 'setSelectionRanges'> | null | undefined | void;
+}
+
+export function syncCounterpartFormulaEditorSelection(
+    editorService: IFormulaEditorSelectionSyncService,
+    editorId: string,
+    selections: ITextRange[] | undefined
+): void {
+    if (!selections?.length) {
+        return;
+    }
+
+    const syncEditorId = editorId === DOCS_NORMAL_EDITOR_UNIT_ID_KEY
+        ? DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY
+        : editorId === DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY
+            ? DOCS_NORMAL_EDITOR_UNIT_ID_KEY
+            : null;
+
+    if (!syncEditorId) {
+        return;
+    }
+
+    editorService.getEditor(syncEditorId)?.setSelectionRanges(selections);
 }
 
 export const FormulaEditor = forwardRef((props: IFormulaEditorProps, ref: Ref<IFormulaEditorRef>) => {
@@ -111,9 +148,12 @@ export const FormulaEditor = forwardRef((props: IFormulaEditorProps, ref: Ref<IF
         autofocus = true,
         disableContextMenu,
         style,
+        borderless = false,
+        canvasStyle,
     } = props;
 
     const editorService = useDependency(IEditorService);
+    const commandService = useDependency(ICommandService);
     const sheetEmbeddingRef = useRef<HTMLDivElement>(null);
     const onChange = useEvent(propOnChange);
     useImperativeHandle(ref, () => ({
@@ -150,6 +190,7 @@ export const FormulaEditor = forwardRef((props: IFormulaEditorProps, ref: Ref<IF
     const currentDoc = useObservable(currentDoc$);
     const docFocusing = currentDoc?.getUnitId() === editorId;
     const refSelections = useRef([] as IRefSelection[]);
+    const getRefSelections = useEvent(() => refSelections.current);
     const selectingMode = isSelecting;
 
     // whether to hide formula search and help popup
@@ -219,7 +260,15 @@ export const FormulaEditor = forwardRef((props: IFormulaEditorProps, ref: Ref<IF
         onFormulaSelectingChange(isSelecting, docSelectionRenderService?.isFocusing ?? true);
     }, [onFormulaSelectingChange, isSelecting]);
 
-    useKeyboardEvent(isFocus, keyboardEventConfig, editor);
+    const resolvedKeyboardEventConfig = useMemo(() => createEditorUndoRedoKeyboardConfig({
+        commandService,
+        univerInstanceService,
+        editorUnitId: editorId,
+        keyCodes: keyboardEventConfig?.keyCodes,
+        handler: keyboardEventConfig?.handler,
+    }), [commandService, editorId, keyboardEventConfig, univerInstanceService]);
+
+    useKeyboardEvent(isFocus, resolvedKeyboardEventConfig, editor);
 
     useLayoutEffect(() => {
         let dispose: IDisposable;
@@ -236,8 +285,24 @@ export const FormulaEditor = forwardRef((props: IFormulaEditorProps, ref: Ref<IF
                         customDecorations: [],
                         customRanges: [],
                     },
-                    documentStyle: {},
+                    documentStyle: {
+                        pageSize: {
+                            width: Number.POSITIVE_INFINITY,
+                            height: Number.POSITIVE_INFINITY,
+                        },
+                        documentFlavor: DocumentFlavor.UNSPECIFIED,
+                        marginTop: 0,
+                        marginBottom: 0,
+                        marginRight: 0,
+                        marginLeft: 0,
+                        paragraphLineGapDefault: 0,
+                        renderConfig: {
+                            horizontalAlign: HorizontalAlign.UNSPECIFIED,
+                            verticalAlign: VerticalAlign.TOP,
+                        },
+                    },
                 },
+                canvasStyle,
             }, formulaEditorContainerRef.current);
             const editor = editorService.getEditor(editorId)! as Editor;
             editorRef.current = editor;
@@ -292,6 +357,7 @@ export const FormulaEditor = forwardRef((props: IFormulaEditorProps, ref: Ref<IF
 
         const newSelections = offset !== -1 ? [{ startOffset: offset + 1, endOffset: offset + 1, collapsed: true }] : undefined;
         highlight(`=${refString}`, true, isEnd, newSelections);
+        syncCounterpartFormulaEditorSelection(editorService, editorId, newSelections);
         if (isEnd) {
             focus();
             if (offset !== -1) {
@@ -310,7 +376,7 @@ export const FormulaEditor = forwardRef((props: IFormulaEditorProps, ref: Ref<IF
         isSelectingRef,
         unitId,
         subUnitId,
-        refSelections,
+        getRefSelections,
         isSupportAcrossSheet,
         Boolean(selectingMode),
         editor,
@@ -349,10 +415,11 @@ export const FormulaEditor = forwardRef((props: IFormulaEditorProps, ref: Ref<IF
                 ref={sheetEmbeddingRef}
                 className={clsx(`
                   univer-relative univer-box-border univer-flex univer-size-full univer-items-center
-                  univer-justify-around univer-gap-2 univer-rounded-none univer-p-0 univer-ring-1
+                  univer-justify-around univer-gap-2 univer-rounded-none univer-p-0
                 `, {
-                    'univer-ring-primary-500': isFocus,
-                    'univer-ring-red-500': isError,
+                    'univer-ring-1': !borderless,
+                    'univer-ring-primary-500': isFocus && !borderless,
+                    'univer-ring-red-500': isError && !borderless,
                 })}
             >
                 <div

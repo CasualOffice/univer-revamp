@@ -23,21 +23,21 @@ import { MoreDownIcon, PasteSpecialDoubleIcon } from '@univerjs/icons';
 import { useDependency, useObservable } from '@univerjs/ui';
 import { useState } from 'react';
 import { SheetOptionalPasteCommand } from '../../commands/commands/clipboard.command';
-import { useActiveWorkbook } from '../../components/hook';
 import { getSheetObject } from '../../controllers/utils/component-tools';
 import { ISheetClipboardService, PREDEFINED_HOOK_NAME_PASTE } from '../../services/clipboard/clipboard.service';
 import { ISheetSelectionRenderService } from '../../services/selection/base-selection-render.service';
 import { SheetSkeletonManagerService } from '../../services/sheet-skeleton-manager.service';
+import { useActiveWorkbook } from '../hook';
 
 const DEFAULT_PADDING = 2;
 
 const SheetPasteOptions = [
-    { value: 'DEFAULT_PASTE', label: 'rightClick.paste' },
-    { value: 'SPECIAL_PASTE_VALUE', label: 'rightClick.pasteValue' },
-    { value: 'SPECIAL_PASTE_FORMAT', label: 'rightClick.pasteFormat' },
-    { value: 'SPECIAL_PASTE_COL_WIDTH', label: 'rightClick.pasteColWidth' },
-    { value: 'SPECIAL_PASTE_BESIDES_BORDER', label: 'rightClick.pasteBesidesBorder' },
-    { value: 'SPECIAL_PASTE_FORMULA', label: 'formula.operation.pasteFormula' },
+    { value: 'DEFAULT_PASTE', label: 'sheets-ui.rightClick.paste' },
+    { value: 'SPECIAL_PASTE_VALUE', label: 'sheets-ui.rightClick.pasteValue' },
+    { value: 'SPECIAL_PASTE_FORMAT', label: 'sheets-ui.rightClick.pasteFormat' },
+    { value: 'SPECIAL_PASTE_COL_WIDTH', label: 'sheets-ui.rightClick.pasteColWidth' },
+    { value: 'SPECIAL_PASTE_BESIDES_BORDER', label: 'sheets-ui.rightClick.pasteBesidesBorder' },
+    { value: 'SPECIAL_PASTE_FORMULA', label: 'sheets-ui.rightClick.pasteFormula' },
 ];
 
 const useMenuPosition = (range?: IDiscreteRange) => {

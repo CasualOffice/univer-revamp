@@ -1,19 +1,3 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import { LocaleType, LogLevel, Univer, UniverInstanceType, UserManagerService } from '@univerjs/core';
 import { FUniver } from '@univerjs/core/facade';
 import { UniverDebuggerPlugin } from '@univerjs/debugger';
@@ -21,7 +5,7 @@ import { UniverDocsPlugin } from '@univerjs/docs';
 import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
 import { UniverFormulaEnginePlugin } from '@univerjs/engine-formula';
 import { UniverRenderEnginePlugin } from '@univerjs/engine-render';
-import { DEFAULT_WORKBOOK_DATA_DEMO } from '@univerjs/mockdata';
+import { DEFAULT_WORKBOOK_DATA_DEMO, loadDebuggerLocale } from '@univerjs/mockdata';
 import zhCN from '@univerjs/mockdata/locales/zh-CN';
 import { UniverNetworkPlugin } from '@univerjs/network';
 import { UniverRPCMainThreadPlugin } from '@univerjs/rpc';
@@ -37,12 +21,9 @@ import { UniverSheetsSortPlugin } from '@univerjs/sheets-sort';
 import { UniverSheetsTablePlugin } from '@univerjs/sheets-table';
 import { UniverSheetsThreadCommentPlugin } from '@univerjs/sheets-thread-comment';
 import { UniverSheetsUIPlugin } from '@univerjs/sheets-ui';
-import { UniverSheetsZenEditorPlugin } from '@univerjs/sheets-zen-editor';
 import { UniverUIPlugin } from '@univerjs/ui';
-
 import '@univerjs/sheets/facade';
 import '@univerjs/ui/facade';
-import '@univerjs/docs-ui/facade';
 import '@univerjs/sheets-ui/facade';
 import '@univerjs/sheets-data-validation/facade';
 import '@univerjs/engine-formula/facade';
@@ -55,7 +36,6 @@ import '@univerjs/sheets-conditional-formatting/facade';
 import '@univerjs/sheets-find-replace/facade';
 import '@univerjs/sheets-drawing/facade';
 import '@univerjs/sheets-drawing-ui/facade';
-import '@univerjs/sheets-zen-editor/facade';
 import '@univerjs/sheets-crosshair-highlight/facade';
 import '@univerjs/sheets-formula-ui/facade';
 import '@univerjs/sheets-table/facade';
@@ -107,7 +87,6 @@ function createNewInstance() {
     });
     univer.registerPlugin(UniverSheetsUIPlugin);
     univer.registerPlugin(UniverSheetsNumfmtPlugin);
-    univer.registerPlugin(UniverSheetsZenEditorPlugin);
     univer.registerPlugin(UniverFormulaEnginePlugin);
     univer.registerPlugin(UniverSheetsFormulaPlugin, { writeArrayFormulaToSnapshot: true });
     univer.registerPlugin(UniverSheetsDataValidationPlugin);
@@ -125,6 +104,8 @@ function createNewInstance() {
     if (IS_E2E) {
         univer.registerPlugin(UniverDebuggerPlugin, {
             fab: false,
+            fabEntryUnitType: UniverInstanceType.UNIVER_SHEET,
+            localeLoader: loadDebuggerLocale,
             performanceMonitor: {
                 enabled: false,
             },
@@ -168,7 +149,7 @@ createNewInstance();
 window.createNewInstance = createNewInstance;
 
 declare global {
-    // eslint-disable-next-line ts/naming-convention
+
     interface Window {
         univer?: Univer;
         univerAPI?: ReturnType<typeof FUniver.newAPI>;

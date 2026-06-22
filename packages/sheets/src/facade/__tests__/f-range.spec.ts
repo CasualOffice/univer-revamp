@@ -14,13 +14,59 @@
  * limitations under the License.
  */
 
-/* eslint-disable ts/no-non-null-asserted-optional-chain */
-
-import type { ICellData, Injector, IStyleData, Nullable } from '@univerjs/core';
+import type { ICellData, IDocumentData, Injector, IStyleData, Nullable, RichTextValue } from '@univerjs/core';
 import type { FUniver } from '@univerjs/core/facade';
-import { HorizontalAlign, ICommandService, IConfirmService, IUniverInstanceService, LifecycleStages, TestConfirmService, VerticalAlign, WrapStrategy } from '@univerjs/core';
-import { AddWorksheetMergeCommand, SetHorizontalTextAlignCommand, SetRangeValuesCommand, SetRangeValuesMutation, SetStyleCommand, SetTextWrapCommand, SetVerticalTextAlignCommand } from '@univerjs/sheets';
-import { beforeEach, describe, expect, it } from 'vitest';
+import {
+    AbsoluteRefType,
+    Dimension,
+    HorizontalAlign,
+    ICommandService,
+    IConfirmService,
+    ILogService,
+    IUniverInstanceService,
+    LifecycleStages,
+    TestConfirmService,
+    VerticalAlign,
+    WrapStrategy,
+} from '@univerjs/core';
+import {
+    AddWorksheetMergeCommand,
+    AddWorksheetMergeMutation,
+    ClearSelectionAllCommand,
+    ClearSelectionContentCommand,
+    ClearSelectionFormatCommand,
+    DeleteRangeMoveLeftCommand,
+    DeleteRangeMoveUpCommand,
+    DeleteWorksheetRangeThemeStyleCommand,
+    DeleteWorksheetRangeThemeStyleMutation,
+    InsertColMutation,
+    InsertRangeMoveDownCommand,
+    InsertRangeMoveRightCommand,
+    InsertRowMutation,
+    MoveRangeMutation,
+    RegisterWorksheetRangeThemeStyleCommand,
+    RegisterWorksheetRangeThemeStyleMutation,
+    RemoveColMutation,
+    RemoveRowMutation,
+    RemoveWorksheetMergeCommand,
+    RemoveWorksheetMergeMutation,
+    SetHorizontalTextAlignCommand,
+    SetRangeCustomMetadataCommand,
+    SetRangeValuesCommand,
+    SetRangeValuesMutation,
+    SetStyleCommand,
+    SetTextRotationCommand,
+    SetTextWrapCommand,
+    SetVerticalTextAlignCommand,
+    SetWorksheetRangeThemeStyleCommand,
+    SetWorksheetRangeThemeStyleMutation,
+    SheetRangeThemeModel,
+    SheetRangeThemeService,
+    SheetSkeletonService,
+    UnregisterWorksheetRangeThemeStyleMutation,
+} from '@univerjs/sheets';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SHEETS_CUSTOM_FIELD_WARNING_MESSAGE } from '../const';
 import { createFacadeTestBed } from './create-test-bed';
 
 describe('Test FRange', () => {
@@ -43,6 +89,8 @@ describe('Test FRange', () => {
     beforeEach(() => {
         const testBed = createFacadeTestBed(undefined, [
             [IConfirmService, { useClass: TestConfirmService }],
+            [SheetRangeThemeModel],
+            [SheetRangeThemeService],
         ]);
         get = testBed.get;
 
@@ -56,6 +104,32 @@ describe('Test FRange', () => {
         commandService.registerCommand(SetHorizontalTextAlignCommand);
         commandService.registerCommand(SetTextWrapCommand);
         commandService.registerCommand(AddWorksheetMergeCommand);
+        commandService.registerCommand(RemoveWorksheetMergeCommand);
+        commandService.registerCommand(AddWorksheetMergeMutation);
+        commandService.registerCommand(RemoveWorksheetMergeMutation);
+        commandService.registerCommand(InsertRangeMoveDownCommand);
+        commandService.registerCommand(InsertRangeMoveRightCommand);
+        commandService.registerCommand(DeleteRangeMoveUpCommand);
+        commandService.registerCommand(DeleteRangeMoveLeftCommand);
+        commandService.registerCommand(InsertRowMutation);
+        commandService.registerCommand(InsertColMutation);
+        commandService.registerCommand(RemoveRowMutation);
+        commandService.registerCommand(RemoveColMutation);
+        commandService.registerCommand(MoveRangeMutation);
+        commandService.registerCommand(SetRangeCustomMetadataCommand);
+        commandService.registerCommand(SetTextRotationCommand);
+        commandService.registerCommand(ClearSelectionAllCommand);
+        commandService.registerCommand(ClearSelectionContentCommand);
+        commandService.registerCommand(ClearSelectionFormatCommand);
+        commandService.registerCommand(RegisterWorksheetRangeThemeStyleCommand);
+        commandService.registerCommand(RegisterWorksheetRangeThemeStyleMutation);
+        commandService.registerCommand(UnregisterWorksheetRangeThemeStyleMutation);
+        commandService.registerCommand(SetWorksheetRangeThemeStyleCommand);
+        commandService.registerCommand(SetWorksheetRangeThemeStyleMutation);
+        commandService.registerCommand(DeleteWorksheetRangeThemeStyleCommand);
+        commandService.registerCommand(DeleteWorksheetRangeThemeStyleMutation);
+
+        get(SheetSkeletonService).ensureSkeleton('test', 'sheet1');
 
         getValueByPosition = (
             startRow: number,
@@ -262,6 +336,30 @@ describe('Test FRange', () => {
         ]);
     });
 
+    it('Range custom metadata APIs should warn about custom field usage', () => {
+        const logService = get(ILogService);
+        Object.defineProperty(logService, 'warn', { configurable: true, value: vi.fn() });
+        const warnSpy = vi.spyOn(logService, 'warn');
+        const activeSheet = univerAPI.getActiveWorkbook()?.getActiveSheet();
+        const range = activeSheet?.getRange(0, 0, 2, 2);
+
+        range?.setCustomMetaData({ key: 'value' });
+        range?.getCustomMetaData();
+        range?.setCustomMetaDatas([
+            [{ key: 'a' }, { key: 'b' }],
+            [{ key: 'c' }, { key: 'd' }],
+        ]);
+        range?.getCustomMetaDatas();
+
+        expect(warnSpy).toHaveBeenCalledTimes(4);
+        expect(warnSpy).toHaveBeenNthCalledWith(1, SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+        expect(warnSpy).toHaveBeenNthCalledWith(2, SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+        expect(warnSpy).toHaveBeenNthCalledWith(3, SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+        expect(warnSpy).toHaveBeenNthCalledWith(4, SHEETS_CUSTOM_FIELD_WARNING_MESSAGE);
+
+        warnSpy.mockRestore();
+    });
+
     it('Range getCellData', () => {
         const activeSheet = univerAPI.getActiveWorkbook()!.getActiveSheet();
         activeSheet?.getRange(0, 0)?.setValue(1);
@@ -271,12 +369,12 @@ describe('Test FRange', () => {
 
     it('Range isMerged', () => {
         const activeSheet = univerAPI.getActiveWorkbook()!.getActiveSheet()!;
-        const range = activeSheet!.getRange(2, 3);
-        const isMerged = range?.isMerged()!;
+        const range = activeSheet.getRange(2, 3);
+        const isMerged = range.isMerged();
         expect(isMerged).toBe(false);
 
-        const range2 = activeSheet!.getRange(2, 3, 3, 3)!;
-        const isMerged2 = range2.isMerged()!;
+        const range2 = activeSheet.getRange(2, 3, 3, 3);
+        const isMerged2 = range2.isMerged();
         expect(isMerged2).toBe(false);
     });
 
@@ -591,7 +689,7 @@ describe('Test FRange', () => {
     it('test Merge', async () => {
         let hasError = false;
         try {
-            const activeSheet = univerAPI.getActiveWorkbook()?.getActiveSheet()!;
+            const activeSheet = univerAPI.getActiveWorkbook()!.getActiveSheet()!;
             let range = activeSheet.getRange(0, 2, 0, 2);
             expect(activeSheet.getMergedRanges().length).toBe(0);
             range = await range.merge();
@@ -610,12 +708,92 @@ describe('Test FRange', () => {
             expect(range2.isPartOfMerge()).toBeTruthy();
             const range3 = activeSheet.getRange(0, 5, 0, 5);
             await range3.merge();
-        } catch (error) {
+        } catch {
             hasError = true;
         }
         expect(hasError).toBeTruthy();
     });
+
+    it('Range merge variants and breakApart update merged ranges', async () => {
+        const activeSheet = univerAPI.getActiveWorkbook()!.getActiveSheet()!;
+
+        const across = activeSheet.getRange('A10:C11').mergeAcross();
+        await Promise.resolve();
+        expect(across.isPartOfMerge()).toBe(true);
+        expect(activeSheet.getRange('A10:C10').isMerged()).toBe(true);
+        expect(activeSheet.getRange('A11:C11').isMerged()).toBe(true);
+        across.breakApart();
+        expect(across.isPartOfMerge()).toBe(false);
+
+        const vertical = activeSheet.getRange('E10:F12').mergeVertically();
+        await Promise.resolve();
+        expect(activeSheet.getRange('E10:E12').isMerged()).toBe(true);
+        expect(activeSheet.getRange('F10:F12').isMerged()).toBe(true);
+        vertical.breakApart();
+        expect(vertical.isPartOfMerge()).toBe(false);
+    });
     //#endregion
+
+    it('Range supports rich text values and per-cell writes', () => {
+        const activeSheet = univerAPI.getActiveWorkbook()!.getActiveSheet()!;
+        const richText = univerAPI.newRichTextValue({ body: { dataStream: 'Hello\r\n' } } as IDocumentData);
+        const docData = { body: { dataStream: 'World\r\n' } } as IDocumentData;
+
+        activeSheet.getRange('H1:I1').setRichTextValues([[richText, docData]]);
+        const values = activeSheet.getRange('H1:I1').getValues(true);
+        expect((values[0][0] as RichTextValue).toPlainText()).toBe('Hello');
+        expect((values[0][1] as RichTextValue).toPlainText()).toBe('World');
+
+        activeSheet.getRange('H2:I2').setValueForCell('only first');
+        expect(activeSheet.getRange('H2').getValue()).toBe('only first');
+        expect(activeSheet.getRange('I2').getValue()).toBeNull();
+
+        activeSheet.getRange('H3:I3').setRichTextValueForCell(richText);
+        expect((activeSheet.getRange('H3').getValue(true) as RichTextValue).toPlainText()).toBe('Hello');
+        expect(activeSheet.getRange('I3').getValue(true)).toBeUndefined();
+    });
+
+    it('Range inserts and deletes cells along both dimensions', async () => {
+        const activeSheet = univerAPI.getActiveWorkbook()!.getActiveSheet()!;
+        activeSheet.getRange('A20:D23').setValues([
+            [1, 2, 3, 4],
+            [5, 6, 7, 8],
+            [9, 10, 11, 12],
+            [13, 14, 15, 16],
+        ]);
+
+        activeSheet.getRange('A20:B21').insertCells(Dimension.COLUMNS);
+        await Promise.resolve();
+        expect(activeSheet.getRange('A20:D21').getValues()).toEqual([
+            [null, null, 1, 2],
+            [null, null, 5, 6],
+        ]);
+
+        activeSheet.getRange('A20:B21').deleteCells(Dimension.COLUMNS);
+        await Promise.resolve();
+        expect(activeSheet.getRange('A20:D21').getValues()).toEqual([
+            [1, 2, 3, 4],
+            [5, 6, 7, 8],
+        ]);
+
+        activeSheet.getRange('A20:B21').insertCells(Dimension.ROWS);
+        await Promise.resolve();
+        expect(activeSheet.getRange('A20:B23').getValues()).toEqual([
+            [null, null],
+            [null, null],
+            [1, 2],
+            [5, 6],
+        ]);
+
+        activeSheet.getRange('A20:B21').deleteCells(Dimension.ROWS);
+        await Promise.resolve();
+        expect(activeSheet.getRange('A20:B23').getValues()).toEqual([
+            [1, 2],
+            [5, 6],
+            [9, 10],
+            [13, 14],
+        ]);
+    });
 
     // Add these new test cases
     it('Range getRow, getColumn, getWidth, getHeight with A1 notation', () => {
@@ -714,6 +892,113 @@ describe('Test FRange', () => {
         expect(activeSheet?.getRange('A1:Z100').getValues()).toEqual(expect.arrayContaining([
             expect.arrayContaining([1, 2, 3, 4, null, null, null, null, null, null]),
         ]));
+    });
+
+    it('Range supports an analyst editing a formatted data island', () => {
+        const workbook = univerAPI.getActiveWorkbook()!;
+        const activeSheet = workbook.getActiveSheet();
+        const report = activeSheet.getRange('B2:D4');
+
+        report
+            .setValues([
+                ['Region', 'Revenue', 'Margin'],
+                ['East', 1200, 0.31],
+                ['West', 900, 0.22],
+            ])
+            .setBackground('#f5f7fb')
+            .setFontFamily('Inter')
+            .setFontSize(12)
+            .setWrap(true)
+            .setHorizontalAlignment('center')
+            .setVerticalAlignment('middle');
+
+        expect(report.getUnitId()).toBe(workbook.getId());
+        expect(report.getSheetName()).toBe('sheet1');
+        expect(report.getSheetId()).toBe(activeSheet.getSheetId());
+        expect(report.getRange()).toMatchObject({ startRow: 1, startColumn: 1, endRow: 3, endColumn: 3 });
+        expect(report.getLastRow()).toBe(3);
+        expect(report.getLastColumn()).toBe(3);
+        expect(report.getA1Notation()).toBe('B2:D4');
+        expect(report.getA1Notation(true, AbsoluteRefType.ALL, AbsoluteRefType.ALL)).toBe('sheet1!$B$2:$D$4');
+
+        expect(report.getValue()).toBe('Region');
+        expect(report.getRawValues()).toEqual([
+            ['Region', 'Revenue', 'Margin'],
+            ['East', 1200, 0.31],
+            ['West', 900, 0.22],
+        ]);
+        expect(report.getDisplayValues()).toEqual([
+            ['Region', 'Revenue', 'Margin'],
+            ['East', '1200', '0.31'],
+            ['West', '900', '0.22'],
+        ]);
+        expect(report.getCellDatas()[1][0]?.v).toBe('East');
+        expect(report.getCellDataGrid()[2][1]?.v).toBe(900);
+        expect(report.getValueAndRichTextValues()[1][1]).toBe(1200);
+
+        expect(report.getBackground()).toBe('#f5f7fb');
+        expect(report.getBackgrounds()).toEqual([
+            ['#f5f7fb', '#f5f7fb', '#f5f7fb'],
+            ['#f5f7fb', '#f5f7fb', '#f5f7fb'],
+            ['#f5f7fb', '#f5f7fb', '#f5f7fb'],
+        ]);
+        expect(report.getFontFamily('cell')).toBe('Inter');
+        expect(report.getFontSize('cell')).toBe(12);
+        expect(report.getCellStyle('cell')?.fontFamily).toBe('Inter');
+        expect(report.getCellStyles('cell')[0][0]?.fontSize).toBe(12);
+        expect(report.getWrap()).toBe(true);
+        expect(report.getWraps()).toEqual([
+            [true, true, true],
+            [true, true, true],
+            [true, true, true],
+        ]);
+        expect(report.getWrapStrategy()).toBe(WrapStrategy.WRAP);
+        expect(report.getHorizontalAlignment()).toBe('center');
+        expect(report.getHorizontalAlignments()[0]).toEqual(['center', 'center', 'center']);
+        expect(report.getVerticalAlignment()).toBe('middle');
+        expect(report.getVerticalAlignments()[0]).toEqual(['middle', 'middle', 'middle']);
+
+        const marginRange = activeSheet.getRange('E3:E4').setFormulas([
+            ['=C3*D3'],
+            ['=C4*D4'],
+        ]);
+        expect(marginRange.getFormula()).toBe('=C3*D3');
+        expect(marginRange.getFormulas()).toEqual([['=C3*D3'], ['=C4*D4']]);
+
+        activeSheet.getRange('B1').setValue('Header');
+        activeSheet.getRange('A3').setValue('Neighbor');
+        activeSheet.getRange('E3').setValue('Calculated');
+        activeSheet.getRange('C5').setValue('Footer');
+        expect(activeSheet.getRange('C3').getDataRegion().getA1Notation()).toBe('B2:D4');
+        expect(activeSheet.getRange('C3').getDataRegion(Dimension.ROWS).getA1Notation()).toBe('C2:C4');
+        expect(activeSheet.getRange('C3').getDataRegion(Dimension.COLUMNS).getA1Notation()).toBe('B3:D3');
+
+        const offset = report.offset(1, 1, 2);
+        expect(offset.getA1Notation()).toBe('C3:E4');
+        expect(offset.getValues()).toEqual([
+            [1200, 0.31, 'Calculated'],
+            [900, 0.22, null],
+        ]);
+        expect(() => report.offset(-2, 0)).toThrow('The row or column index is out of range');
+
+        expect(activeSheet.getRange('G7:H8').isBlank()).toBe(true);
+        report.clear({ contentsOnly: true });
+        expect(report.isBlank()).toBe(true);
+        expect(report.getBackground()).toBe('#f5f7fb');
+
+        report.setValue('restored');
+        report.clear({ formatOnly: true });
+        expect(report.getValue()).toBe('restored');
+        expect(report.getBackground()).not.toBe('#f5f7fb');
+
+        report.useThemeStyle('default');
+        expect(report.getUsedThemeStyle()).toBe('default');
+        report.useThemeStyle(undefined);
+        expect(report.getUsedThemeStyle()).toBeUndefined();
+
+        report.clear();
+        expect(report.isBlank()).toBe(true);
+        expect(report.getUsedThemeStyle()).toBeUndefined();
     });
 
     it('Range getRawValue and getDisplayValue', () => {

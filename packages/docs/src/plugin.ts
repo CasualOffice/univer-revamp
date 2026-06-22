@@ -25,12 +25,15 @@ import {
     Plugin,
 } from '@univerjs/core';
 import pkg from '../package.json';
+import { DeleteTextCommand, InsertTextCommand, UpdateTextCommand } from './commands/commands/core-editing.command';
 import { RichTextEditingMutation } from './commands/mutations/core-editing.mutation';
 import { DocsRenameMutation } from './commands/mutations/docs-rename.mutation';
 import { SetTextSelectionsOperation } from './commands/operations/text-selection.operation';
 import { defaultPluginConfig, DOCS_PLUGIN_CONFIG_KEY } from './config/config';
 import { DocCustomRangeController } from './controllers/custom-range.controller';
+import { DocContentInsertService } from './services/doc-content-insert.service';
 import { DocSelectionManagerService } from './services/doc-selection-manager.service';
+import { DocStateChangeManagerService } from './services/doc-state-change-manager.service';
 import { DocStateEmitService } from './services/doc-state-emit.service';
 
 export class UniverDocsPlugin extends Plugin {
@@ -63,6 +66,9 @@ export class UniverDocsPlugin extends Plugin {
     private _initializeCommands(): void {
         (
             [
+                InsertTextCommand,
+                DeleteTextCommand,
+                UpdateTextCommand,
                 RichTextEditingMutation,
                 DocsRenameMutation,
                 SetTextSelectionsOperation,
@@ -77,12 +83,15 @@ export class UniverDocsPlugin extends Plugin {
             [
                 [DocSelectionManagerService],
                 [DocStateEmitService],
+                [DocStateChangeManagerService],
+                [DocContentInsertService],
                 [DocCustomRangeController],
             ] as Dependency[]
         ).forEach((d) => this._injector.add(d));
     }
 
     override onReady(): void {
+        this._injector.get(DocStateChangeManagerService);
         this._injector.get(DocCustomRangeController);
     }
 }

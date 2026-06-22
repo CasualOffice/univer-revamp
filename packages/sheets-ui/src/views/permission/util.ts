@@ -17,7 +17,14 @@
 import type { Injector, IRange, Workbook, Worksheet } from '@univerjs/core';
 import type { IPermissionPanelRule } from '../../services/permission/sheet-permission-panel.model';
 import { IUniverInstanceService, LocaleService, RANGE_TYPE, Rectangle, UniverInstanceType } from '@univerjs/core';
-import { EditStateEnum, RangeProtectionRuleModel, SheetsSelectionsService, UnitObject, ViewStateEnum, WorksheetProtectionRuleModel } from '@univerjs/sheets';
+import { UnitObject } from '@univerjs/protocol';
+import {
+    EditStateEnum,
+    RangeProtectionRuleModel,
+    SheetsSelectionsService,
+    ViewStateEnum,
+    WorksheetProtectionRuleModel,
+} from '@univerjs/sheets';
 
 export const checkRangeValid = (injector: Injector, permissionRanges: IRange[], permissionId: string, unitId: string, subUnitId: string) => {
     const localeService = injector.get(LocaleService);
@@ -26,7 +33,7 @@ export const checkRangeValid = (injector: Injector, permissionRanges: IRange[], 
 
     let rangeErrorString = '';
     if (permissionRanges.length === 0) {
-        rangeErrorString = localeService.t('permission.panel.emptyRangeError');
+        rangeErrorString = localeService.t('sheets-ui.permission.panel.emptyRangeError');
     } else if (permissionRanges.length > 1) {
         let hasLap = false;
         for (let i = 0; i < permissionRanges.length; i++) {
@@ -41,13 +48,13 @@ export const checkRangeValid = (injector: Injector, permissionRanges: IRange[], 
             }
         }
         if (hasLap) {
-            rangeErrorString = localeService.t('permission.panel.rangeOverlapError');
+            rangeErrorString = localeService.t('sheets-ui.permission.panel.rangeOverlapError');
         }
     }
     if (!rangeErrorString) {
         const worksheetRule = worksheetRuleModel.getRule(unitId, subUnitId);
         if (worksheetRule && !permissionId) {
-            rangeErrorString = localeService.t('permission.panel.rangeOverlapOverPermissionError');
+            rangeErrorString = localeService.t('sheets-ui.permission.panel.rangeOverlapOverPermissionError');
             return rangeErrorString;
         }
         const lapRule = rangeProtectionRuleModel.getSubunitRuleList(unitId, subUnitId).filter((rule) => {
@@ -61,7 +68,7 @@ export const checkRangeValid = (injector: Injector, permissionRanges: IRange[], 
             return permissionRanges.some((r) => Rectangle.intersects(range, r));
         });
         if (lapRange) {
-            rangeErrorString = localeService.t('permission.panel.rangeOverlapOverPermissionError');
+            rangeErrorString = localeService.t('sheets-ui.permission.panel.rangeOverlapOverPermissionError');
         }
     }
     return rangeErrorString === '' ? undefined : rangeErrorString;

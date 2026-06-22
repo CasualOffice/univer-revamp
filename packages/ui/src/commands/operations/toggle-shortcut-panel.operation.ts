@@ -16,7 +16,6 @@
 
 import type { IAccessor, IOperation } from '@univerjs/core';
 import { CommandType } from '@univerjs/core';
-
 import { ShortcutPanelService } from '../../services/shortcut/shortcut-panel.service';
 import { ISidebarService } from '../../services/sidebar/sidebar.service';
 
@@ -37,7 +36,7 @@ export const ToggleShortcutPanelOperation: IOperation = {
         } else {
             shortcutPanelService.open();
             sidebarService.open({
-                header: { title: 'shortcut-panel.title' },
+                header: { title: 'ui.shortcut-panel.title' },
                 children: { label: ShortcutPanelComponentName },
             });
         }

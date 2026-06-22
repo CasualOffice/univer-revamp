@@ -15,12 +15,23 @@
  */
 
 import type { DocumentDataModel, IDisposable, Nullable } from '@univerjs/core';
-import type { IInsertCommandParams } from '@univerjs/docs-ui';
-import type { Documents, DocumentSkeleton, IBoundRectNoAngle, IDocumentSkeletonGlyph, ITextRangeWithStyle } from '@univerjs/engine-render';
+import type { IInsertTextCommandParams } from '@univerjs/docs';
+import type {
+    Documents,
+    DocumentSkeleton,
+    IBoundRectNoAngle,
+    IDocumentSkeletonGlyph,
+    ITextRangeWithStyle,
+} from '@univerjs/engine-render';
 import type { Observable } from 'rxjs';
 import { Disposable, ICommandService, Inject, IUniverInstanceService, UniverInstanceType } from '@univerjs/core';
 import { DocSelectionManagerService, DocSkeletonManagerService } from '@univerjs/docs';
-import { DocCanvasPopManagerService, DocEventManagerService, getAnchorBounding, NodePositionConvertToCursor } from '@univerjs/docs-ui';
+import {
+    DocCanvasPopManagerService,
+    DocEventManagerService,
+    getAnchorBounding,
+    NodePositionConvertToCursor,
+} from '@univerjs/docs-ui';
 import { IRenderManagerService } from '@univerjs/engine-render';
 import { BehaviorSubject, combineLatest, distinctUntilChanged, map, tap } from 'rxjs';
 import { DeleteSearchKeyCommand } from '../commands/commands/doc-quick-insert.command';
@@ -47,14 +58,14 @@ export interface IDocPopup {
     keyword: string;
     menus$: Observable<DocPopupMenu[]>;
     Placeholder?: React.ComponentType;
-    preconditions?: (params: IInsertCommandParams) => boolean;
+    preconditions?: (params: IInsertTextCommandParams) => boolean;
 }
 
 const noopDisposable = {
     dispose: () => {},
 };
 
-interface IKeywordInputPlaceholderExtraProps {
+interface IKeywordInputPlaceholderExtraProps extends Record<string, unknown> {
     fontSize?: number;
     fontString?: string;
     fontFamily?: string;

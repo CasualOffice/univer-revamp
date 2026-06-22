@@ -14,12 +14,25 @@
  * limitations under the License.
  */
 
-import type { DocumentDataModel, Workbook } from '@univerjs/core';
-import { IUniverInstanceService, RxDisposable, UniverInstanceType } from '@univerjs/core';
+import type { DocumentDataModel, DocumentFlavor } from '@univerjs/core';
+import type { ICanvasColorService } from '@univerjs/engine-render';
+import { isInternalEditorID, IUniverInstanceService, RxDisposable, UniverInstanceType } from '@univerjs/core';
 import { IRenderManagerService } from '@univerjs/engine-render';
 import { takeUntil } from 'rxjs';
+import { resolveDocRenderBackground } from './doc-render-background';
 
 const DOC_MAIN_CANVAS_ID = 'univer-doc-main-canvas';
+
+export { resolveDocRenderBackground as resolveDocsCanvasBackground } from './doc-render-background';
+
+export function getDocsCanvasBackgroundColor(documentFlavor?: DocumentFlavor, canvasColorService?: ICanvasColorService, editorBackgroundColor?: string, isEditor?: boolean) {
+    return resolveDocRenderBackground({
+        documentFlavor,
+        canvasColorService,
+        editorBackgroundColor,
+        isEditor,
+    }).canvasElementBackgroundColor;
+}
 
 export class DocsRenderService extends RxDisposable {
     constructor(
@@ -50,11 +63,18 @@ export class DocsRenderService extends RxDisposable {
 
     private _createRenderer(doc: DocumentDataModel) {
         const unitId = doc.getUnitId();
-        const workbookId = this._instanceSrv.getCurrentUnitOfType<Workbook>(UniverInstanceType.UNIVER_DOC)?.getUnitId();
         this._renderManagerService.created$.subscribe((renderer) => {
-            if (renderer.unitId === workbookId) {
-                renderer.engine.getCanvas().setId(DOC_MAIN_CANVAS_ID);
-                renderer.engine.getCanvas().getContext().setId(DOC_MAIN_CANVAS_ID);
+            if (renderer.unitId === unitId) {
+                const documentFlavor = doc.getSnapshot().documentStyle.documentFlavor;
+                const canvas = renderer.engine.getCanvas();
+                canvas.setId(DOC_MAIN_CANVAS_ID);
+                canvas.getContext().setId(DOC_MAIN_CANVAS_ID);
+                canvas.getCanvasEle().style.backgroundColor = getDocsCanvasBackgroundColor(
+                    documentFlavor,
+                    renderer.engine.canvasColorService,
+                    undefined,
+                    isInternalEditorID(unitId)
+                );
             }
         });
 

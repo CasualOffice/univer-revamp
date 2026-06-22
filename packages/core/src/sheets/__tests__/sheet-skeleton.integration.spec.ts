@@ -25,6 +25,7 @@ import { ThemeService } from '../../services/theme/theme.service';
 import { ColorKit } from '../../shared';
 import { BooleanNumber, HorizontalAlign } from '../../types/enum';
 import { LocaleType } from '../../types/enum/locale-type';
+import { DocumentFlavor } from '../../types/interfaces';
 import { createSheetGapTestConfig, SheetSkeleton } from '../sheet-skeleton';
 import { RANGE_TYPE } from '../typedef';
 import { createCoreTestBed } from './create-core-test-bed';
@@ -240,7 +241,7 @@ describe('SheetSkeleton integration', () => {
             id: 'doc-in-skeleton',
             body: {
                 dataStream: 'Hello\r\n',
-                paragraphs: [{ startIndex: 5 }],
+                paragraphs: [{ startIndex: 5, paragraphId: 'para_fixture_17' }],
             },
             documentStyle: {
                 marginTop: 9,
@@ -271,6 +272,8 @@ describe('SheetSkeleton integration', () => {
                     width: Number.POSITIVE_INFINITY,
                     height: Number.POSITIVE_INFINITY,
                 },
+                documentFlavor: DocumentFlavor.UNSPECIFIED,
+                paragraphLineGapDefault: 0,
                 renderConfig: {
                     horizontalAlign: HorizontalAlign.CENTER,
                 },
@@ -278,6 +281,7 @@ describe('SheetSkeleton integration', () => {
             body: {
                 paragraphs: [{
                     startIndex: 5,
+                    paragraphId: 'para_fixture_17',
                     paragraphStyle: {
                         horizontalAlign: HorizontalAlign.CENTER,
                     },

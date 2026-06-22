@@ -254,6 +254,7 @@ describe('test editor', () => {
                     paragraphs: [
                         {
                             startIndex: 10,
+                            paragraphId: 'para_sheets_numfmt_edit_date',
                             paragraphStyle: {
                                 horizontalAlign: 0,
                             },
@@ -291,7 +292,7 @@ describe('test editor', () => {
     it('edit number with bullet should keep rich text', () => {
         const sheetInterceptorService = testBed.get(SheetInterceptorService);
         const richTextParams = {
-            id: '__INTERNAL_EDITOR__ZEN_EDITOR',
+            id: '__INTERNAL_EDITOR__DOCS_NORMAL',
             documentStyle: {
                 pageSize: {
                     width: 595,
@@ -323,6 +324,7 @@ describe('test editor', () => {
                 paragraphs: [
                     {
                         startIndex: 9,
+                        paragraphId: 'para_sheets_numfmt_bullet',
                         paragraphStyle: {
                             horizontalAlign: 0,
                         },
@@ -678,6 +680,7 @@ describe('test get cell text/plain', () => {
                                         paragraphs: [
                                             {
                                                 startIndex: 6,
+                                                paragraphId: 'para_sheets_numfmt_rich_text',
                                                 paragraphStyle: {
                                                     horizontalAlign: 0,
                                                 },

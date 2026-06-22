@@ -38,6 +38,7 @@ import { DocSkeletonManagerService } from '@univerjs/docs';
 import { CURSOR_TYPE, getSystemHighlightColor, GlyphType, NORMAL_TEXT_SELECTION_PLUGIN_STYLE, PageLayoutType, ScrollTimer, Vector2 } from '@univerjs/engine-render';
 import { ILayoutService, KeyCode } from '@univerjs/ui';
 import { BehaviorSubject, filter, fromEvent, merge, Subject, takeUntil } from 'rxjs';
+import { compareNodePositionLogic } from './convert-text-range';
 import {
     getCanvasOffsetByEngine,
     getParagraphInfoByGlyph,
@@ -49,6 +50,7 @@ import {
     serializeTextRange,
 } from './selection-utils';
 import { TextRange } from './text-range';
+import { getWordBoundaryByIndex } from './word-boundary';
 
 export interface IEditorInputConfig {
     event: Event | CompositionEvent | KeyboardEvent;
@@ -419,30 +421,15 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
             return;
         }
 
-        // Create a locale-specific word segmenter
-        const segmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
-        const segments = segmenter.segment(content);
+        const wordBoundary = getWordBoundaryByIndex(content, nodeIndex, st);
 
-        let startOffset = Number.NEGATIVE_INFINITY;
-        let endOffset = Number.NEGATIVE_INFINITY;
-
-        // Use that for segmentation
-        for (const { segment, index, isWordLike } of segments) {
-            if (index <= nodeIndex && nodeIndex < index + segment.length && isWordLike) {
-                startOffset = index + st;
-                endOffset = index + st + segment.length;
-
-                break;
-            }
-        }
-
-        if (Number.isFinite(startOffset) && Number.isFinite(endOffset)) {
+        if (wordBoundary != null) {
             this.removeAllRanges();
 
             const textRanges = [
                 {
-                    startOffset,
-                    endOffset,
+                    startOffset: wordBoundary.startOffset,
+                    endOffset: wordBoundary.endOffset,
                 },
             ];
 
@@ -869,11 +856,18 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
     }
 
     private _removeAllCollapsedTextRanges() {
+        const newRanges: TextRange[] = [];
+
         for (const range of this._rangeList) {
             if (range.collapsed) {
                 range.dispose();
+                continue;
             }
+
+            newRanges.push(range);
         }
+
+        this._rangeList = newRanges;
     }
 
     private _deactivateAllTextRanges() {
@@ -1032,9 +1026,9 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
             focusNodePosition.isBack = true;
         }
 
-        this._focusNodePosition = focusNodePosition;
-
-        this._removeAllCacheRanges();
+        if (this._shouldSnapBackwardFocusToGlyphStart(focusNode, focusNodePosition)) {
+            focusNodePosition.isBack = true;
+        }
 
         const { _anchorNodePosition, _selectionStyle } = this;
         const { scene, mainComponent } = this._context;
@@ -1060,6 +1054,15 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
         }
 
         const { textRanges, rectRanges } = ranges;
+        if (!this._hasVisibleSelectionRanges(textRanges, rectRanges)) {
+            textRanges.forEach((range) => range.dispose());
+            rectRanges.forEach((range) => range.dispose());
+            return;
+        }
+
+        this._focusNodePosition = focusNodePosition;
+
+        this._removeAllCacheRanges();
 
         if (this._rangeList.length > 0 && textRanges.length > 0) {
             this._interactTextRanges(textRanges);
@@ -1075,6 +1078,42 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
         this.deactivate();
 
         this._context.scene?.getEngine()?.setCapture();
+    }
+
+    private _hasVisibleSelectionRanges(textRanges: TextRange[], rectRanges: RectRange[]): boolean {
+        return rectRanges.length > 0 || textRanges.some((range) => !range.collapsed);
+    }
+
+    private _shouldSnapBackwardFocusToGlyphStart(focusNode: INodeInfo, focusNodePosition: INodePosition): boolean {
+        const anchorNodePosition = this._anchorNodePosition;
+        if (!anchorNodePosition || !this._isBeforeNodePosition(focusNodePosition, anchorNodePosition)) {
+            return false;
+        }
+
+        return this._isFirstSelectableGlyphInDivide(focusNode);
+    }
+
+    private _isBeforeNodePosition(left: INodePosition, right: INodePosition): boolean {
+        if (!compareNodePositionLogic(left, right)) {
+            return false;
+        }
+
+        return left.page !== right.page ||
+            left.section !== right.section ||
+            left.column !== right.column ||
+            left.line !== right.line ||
+            left.divide !== right.divide ||
+            left.glyph !== right.glyph;
+    }
+
+    private _isFirstSelectableGlyphInDivide(nodeInfo: INodeInfo): boolean {
+        const glyphGroup = nodeInfo.node.parent?.glyphGroup;
+        if (!glyphGroup) {
+            return false;
+        }
+
+        const firstSelectableGlyph = glyphGroup.find((glyph) => glyph.content && glyph.glyphType !== GlyphType.LIST);
+        return firstSelectableGlyph === nodeInfo.node;
     }
 
     __attachScrollEvent() {

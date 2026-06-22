@@ -32,10 +32,10 @@ interface ISheetTableItemsFilterPanelProps {
     setCheckedItemSet: Dispatch<SetStateAction<Set<string>>>;
 }
 
-const getCheckedCount = (map: Map<string, number>) => {
+const getCheckedItemCount = (map: Map<string, number>, checkedItemSet: Set<string>) => {
     let count = 0;
-    map.forEach((value) => {
-        count += value;
+    checkedItemSet.forEach((item) => {
+        count += map.get(item) ?? 0;
     });
     return count;
 };
@@ -50,7 +50,7 @@ export function SheetTableItemsFilterPanel(props: ISheetTableItemsFilterPanelPro
     // const allChecked = tableFilter === undefined ? true : checkedItemSet.size === itemsCountMap.size;
     const [allChecked, setAllChecked] = useState<boolean>(tableFilter === undefined ? true : checkedItemSet.size === itemsCountMap.size);
 
-    const [checkedCount, setCheckedCount] = useState<number>(allChecked ? allItemsCount : getCheckedCount(itemsCountMap));
+    const [checkedCount, setCheckedCount] = useState<number>(allChecked ? allItemsCount : getCheckedItemCount(itemsCountMap, checkedItemSet));
 
     const indeterminate = !allChecked && checkedItemSet.size > 0;
     const [searchText, setSearchText] = useState('');
@@ -117,7 +117,7 @@ export function SheetTableItemsFilterPanel(props: ISheetTableItemsFilterPanelPro
 
     return (
         <div className="univer-flex univer-h-full univer-flex-col">
-            <Input autoFocus value={searchText} placeholder={localeService.t('sheets-table.filter.search-placeholder')} onChange={onSearchValueChange} />
+            <Input autoFocus value={searchText} placeholder={localeService.t('sheets-table-ui.filter.search-placeholder')} onChange={onSearchValueChange} />
             <div
                 className={clsx(`
                   univer-mt-2 univer-box-border univer-flex univer-h-[180px] univer-max-h-[180px] univer-flex-grow
@@ -125,18 +125,20 @@ export function SheetTableItemsFilterPanel(props: ISheetTableItemsFilterPanelPro
                 `, borderClassName)}
             >
                 <div
-                    className={clsx('univer-h-40 univer-overflow-y-auto univer-py-1 univer-pl-2', scrollbarClassName)}
+                    className={clsx('univer-h-40 univer-min-w-0 univer-overflow-y-auto univer-py-1 univer-pl-2', scrollbarClassName)}
                 >
                     <div className="univer-h-full">
                         <div className="univer-flex univer-items-center univer-px-2 univer-py-1">
                             <Checkbox
+                                className="univer-min-w-0 univer-flex-1"
+                                contentClassName="univer-flex-1 univer-min-w-0"
                                 indeterminate={indeterminate}
                                 disabled={items.length === 0}
                                 checked={allChecked}
                                 onChange={onCheckAllToggled}
                             >
                                 <div className="univer-flex univer-h-5 univer-flex-1 univer-items-center univer-text-sm">
-                                    <span className="univer-inline-block univer-truncate">{`${localeService.t('sheets-table.filter.select-all')}`}</span>
+                                    <span className="univer-flex-1 univer-truncate">{`${localeService.t('sheets-table-ui.filter.select-all')}`}</span>
                                     <span className="univer-ml univer-text-gray-400">{`(${checkedCount}/${searchText ? displayItems.length : allItemsCount})`}</span>
                                 </div>
                             </Checkbox>
@@ -148,22 +150,35 @@ export function SheetTableItemsFilterPanel(props: ISheetTableItemsFilterPanelPro
                                     className="univer-flex univer-items-center univer-px-2 univer-py-1"
                                 >
                                     <Checkbox
+                                        className="univer-min-w-0 univer-flex-1"
+                                        contentClassName="univer-flex-1 univer-min-w-0"
                                         checked={allChecked || checkedItemSet.has(item.title)}
                                         onChange={() => { onCheckItemToggled(item.title); }}
                                     >
-                                        <div className="univer-flex univer-h-5 univer-flex-1 univer-text-sm">
-                                            <span className="univer-inline-block univer-truncate">{item.title}</span>
-                                            <span className="univer-ml-1 univer-text-gray-400">{`(${itemsCountMap.get(item.title) || 0})`}</span>
-                                        </div>
+                                        <span
+                                            className={`
+                                              univer-flex univer-h-5 univer-flex-1 univer-items-center univer-text-sm
+                                            `}
+                                        >
+                                            <span className="univer-flex-1 univer-truncate">
+                                                {item.title}
+                                            </span>
+                                            <span
+                                                className={`
+                                                  univer-ml-1 univer-inline-flex univer-h-full univer-items-center
+                                                  univer-text-gray-400
+                                                `}
+                                            >
+                                                {`(${itemsCountMap.get(item.title) || 0})`}
+                                            </span>
+                                        </span>
                                     </Checkbox>
                                 </div>
                             );
                         })}
                     </div>
                 </div>
-
             </div>
         </div>
-
     );
 }

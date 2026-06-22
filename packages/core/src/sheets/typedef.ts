@@ -77,7 +77,10 @@ export interface IWorkbookData {
     resources?: IResources;
 
     /**
-     * User stored custom fields
+     * User stored custom fields.
+     *
+     * @remarks
+     * This field is not recommended for external use. Use it at your own risk.
      */
     custom?: CustomData;
 }
@@ -151,7 +154,10 @@ export interface IWorksheetData {
     rightToLeft: BooleanNumber;
 
     /**
-     * User stored custom fields
+     * User stored custom fields.
+     *
+     * @remarks
+     * This field is not recommended for external use. Use it at your own risk.
      */
     custom?: CustomData;
 }
@@ -188,7 +194,10 @@ export interface IRowData {
     s?: Nullable<IStyleData | string>;
 
     /**
-     * User stored custom fields
+     * User stored custom fields.
+     *
+     * @remarks
+     * This field is not recommended for external use. Use it at your own risk.
      */
     custom?: CustomData;
 }
@@ -218,7 +227,10 @@ export interface IColumnData {
     s?: Nullable<IStyleData | string>;
 
     /**
-     * User stored custom fields
+     * User stored custom fields.
+     *
+     * @remarks
+     * This field is not recommended for external use. Use it at your own risk.
      */
     custom?: CustomData;
 }
@@ -277,7 +289,10 @@ export interface ICellData {
     si?: Nullable<string>;
 
     /**
-     * User stored custom fields
+     * User stored custom fields.
+     *
+     * @remarks
+     * This field is not recommended for external use. Use it at your own risk.
      */
     custom?: CustomData;
 }
@@ -356,7 +371,7 @@ export function isNullCell(cell: Nullable<ICellData>) {
         return true;
     }
 
-    const { v, f, si, p, custom } = cell;
+    const { v, f, si, p } = cell;
 
     if (!(v == null || (typeof v === 'string' && v.length === 0))) {
         return false;
@@ -367,10 +382,6 @@ export function isNullCell(cell: Nullable<ICellData>) {
     }
 
     if (p != null) {
-        return false;
-    }
-
-    if (custom != null) {
         return false;
     }
 
@@ -581,34 +592,6 @@ export interface IRangeCellData {
  * Allow users to provide one of three formats, we need to convert to IRange to store
  */
 export type IRangeType = IRange | IRangeStringData | IRangeArrayData | IRangeCellData;
-
-/**
- * Whether to clear only the contents. Whether to clear only the format; note that clearing format also clears data validation rules.
- */
-export interface IOptionData {
-    /**
-     * 1. designates that only the format should be copied
-     *
-     * 2. Whether to clear only the format; note that clearing format also clears data validation rules.
-     *
-     * 3. worksheet Whether to clear the format.
-     */
-    formatOnly?: boolean;
-    /**
-     * 1. designates that only the content should be copied
-     *
-     * 2. Whether to clear only the contents.
-     *
-     * 3. worksheet Whether to clear the content.
-     *
-     */
-    contentsOnly?: boolean;
-}
-
-/**
- * Option of copyTo function
- */
-export interface ICopyToOptionsData extends IOptionData { }
 
 export interface IRectLTRB {
     left: number;

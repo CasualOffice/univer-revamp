@@ -17,8 +17,8 @@
 import type { ICommandInfo } from '@univerjs/core';
 import type { IUniverUIConfig } from '@univerjs/ui';
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
+import type { IScrollState } from '../../../services/sheet-bar/type';
 import type { IBaseSheetBarProps } from './SheetBarItem';
-import type { IScrollState } from './utils/slide-tab-bar';
 import {
     ICommandService,
     IConfirmService,
@@ -46,9 +46,9 @@ import {
 import { UI_PLUGIN_CONFIG_KEY, useConfigValue, useDependency, useObservable } from '@univerjs/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { merge } from 'rxjs';
-import { useActiveWorkbook } from '../../../components/hook';
 import { IEditorBridgeService } from '../../../services/editor-bridge.service';
 import { ISheetBarService } from '../../../services/sheet-bar/sheet-bar.service';
+import { useActiveWorkbook } from '../../hook';
 import { SheetBarItem } from './SheetBarItem';
 import { SheetBarTabsContextMenu } from './SheetBarTabsContextMenu';
 import { SlideTabBar } from './utils/slide-tab-bar';
@@ -151,10 +151,10 @@ export function SheetBarTabs() {
     const openSheetNameErrorDialog = useCallback((id: string, description: string) => {
         confirmService.open({
             id,
-            title: { title: localeService.t('sheetConfig.sheetNameErrorTitle') },
+            title: { title: localeService.t('sheets-ui.sheetConfig.sheetNameErrorTitle') },
             children: { title: description },
-            cancelText: localeService.t('button.cancel'),
-            confirmText: localeService.t('button.confirm'),
+            cancelText: localeService.t('sheets-ui.button.cancel'),
+            confirmText: localeService.t('sheets-ui.button.confirm'),
             onClose() {
                 focusTabEditor();
                 confirmService.close(id);
@@ -171,7 +171,7 @@ export function SheetBarTabs() {
             return false;
         }
 
-        openSheetNameErrorDialog('sheetNameEmptyAlert', localeService.t('sheetConfig.sheetNameCannotIsEmptyError'));
+        openSheetNameErrorDialog('sheetNameEmptyAlert', localeService.t('sheets-ui.sheetConfig.sheetNameCannotIsEmptyError'));
         return true;
     }, [localeService, openSheetNameErrorDialog]);
 
@@ -180,7 +180,7 @@ export function SheetBarTabs() {
             return false;
         }
 
-        openSheetNameErrorDialog('sheetNameSpecCharAlert', localeService.t('sheetConfig.sheetNameSpecCharError'));
+        openSheetNameErrorDialog('sheetNameSpecCharAlert', localeService.t('sheets-ui.sheetConfig.sheetNameSpecCharError'));
         return true;
     }, [localeService, openSheetNameErrorDialog]);
 
@@ -198,10 +198,10 @@ export function SheetBarTabs() {
         const id = 'sheetNameRepeatAlert';
         confirmService.open({
             id,
-            title: { title: localeService.t('sheetConfig.sheetNameErrorTitle') },
-            children: { title: localeService.t('sheetConfig.sheetNameAlreadyExistsError') },
-            cancelText: localeService.t('button.cancel'),
-            confirmText: localeService.t('button.confirm'),
+            title: { title: localeService.t('sheets-ui.sheetConfig.sheetNameErrorTitle') },
+            children: { title: localeService.t('sheets-ui.sheetConfig.sheetNameAlreadyExistsError') },
+            cancelText: localeService.t('sheets-ui.button.cancel'),
+            confirmText: localeService.t('sheets-ui.button.confirm'),
             onClose() {
                 confirmService.close(id);
                 focusTabEditor();
@@ -261,7 +261,9 @@ export function SheetBarTabs() {
                 } satisfies IBaseSheetBarProps;
             });
 
+        // eslint-disable-next-line react/set-state-in-effect
         setSheetList(sheetListItems);
+        // eslint-disable-next-line react/set-state-in-effect
         setActiveSheetId(currentSubUnitId);
     }, [rangeProtectionRuleModel, workbook, worksheetProtectionRuleModel]);
 
@@ -485,11 +487,9 @@ export function SheetBarTabs() {
     }, [
         canRenameActiveSheet,
         commandService,
-        getActiveTabRect,
         nameEmptyCheck,
         nameRepeatCheck,
         observeResize,
-        openContextMenu,
         sheetBarService,
         sheetNameSpecCharCheck,
         updateSheetItems,
@@ -549,6 +549,7 @@ export function SheetBarTabs() {
 
     useEffect(() => {
         if (!showContextMenu && contextMenuVisible) {
+            // eslint-disable-next-line react/set-state-in-effect
             setContextMenuVisible(false);
         }
     }, [contextMenuVisible, showContextMenu]);

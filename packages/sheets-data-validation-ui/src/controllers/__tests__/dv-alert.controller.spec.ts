@@ -24,10 +24,9 @@ afterEach(() => {
 });
 
 describe('DataValidationAlertController', () => {
-    it('shows an alert for invalid hovered cells and clears it when repeated or zen mode opens', async () => {
+    it('shows an alert for invalid hovered cells and clears it on repeated hover', async () => {
         vi.useFakeTimers();
         const currentCell$ = new Subject<{ location: { unitId: string; subUnitId: string; row: number; col: number } }>();
-        const visible$ = new Subject<boolean>();
         const currentAlert = new Map<string, { alert: { location: { unitId: string; subUnitId: string; row: number; col: number } } }>();
         const showAlert = vi.fn((alert) => currentAlert.set('SHEET_DATA_VALIDATION_ALERT', { alert }));
         const removeAlert = vi.fn((key: string) => currentAlert.delete(key));
@@ -42,7 +41,6 @@ describe('DataValidationAlertController', () => {
             { currentAlert, removeAlert, showAlert } as never,
             { getUnit: vi.fn(() => ({ getSheetBySheetId: vi.fn(() => ({ getSheetId: () => 'sheet-1' })) })) } as never,
             { t: (key: string) => key } as never,
-            { visible$ } as never,
             dataValidationModel as never
         );
 
@@ -54,16 +52,13 @@ describe('DataValidationAlertController', () => {
 
         expect(showAlert).toHaveBeenCalledWith(expect.objectContaining({
             key: 'SHEET_DATA_VALIDATION_ALERT',
-            title: 'dataValidation.error.title',
+            title: 'sheets-data-validation-ui.error.title',
             message: 'invalid list value',
             location,
         }));
 
         currentCell$.next({ location });
         await vi.advanceTimersByTimeAsync(120);
-        expect(removeAlert).toHaveBeenCalledWith('SHEET_DATA_VALIDATION_ALERT');
-
-        visible$.next(true);
         expect(removeAlert).toHaveBeenCalledWith('SHEET_DATA_VALIDATION_ALERT');
     });
 
@@ -77,7 +72,6 @@ describe('DataValidationAlertController', () => {
             { currentAlert: new Map(), removeAlert, showAlert: vi.fn() } as never,
             { getUnit: vi.fn(() => ({ getSheetBySheetId: vi.fn(() => ({ getSheetId: () => 'sheet-1' })) })) } as never,
             { t: (key: string) => key } as never,
-            { visible$: new Subject<boolean>() } as never,
             {
                 getRuleByLocation: vi.fn(() => null),
                 validator: vi.fn(),

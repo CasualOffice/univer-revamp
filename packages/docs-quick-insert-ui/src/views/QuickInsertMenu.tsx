@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-import type { ComponentManager } from '@univerjs/ui';
-import type { MutableRefObject } from 'react';
 import type { DocPopupMenu, IDocPopupMenuItem } from '../services/doc-quick-insert-popup.service';
 import { borderBottomClassName, borderClassName, clsx, scrollbarClassName, Tooltip } from '@univerjs/design';
+import { IconManager, useDependency } from '@univerjs/ui';
 import { useEffect, useMemo, useRef } from 'react';
 
 interface IQuickInsertMenuProps {
     menus: DocPopupMenu[];
     focusedMenuIndex: number;
-    focusedMenuRef: MutableRefObject<IDocPopupMenuItem | null>;
-    menuNodeMapRef: MutableRefObject<Map<string, HTMLElement>>;
-    componentManager: ComponentManager;
     onFocusedMenuIndexChange: (index: number) => void;
+    onFocusedMenuChange: (menu: IDocPopupMenuItem | null) => void;
     onSelect: (menu: IDocPopupMenuItem) => void;
 }
 
@@ -52,21 +49,21 @@ export function QuickInsertMenu(props: IQuickInsertMenuProps) {
     const {
         menus,
         focusedMenuIndex,
-        focusedMenuRef,
-        menuNodeMapRef,
-        componentManager,
         onFocusedMenuIndexChange,
+        onFocusedMenuChange,
         onSelect,
     } = props;
 
+    const iconManager = useDependency(IconManager);
     const flatMenus = useMemo(() => flattenMenuItems(menus), [menus]);
+    const menuNodeMapRef = useRef(new Map<string, HTMLElement>());
 
     useEffect(() => {
         const focusedMenu = Number.isNaN(focusedMenuIndex)
             ? null
             : flatMenus[focusedMenuIndex] ?? null;
 
-        focusedMenuRef.current = focusedMenu;
+        onFocusedMenuChange(focusedMenu);
 
         if (!focusedMenu) {
             return;
@@ -75,7 +72,15 @@ export function QuickInsertMenu(props: IQuickInsertMenuProps) {
         menuNodeMapRef.current.get(focusedMenu.id)?.scrollIntoView({
             block: 'nearest',
         });
-    }, [flatMenus, focusedMenuIndex, focusedMenuRef, menuNodeMapRef]);
+    }, [flatMenus, focusedMenuIndex, onFocusedMenuChange]);
+
+    useEffect(() => {
+        const menuNodeMap = menuNodeMapRef.current;
+
+        return () => {
+            menuNodeMap.clear();
+        };
+    }, []);
 
     const itemIndexRef = useRef(0);
     itemIndexRef.current = 0;
@@ -83,7 +88,7 @@ export function QuickInsertMenu(props: IQuickInsertMenuProps) {
     function renderMenus(currentMenus: DocPopupMenu[]) {
         return currentMenus.map((menu, index) => {
             const iconKey = menu.icon;
-            const Icon = iconKey ? componentManager.get(iconKey) : null;
+            const Icon = iconKey ? iconManager.get(iconKey) : null;
 
             if (isMenuGroup(menu)) {
                 return (

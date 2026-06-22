@@ -30,17 +30,25 @@ import { borderBottomClassName, borderRightClassName, clsx } from '@univerjs/des
 import { IEditorService } from '@univerjs/docs-ui';
 import { DeviceInputEventType } from '@univerjs/engine-render';
 import { CheckMarkIcon, CloseIcon, DropdownIcon, FxIcon } from '@univerjs/icons';
+import { UnitAction } from '@univerjs/protocol';
 import {
     RangeProtectionCache,
     RangeProtectionRuleModel,
     SheetsSelectionsService,
-    UnitAction,
     WorkbookEditablePermission,
     WorksheetEditPermission,
     WorksheetProtectionRuleModel,
     WorksheetViewPermission,
 } from '@univerjs/sheets';
-import { ComponentContainer, ComponentManager, KeyCode, useComponentsOfPart, useConfigValue, useDependency, useObservable } from '@univerjs/ui';
+import {
+    ComponentContainer,
+    ComponentManager,
+    KeyCode,
+    useComponentsOfPart,
+    useConfigValue,
+    useDependency,
+    useObservable,
+} from '@univerjs/ui';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { EMPTY, merge, of, switchMap } from 'rxjs';
 import { SetCellEditVisibleOperation } from '../../commands/operations/cell-edit.operation';
@@ -82,9 +90,8 @@ export function FormulaBar(props: IProps) {
     const [imageDisable, setImageDisable] = useState<boolean>(false);
     const componentManager = useDependency(ComponentManager);
     const workbook = useObservable(() => univerInstanceService.getCurrentTypeOfUnit$<Workbook>(UniverInstanceType.UNIVER_SHEET), undefined, undefined, [])!;
-    const isRefSelecting = useRef<0 | 1 | 2>(0);
     const editState = useObservable(editorBridgeService.currentEditCellState$);
-    const keyCodeConfig = useKeyEventConfig(isRefSelecting, editState?.unitId);
+    const keyCodeConfig = useKeyEventConfig(editState?.unitId);
     const FormulaEditor = componentManager.get(EMBEDDING_FORMULA_EDITOR_COMPONENT_KEY);
     const formulaAuxUIParts = useComponentsOfPart(SheetsUIPart.FORMULA_AUX);
     const contextService = useDependency(IContextService);
@@ -298,7 +305,7 @@ export function FormulaBar(props: IProps) {
             data-u-comp="formula-bar"
             className={clsx(`
               univer-box-border univer-flex univer-bg-white univer-transition-[height] univer-ease-linear
-              dark:!univer-bg-gray-900
+              dark:!univer-bg-gray-800
             `, borderBottomClassName, className, {
                 'univer-h-7': arrowDirection === ArrowDirection.Down,
                 'univer-h-20': arrowDirection === ArrowDirection.Up,
@@ -360,17 +367,18 @@ export function FormulaBar(props: IProps) {
                 <div className="univer-flex univer-w-full univer-flex-1 univer-overflow-hidden univer-pl-3">
                     <div
                         ref={ref}
-                        className="univer-relative univer-flex-1"
+                        className="
+                          univer-relative univer-flex-1 univer-bg-white
+                          dark:!univer-bg-gray-800
+                        "
                         onPointerDown={handlePointerDown}
                         onPointerUp={handlePointerUp}
                         style={{ pointerEvents: hideEditor ? 'none' : 'auto' }}
                     >
                         {FormulaEditor && (
                             <FormulaEditor
-                                className={`
-                                  univer-relative univer-size-full univer-break-words univer-outline-none
-                                  [&>div]:univer-ring-transparent
-                                `}
+                                className="univer-relative univer-size-full univer-break-words univer-outline-none"
+                                borderless
                                 disableSelectionOnClick
                                 editorId={DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY}
                                 initValue=""
@@ -383,7 +391,6 @@ export function FormulaBar(props: IProps) {
                                 isSingle={false}
                                 keyboardEventConfig={keyCodeConfig}
                                 onFormulaSelectingChange={(isSelecting: 0 | 1 | 2, isFocusing: boolean) => {
-                                    isRefSelecting.current = isSelecting;
                                     if (!isFocusing) return;
                                     if (isSelecting) {
                                         editorBridgeService.enableForceKeepVisible();
@@ -395,13 +402,13 @@ export function FormulaBar(props: IProps) {
                                 disableContextMenu={false}
                             />
                         )}
-                        {/* When the editor is hidden, we just cover a div on the editor because re-instantiate
-                        the formula editor will be expensive. */}
+                        {/* Cover the hidden editor instead of re-instantiating the formula editor. */}
                         {hideEditor && (
                             <div
                                 className={`
                                   univer-pointer-events-none univer-relative univer-left-0 univer-top-0 univer-z-[100]
                                   univer-size-full univer-cursor-not-allowed univer-bg-white
+                                  dark:!univer-bg-gray-800
                                 `}
                             />
                         )}

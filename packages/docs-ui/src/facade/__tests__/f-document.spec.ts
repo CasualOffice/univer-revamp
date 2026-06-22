@@ -14,100 +14,83 @@
  * limitations under the License.
  */
 
-import type { DocumentDataModel, ICommandService, IDocumentData } from '@univerjs/core';
-import { InsertCommand } from '@univerjs/docs-ui';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FDocument } from '../f-document';
+import type { IDocumentData, UnitModel } from '@univerjs/core';
+import {
+    DisposableCollection,
+    DOC_RANGE_TYPE,
+    ILogService,
+    IUniverInstanceService,
+    LogLevel,
+    Univer,
+    UniverInstanceType,
+} from '@univerjs/core';
+import { FUniver } from '@univerjs/core/facade';
+import { UniverDocsPlugin } from '@univerjs/docs';
+import { IRenderManagerService, RenderManagerService } from '@univerjs/engine-render';
+import { BehaviorSubject } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import '@univerjs/docs/facade';
+import '@univerjs/docs-ui/facade';
 
-describe('Test FDocument', () => {
-    let commandService: Pick<ICommandService, 'executeCommand'>;
-    let resourceManagerService: { getResourcesByType: ReturnType<typeof vi.fn> };
-    let univerInstanceService: { focusUnit: ReturnType<typeof vi.fn> };
-    let renderManagerService: { getRenderById: ReturnType<typeof vi.fn> };
-    let documentDataModel: Pick<DocumentDataModel, 'getUnitId' | 'getSnapshot'>;
-    let document: FDocument;
+describe('docs-ui document facade', () => {
+    let univer: Univer;
+    let univerAPI: FUniver;
+    let removeAllRanges: ReturnType<typeof vi.fn>;
+    let addDocRanges: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
-        commandService = {
-            executeCommand: vi.fn().mockResolvedValue(true),
-        };
-        resourceManagerService = {
-            getResourcesByType: vi.fn(() => []),
-        };
-        univerInstanceService = {
-            focusUnit: vi.fn(),
-        };
-        renderManagerService = {
-            getRenderById: vi.fn(),
-        };
-        documentDataModel = {
-            getUnitId: () => 'test',
-            getSnapshot: () => ({
-                id: 'test',
-                title: 'Test Document',
-                documentStyle: {},
-                body: {
-                    dataStream: 'Hello,\r\n',
-                },
-            }),
-        };
-        document = new FDocument(
-            documentDataModel as DocumentDataModel,
-            {} as never,
-            univerInstanceService as never,
-            commandService as ICommandService,
-            resourceManagerService as never,
-            renderManagerService as never
-        );
-    });
+        univer = new Univer();
+        const injector = univer.__getInjector();
+        injector.add([IRenderManagerService, { useClass: RenderManagerService }]);
+        injector.get(ILogService).setLogLevel(LogLevel.SILENT);
+        univer.registerPlugin(UniverDocsPlugin);
 
-    it('appends text by executing the insert command at the tail of the body', async () => {
-        await expect(document.appendText('Univer')).resolves.toBe(true);
-
-        expect(commandService.executeCommand).toHaveBeenCalledWith(InsertCommand.id, {
-            unitId: 'test',
+        const doc = univer.createUnit<IDocumentData, UnitModel<IDocumentData>>(UniverInstanceType.UNIVER_DOC, {
+            id: 'doc-1',
             body: {
-                dataStream: 'Univer',
+                dataStream: 'Hello Univer\r\n',
+                paragraphs: [{ startIndex: 12, paragraphId: 'paragraph-1' }],
             },
-            range: {
-                startOffset: 6,
-                endOffset: 6,
-                collapsed: true,
-                segmentId: '',
-            },
-            segmentId: '',
         });
+
+        removeAllRanges = vi.fn();
+        addDocRanges = vi.fn();
+        injector.get(IUniverInstanceService).focusUnit(doc.getUnitId());
+        injector.get(IRenderManagerService).addRender(doc.getUnitId(), {
+            unitId: doc.getUnitId(),
+            type: UniverInstanceType.UNIVER_DOC,
+            engine: new DisposableCollection() as never,
+            scene: new DisposableCollection() as never,
+            mainComponent: null,
+            components: new Map(),
+            isMainScene: true,
+            activated$: new BehaviorSubject(true),
+            with: <T>() => ({
+                removeAllRanges,
+                addDocRanges,
+            }) as T,
+            activate: () => undefined,
+            deactivate: () => undefined,
+            isDisposed: () => false,
+        });
+
+        univerAPI = FUniver.newAPI(injector);
     });
 
-    it('throws when appending text to a document without a body', () => {
-        const emptyDocument = new FDocument(
-            {
-                getUnitId: () => 'test',
-                getSnapshot: () => ({ id: 'test' } as IDocumentData),
-            } as DocumentDataModel,
-            {} as never,
-            univerInstanceService as never,
-            commandService as ICommandService,
-            resourceManagerService as never,
-            renderManagerService as never
-        );
-
-        expect(() => emptyDocument.appendText('Univer')).toThrowError('The document body is empty');
+    afterEach(() => {
+        univer.dispose();
     });
 
-    it('includes current document resources in snapshots', () => {
-        resourceManagerService.getResourcesByType.mockReturnValue([
-            {
-                name: 'test-resource',
-                data: '{"value":1}',
-            },
-        ]);
+    it('replaces the rendered text selection with the requested document offsets', () => {
+        univerAPI.getActiveDocument()!.setSelection(2, 7);
 
-        expect(document.getSnapshot().resources).toEqual([
+        expect(removeAllRanges).toHaveBeenCalledOnce();
+        expect(addDocRanges).toHaveBeenCalledWith([
             {
-                name: 'test-resource',
-                data: '{"value":1}',
+                startOffset: 2,
+                endOffset: 7,
+                rangeType: DOC_RANGE_TYPE.TEXT,
             },
-        ]);
+        ], true);
     });
 });

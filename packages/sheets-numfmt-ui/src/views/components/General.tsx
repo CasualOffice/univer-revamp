@@ -18,15 +18,17 @@ import type { FC } from 'react';
 import type { IBusinessComponentProps } from './interface';
 import { LocaleService } from '@univerjs/core';
 import { useDependency } from '@univerjs/ui';
+import { useLayoutEffect } from 'react';
 
 export const isGeneralPanel = (pattern: string) => !pattern;
 
 export const GeneralPanel: FC<IBusinessComponentProps> = (props) => {
     const localeService = useDependency(LocaleService);
-    const t = localeService.t;
+    const { onActionChange } = props;
 
-    // FIXME: WTF
-    props.action.current = () => '';
+    useLayoutEffect(() => {
+        onActionChange(() => '');
+    }, [onActionChange]);
 
     return (
         <div>
@@ -36,7 +38,7 @@ export const GeneralPanel: FC<IBusinessComponentProps> = (props) => {
                   dark:!univer-text-gray-200
                 `}
             >
-                {t('sheet.numfmt.generalDes')}
+                {localeService.t('sheets-numfmt-ui.generalDes')}
             </div>
         </div>
     );

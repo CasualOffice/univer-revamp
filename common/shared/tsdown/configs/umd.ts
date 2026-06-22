@@ -1,25 +1,10 @@
-/**
- * Copyright 2023-present DreamNum Co., Ltd.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import type { UserConfig } from 'tsdown';
-import type { IEntryConfig } from '../types';
+import type { IEntryConfig } from '../types.ts';
 import { defineConfig } from 'tsdown';
-import { peerDepsMap } from '../data/peer-deps';
-import { createOutputAliasPlugin } from '../plugins/output-alias';
-import { createOutputObfuscatorPlugin } from '../plugins/output-obfuscator';
+import { peerDepsMap } from '../data/peer-deps.ts';
+import { createCssNoopInputOptions } from '../plugins/css-noop.ts';
+import { createOutputAliasPlugin } from '../plugins/output-alias.ts';
+import { createOutputObfuscatorPlugin } from '../plugins/output-obfuscator.ts';
 
 export interface ICreateUmdConfigOptions {
     baseConfig: Partial<UserConfig>;
@@ -35,6 +20,7 @@ export interface ICreateUmdConfigOptions {
 const UMD_GLOBALS: Record<string, string> = Object.fromEntries(
     Object.entries(peerDepsMap).map(([source, value]) => [source, value.global])
 );
+const CSS_UMD_GLOBAL = 'UniverCssNoop';
 
 function convertLibNameFromPackageName(name: string) {
     return name
@@ -51,6 +37,10 @@ function convertLibNameFromPackageName(name: string) {
  * Maps externals to their browser globals in UMD builds.
  */
 function resolveUmdGlobal(source: string) {
+    if (source.endsWith('.css')) {
+        return null;
+    }
+
     if (source in UMD_GLOBALS) {
         return UMD_GLOBALS[source];
     }
@@ -60,10 +50,30 @@ function resolveUmdGlobal(source: string) {
             return null;
         }
 
+        const localeMatch = source.match(/^(@univerjs(?:-pro)?\/[^/]+)\/(?:locale|locales)\/([^/]+)$/);
+
+        if (localeMatch) {
+            return `${convertLibNameFromPackageName(localeMatch[1])}${convertLibNameFromPackageName(localeMatch[2])}`;
+        }
+
         return convertLibNameFromPackageName(source);
     }
 
     return null;
+}
+
+function resolveOutputGlobal(source: string) {
+    const global = resolveUmdGlobal(source);
+
+    if (global !== null) {
+        return global;
+    }
+
+    if (source.endsWith('.css')) {
+        return CSS_UMD_GLOBAL;
+    }
+
+    return convertLibNameFromPackageName(source);
 }
 
 /**
@@ -76,7 +86,7 @@ function getGlobalName(packageName: string, entryKey: string) {
         return `${name}Facade`;
     }
 
-    if (entryKey.startsWith('locale/')) {
+    if (entryKey.startsWith('locale/') || entryKey.startsWith('locales/')) {
         const localeKey = entryKey.split('/')[1];
         return `${name}${convertLibNameFromPackageName(localeKey)}`;
     }
@@ -101,10 +111,11 @@ export function createUmdConfig(options: ICreateUmdConfigOptions): UserConfig {
         entry: { [entry.key]: entry.path },
         format: 'umd',
         globalName: getGlobalName(packageName, entry.key),
+        inputOptions: createCssNoopInputOptions(baseConfig.inputOptions),
         outDir,
         outputOptions: {
             entryFileNames: '[name].js',
-            globals: (source: string) => resolveUmdGlobal(source) ?? convertLibNameFromPackageName(source),
+            globals: (source: string) => resolveOutputGlobal(source),
             minify: true,
         },
         platform: 'browser',

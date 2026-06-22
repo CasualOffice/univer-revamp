@@ -19,6 +19,14 @@ import type { ISheetNote } from '@univerjs/sheets-note';
 import { RemoveNoteMutation, SheetsNoteModel, UpdateNoteMutation } from '@univerjs/sheets-note';
 import { FRange } from '@univerjs/sheets/facade';
 
+export interface ICreateOrUpdateNoteOptions {
+    id?: string;
+    width: number;
+    height: number;
+    note: string;
+    show?: boolean;
+}
+
 /**
  * @ignore
  */
@@ -29,7 +37,8 @@ export interface IFRangeSheetsNoteMixin {
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const fRange = fWorksheet.getRange('A1:D10');
      * const note = fRange.getNote();
      * console.log(note);
@@ -38,12 +47,13 @@ export interface IFRangeSheetsNoteMixin {
     getNote(): Nullable<ISheetNote>;
     /**
      * Create or update the annotation of the top-left cell in the range
-     * @param {ISheetNote} note The annotation to create or update
+     * @param {ICreateOrUpdateNoteOptions} note The annotation to create or update
      * @returns {FRange} This range for method chaining
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const fRange = fWorksheet.getRange('A1');
      * fRange.createOrUpdateNote({
      *   note: 'This is a note',
@@ -53,14 +63,15 @@ export interface IFRangeSheetsNoteMixin {
      * });
      * ```
      */
-    createOrUpdateNote(note: ISheetNote): FRange;
+    createOrUpdateNote(note: ICreateOrUpdateNoteOptions): FRange;
     /**
      * Delete the annotation of the top-left cell in the range
      * @returns {FRange} This range for method chaining
      * @example
      * ```ts
      * const fWorkbook = univerAPI.getActiveWorkbook();
-     * const fWorksheet = fWorkbook.getActiveSheet();
+     * const fWorksheet = fWorkbook.getSheetByName('Sheet1');
+     * if (!fWorksheet) return;
      * const notes = fWorksheet.getNotes();
      * console.log(notes);
      *
@@ -75,7 +86,7 @@ export interface IFRangeSheetsNoteMixin {
 }
 
 export class FRangeSheetsNoteMixin extends FRange implements IFRangeSheetsNoteMixin {
-    override createOrUpdateNote(note: ISheetNote): FRange {
+    override createOrUpdateNote(note: ICreateOrUpdateNoteOptions): FRange {
         this._commandService.syncExecuteCommand(
             UpdateNoteMutation.id,
             {

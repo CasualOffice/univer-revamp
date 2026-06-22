@@ -20,6 +20,7 @@ import { BooleanNumber, HorizontalAlign, TextDecoration, TextDirection } from '.
 import { DocumentDataModel } from '../document-data-model';
 import { JSONX } from '../json-x/json-x';
 import { ParagraphStyleBuilder, RichTextBuilder, TextDecorationBuilder, TextStyleBuilder } from '../rich-text-builder';
+import { DataStreamTreeTokenType } from '../types';
 
 function createDocSnapshot(id = 'doc-main'): IDocumentData {
     return {
@@ -34,7 +35,7 @@ function createDocSnapshot(id = 'doc-main'): IDocumentData {
         },
         body: {
             dataStream: 'Hello World\r\n',
-            paragraphs: [{ startIndex: 0 }],
+            paragraphs: [{ startIndex: 0, paragraphId: 'para_fixture_1' }],
             textRuns: [{ st: 0, ed: 5, ts: { ff: 'Arial', fs: 12 } }],
             customRanges: [],
             customDecorations: [],
@@ -44,7 +45,7 @@ function createDocSnapshot(id = 'doc-main'): IDocumentData {
                 headerId: 'header1',
                 body: {
                     dataStream: 'Header\r\n',
-                    paragraphs: [{ startIndex: 0 }],
+                    paragraphs: [{ startIndex: 0, paragraphId: 'para_fixture_2' }],
                     textRuns: [],
                 },
             },
@@ -54,7 +55,7 @@ function createDocSnapshot(id = 'doc-main'): IDocumentData {
                 footerId: 'footer1',
                 body: {
                     dataStream: 'Footer\r\n',
-                    paragraphs: [{ startIndex: 0 }],
+                    paragraphs: [{ startIndex: 0, paragraphId: 'para_fixture_3' }],
                     textRuns: [],
                 },
             },
@@ -74,6 +75,42 @@ function createDocSnapshot(id = 'doc-main'): IDocumentData {
 }
 
 describe('DocumentDataModel + RichTextBuilder integration', () => {
+    it('should hydrate missing default fields for partial document snapshots', () => {
+        const model = new DocumentDataModel({ id: 'partial-doc', title: 'Partial Doc' });
+
+        expect(model.getUnitId()).toBe('partial-doc');
+        expect(model.getTitle()).toBe('Partial Doc');
+        expect(model.getBody()?.dataStream).toBe('\r\n');
+        expect(model.getSnapshot().headers).toEqual({});
+        expect(model.getSnapshot().footers).toEqual({});
+        expect(model.getDrawings()).toEqual({});
+        expect(model.getDrawingsOrder()).toEqual([]);
+        expect(model.getSettings()).toEqual({});
+        expect(model.getSnapshot().tableSource).toEqual({});
+        expect(model.getDocumentStyle().pageSize).toBeDefined();
+        expect(() => model.updateDocumentDataMargin({ t: 10 })).not.toThrow();
+        expect(model.getDocumentStyle().marginTop).toBe(10);
+
+        model.dispose();
+    });
+
+    it('should hydrate missing default fields when resetting with a partial snapshot', () => {
+        const model = new DocumentDataModel(createDocSnapshot('reset-partial-doc'));
+
+        model.reset({ id: 'reset-partial-doc', title: 'Reset Partial Doc' });
+
+        expect(model.getTitle()).toBe('Reset Partial Doc');
+        expect(model.getBody()?.dataStream).toBe('\r\n');
+        expect(model.getSnapshot().headers).toEqual({});
+        expect(model.getSnapshot().footers).toEqual({});
+        expect(model.getDrawings()).toEqual({});
+        expect(model.getDrawingsOrder()).toEqual([]);
+        expect(model.getSettings()).toEqual({});
+        expect(model.getSnapshot().tableSource).toEqual({});
+
+        model.dispose();
+    });
+
     it('should perform typical editing operations and reflect them in the document snapshot', () => {
         const model = new DocumentDataModel(createDocSnapshot());
         expect(model.getUnitId()).toBe('doc-main');
@@ -149,6 +186,54 @@ describe('DocumentDataModel + RichTextBuilder integration', () => {
         expect(model.getPlainText()).toContain('Hello World');
         expect(model.sliceBody(0, 5)?.dataStream).toContain('Hello');
 
+        const partialParagraphModel = new DocumentDataModel({
+            id: 'partial-paragraph',
+            title: 'Partial Paragraph',
+            documentStyle: {},
+            body: {
+                dataStream: 'First\rSecond\r',
+                paragraphs: [
+                    { startIndex: 5, paragraphId: 'para_fixture_4', paragraphStyle: { horizontalAlign: HorizontalAlign.CENTER } },
+                    { startIndex: 12, paragraphId: 'para_fixture_5', paragraphStyle: { textStyle: { fs: 18 } } },
+                ],
+            },
+        });
+        expect(partialParagraphModel.sliceBody(0, 5)?.paragraphs?.[0]).toMatchObject({
+            startIndex: 5,
+            paragraphStyle: { horizontalAlign: HorizontalAlign.CENTER },
+        });
+        expect(partialParagraphModel.sliceBody(6, 12)?.paragraphs?.[0]).toMatchObject({
+            startIndex: 6,
+            paragraphStyle: { textStyle: { fs: 18 } },
+        });
+        partialParagraphModel.dispose();
+
+        const tableStream = [
+            DataStreamTreeTokenType.TABLE_START,
+            DataStreamTreeTokenType.TABLE_ROW_START,
+            DataStreamTreeTokenType.TABLE_CELL_START,
+            'Cell\r\n',
+            DataStreamTreeTokenType.TABLE_CELL_END,
+            DataStreamTreeTokenType.TABLE_ROW_END,
+            DataStreamTreeTokenType.TABLE_END,
+        ].join('');
+        const partialTableModel = new DocumentDataModel({
+            id: 'partial-table',
+            title: 'Partial Table',
+            documentStyle: {},
+            body: {
+                dataStream: tableStream,
+                tables: [{ startIndex: 0, endIndex: tableStream.length, tableId: 'table-1' }],
+                paragraphs: [{ startIndex: 7, paragraphId: 'para_fixture_6' }],
+            },
+        });
+        expect(partialTableModel.sliceBody(1, tableStream.length - 1)?.tables?.[0]).toMatchObject({
+            startIndex: 0,
+            endIndex: tableStream.length - 2,
+            tableId: 'table-1',
+        });
+        partialTableModel.dispose();
+
         model.resetDrawing({} as any, []);
         expect(model.getDrawingsOrder()).toEqual([]);
         model.dispose();
@@ -162,7 +247,7 @@ describe('DocumentDataModel + RichTextBuilder integration', () => {
 
         expect(model.getCustomRanges()).toEqual([]);
         expect(model.getCustomDecorations()).toEqual([]);
-        expect(model.getSettings()).toBeUndefined();
+        expect(model.getSettings()).toEqual({});
         expect(model.apply(null as never)).toBeUndefined();
         expect(model.change$.getValue()).toBe(initialChangeCount);
 
@@ -175,7 +260,7 @@ describe('DocumentDataModel + RichTextBuilder integration', () => {
                 headerId: 'header2',
                 body: {
                     dataStream: 'Another Header\r\n',
-                    paragraphs: [{ startIndex: 0 }],
+                    paragraphs: [{ startIndex: 0, paragraphId: 'para_fixture_7' }],
                 },
             },
         }) as never);
@@ -190,7 +275,7 @@ describe('DocumentDataModel + RichTextBuilder integration', () => {
             title: 'Reset Title',
             body: {
                 dataStream: 'Reset\r\n',
-                paragraphs: [{ startIndex: 5 }],
+                paragraphs: [{ startIndex: 5, paragraphId: 'para_fixture_8' }],
             },
             documentStyle: {},
         });

@@ -15,8 +15,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Injector } from '../../../common/di';
 import { UniverInstanceType } from '../../../common/unit';
-import { DesktopLogService, LogLevel } from '../../log/log.service';
+import { DesktopLogService, ILogService, LogLevel } from '../../log/log.service';
 import { ResourceManagerService } from '../resource-manager.service';
 
 describe('ResourceManagerService', () => {
@@ -24,9 +25,12 @@ describe('ResourceManagerService', () => {
     let service: ResourceManagerService;
 
     beforeEach(() => {
-        logService = new DesktopLogService();
+        const injector = new Injector();
+        injector.add([ILogService, { useClass: DesktopLogService }]);
+        injector.add([ResourceManagerService]);
+        logService = injector.get(ILogService) as DesktopLogService;
         logService.setLogLevel(LogLevel.SILENT);
-        service = new ResourceManagerService(logService);
+        service = injector.get(ResourceManagerService);
     });
 
     afterEach(() => {
@@ -83,7 +87,7 @@ describe('ResourceManagerService', () => {
             onUnLoad: () => {},
             toJson: () => 'sheet',
             parseJson: JSON.parse,
-        })).toThrowError(/registered/);
+        })).toThrow(/registered/);
 
         disposable.dispose();
         expect(service.getAllResourceHooks()).toHaveLength(0);
@@ -133,5 +137,24 @@ describe('ResourceManagerService', () => {
         expect(loaded).toEqual([{ ok: true }]);
         expect(unloaded).toEqual(['unit-1']);
         expect(errorSpy).toHaveBeenCalled();
+    });
+
+    it('should load array-shaped plugin resources', () => {
+        const loaded: unknown[] = [];
+
+        service.registerPluginResource({
+            pluginName: 'SHEET_TEST_PLUGIN',
+            businesses: [UniverInstanceType.UNIVER_SHEET],
+            onLoad: (_unitId, resource) => loaded.push(resource),
+            onUnLoad: () => {},
+            toJson: () => '{}',
+            parseJson: JSON.parse,
+        });
+
+        service.loadResources('unit-1', [
+            { name: 'SHEET_TEST_PLUGIN', data: '{"ok":true}' },
+        ]);
+
+        expect(loaded).toEqual([{ ok: true }]);
     });
 });

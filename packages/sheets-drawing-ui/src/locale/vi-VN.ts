@@ -17,8 +17,11 @@
 import type enUS from './en-US';
 
 const locale: typeof enUS = {
-    sheetImage: {
+    'sheets-drawing-ui': {
         title: 'Hình ảnh',
+        uploadLoading: {
+            loading: 'Đang tải lên, hiện còn lại',
+        },
 
         upload: {
             float: 'Hình ảnh nổi',
@@ -42,32 +45,45 @@ const locale: typeof enUS = {
             saving: 'Đang lưu...',
             error: 'Lưu hình ảnh ô thất bại',
         },
-    },
-    'image-popup': {
-        replace: 'Thay thế',
-        delete: 'Xóa',
-        edit: 'Chỉnh sửa',
-        crop: 'Cắt',
-        reset: 'Đặt lại kích thước',
-        flipH: 'Lật ngang',
-        flipV: 'Lật dọc',
-    },
-    'drawing-anchor': {
-        title: 'Thuộc tính neo',
-        both: 'Di chuyển và thay đổi kích thước cùng với ô',
-        position: 'Di chuyển nhưng không thay đổi kích thước với ô',
-        none: 'Không di chuyển hoặc thay đổi kích thước với ô',
-    },
-    'update-status': {
-        exceedMaxSize: 'Kích thước hình ảnh vượt quá giới hạn, giới hạn là {0}M',
-        invalidImageType: 'Loại hình ảnh không hợp lệ',
-        exceedMaxCount: 'Chỉ có thể tải lên {0} hình ảnh một lần',
-        invalidImage: 'Hình ảnh không hợp lệ',
-    },
-    'cell-image': {
-        pasteTitle: 'Dán như hình ảnh ô',
-        pasteContent: 'Dán hình ảnh ô sẽ ghi đè lên nội dung hiện có của ô, tiếp tục dán',
-        pasteError: 'Sao chép và dán hình ảnh ô không được hỗ trợ trong đơn vị này',
+        'image-popup': {
+            replace: 'Thay thế',
+            delete: 'Xóa',
+            edit: 'Chỉnh sửa',
+            crop: 'Cắt',
+            reset: 'Đặt lại kích thước',
+            flipH: 'Lật ngang',
+            flipV: 'Lật dọc',
+        },
+        'update-status': {
+            exceedMaxSize: 'Kích thước hình ảnh vượt quá giới hạn, giới hạn là {0}M',
+            invalidImageType: 'Loại hình ảnh không hợp lệ',
+            exceedMaxCount: 'Chỉ có thể tải lên {0} hình ảnh một lần',
+            invalidImage: 'Hình ảnh không hợp lệ',
+        },
+        'drawing-anchor': {
+            title: 'Thuộc tính neo',
+            both: 'Di chuyển và thay đổi kích thước cùng với ô',
+            position: 'Di chuyển nhưng không thay đổi kích thước với ô',
+            none: 'Không di chuyển hoặc thay đổi kích thước với ô',
+        },
+        'cell-image': {
+            pasteTitle: 'Dán như hình ảnh ô',
+            pasteContent: 'Dán hình ảnh ô sẽ ghi đè lên nội dung hiện có của ô, tiếp tục dán',
+            pasteError: 'Sao chép và dán hình ảnh ô không được hỗ trợ trong đơn vị này',
+        },
+        permission: {
+            dialog: {
+                editErr: 'Phạm vi này đã được bảo vệ, hiện không có quyền chỉnh sửa. Nếu cần chỉnh sửa, vui lòng liên hệ với người tạo.',
+            },
+        },
+        shortcut: {
+            'drawing-view': 'Chế độ xem bản vẽ',
+            'drawing-move-down': 'Move Drawing down',
+            'drawing-move-up': 'Move Drawing up',
+            'drawing-move-left': 'Move Drawing left',
+            'drawing-move-right': 'Move Drawing right',
+            'drawing-delete': 'Delete Drawing',
+        },
     },
 };
 

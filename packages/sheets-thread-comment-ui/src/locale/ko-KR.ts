@@ -17,7 +17,10 @@
 import type enUS from './en-US';
 
 const locale: typeof enUS = {
-    sheetThreadComment: {
+    'sheets-thread-comment-ui': {
+        panel: {
+            title: '댓글 관리',
+        },
         menu: {
             addComment: '댓글 추가',
             commentManagement: '댓글 관리',

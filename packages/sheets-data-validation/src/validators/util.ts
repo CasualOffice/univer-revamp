@@ -18,6 +18,7 @@ import type { ICellData, ISheetDataValidationRule, IUnitRangeName, IUniverInstan
 import type { LexerTreeBuilder } from '@univerjs/engine-formula';
 import type { ISheetLocationBase } from '@univerjs/sheets';
 import { isFormulaString, Range, UniverInstanceType } from '@univerjs/core';
+import { deserializeListOptions } from '@univerjs/sheets';
 import { getCellValueOrigin } from '../utils/get-cell-data-origin';
 
 export function getSheetRangeValueSet(grid: IUnitRangeName, univerInstanceService: IUniverInstanceService, currUnitId: string, currSubUnitId: string) {
@@ -47,14 +48,6 @@ export function getSheetRangeValueSet(grid: IUnitRangeName, univerInstanceServic
     });
 
     return Array.from(set);
-}
-
-export function serializeListOptions(options: string[]) {
-    return options.filter(Boolean).join(',');
-}
-
-export function deserializeListOptions(optionsStr: string) {
-    return optionsStr.split(',').filter(Boolean);
 }
 
 export function getDataValidationCellValue(cellData: Nullable<ICellData>) {

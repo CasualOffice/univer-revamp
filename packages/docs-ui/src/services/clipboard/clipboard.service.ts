@@ -37,7 +37,6 @@ import {
     PositionedObjectLayoutType,
     SliceBodyType,
     toDisposable,
-    Tools,
     UniverInstanceType,
 } from '@univerjs/core';
 import { DocSelectionManagerService } from '@univerjs/docs';
@@ -58,6 +57,16 @@ import { HtmlToUDMService } from './html-to-udm/converter';
 import LarkPastePlugin from './html-to-udm/paste-plugins/plugin-lark';
 import UniverPastePlugin from './html-to-udm/paste-plugins/plugin-univer';
 import WordPastePlugin from './html-to-udm/paste-plugins/plugin-word';
+import {
+    createInternalClipboardDocData,
+    createInternalClipboardDocDataList,
+    createInternalClipboardFragment,
+    DOC_INTERNAL_FRAGMENT_MIME,
+    embedInternalClipboardFragment,
+    extractInternalClipboardFragmentFromHtml,
+    parseInternalClipboardFragment,
+    wrapClipboardHtml,
+} from './internal-fragment';
 import { UDMToHtmlService } from './udm-to-html/convertor';
 
 HtmlToUDMService.use(LarkPastePlugin);
@@ -77,11 +86,28 @@ export interface IDocClipboardService {
     copy(sliceType?: SliceBodyType, ranges?: ITextRangeWithStyle[]): Promise<boolean>;
     cut(ranges?: ITextRangeWithStyle[]): Promise<boolean>;
     paste(items: ClipboardItem[]): Promise<boolean>;
-    legacyPaste(options: { html?: string; text?: string; files: File[] }): Promise<boolean>;
+    legacyPaste(options: { html?: string; text?: string; internalJson?: string; files: File[] }): Promise<boolean>;
     addClipboardHook(hook: IDocClipboardHook): IDisposable;
 }
 
-function getTableSlice(body: IDocumentBody, start: number, end: number): IDocumentBody {
+export function getTableClipboardBodySlice(body: IDocumentBody, range: IRectRangeWithStyle): IDocumentBody {
+    const { startOffset, endOffset, spanEntireTable, tableId } = range;
+
+    if (startOffset == null || endOffset == null) {
+        return { dataStream: '' };
+    }
+
+    if (spanEntireTable) {
+        const tableRange = body.tables?.find((table) => table.tableId === tableId);
+        if (tableRange) {
+            return getBodySlice(body, tableRange.startIndex, tableRange.endIndex, false, SliceBodyType.copy);
+        }
+    }
+
+    return getTableCellContentClipboardBodySlice(body, startOffset, endOffset);
+}
+
+function getTableCellContentClipboardBodySlice(body: IDocumentBody, start: number, end: number): IDocumentBody {
     const bodySlice = getBodySlice(body, start, end + 2); // +2 for '\r\n in last cell'
 
     const dataStream = DataStreamTreeTokenType.TABLE_START +
@@ -162,20 +188,24 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
 
     async legacyPaste(options: {
         html?: string;
+        internalJson?: string;
         text?: string;
         files: File[];
     }): Promise<boolean> {
-        let { html, text, files } = options;
+        let { html, internalJson, text, files } = options;
         const currentDocInstance = this._univerInstanceService.getCurrentUnitOfType(UniverInstanceType.UNIVER_DOC);
         const docUnitId = currentDocInstance?.getUnitId() || '';
         if (!html && !text && files.length) {
             html = await this._createImagePasteHtml(files);
+        } else if (html && files.length) {
+            html += await this._createImagePasteHtml(files);
         }
+        html = await this._uploadBase64ImagesInHtml(html);
         if (!html && !text) {
             this._logService.warn('[DocClipboardController] html and text cannot be both empty!');
             return false;
         }
-        const partDocData = this._genDocDataFromHtmlAndText(html, text, docUnitId);
+        const partDocData = this._genDocDataFromHtmlAndText(html, text, docUnitId, internalJson);
         // Paste in sheet editing mode without paste style, so we give textRuns empty array;
         if (docUnitId === DOCS_NORMAL_EDITOR_UNIT_ID_KEY) {
             if (text) {
@@ -338,41 +368,36 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
                 .replaceAll(DataStreamTreeTokenType.TABLE_ROW_END, '')
                 .replaceAll(DataStreamTreeTokenType.TABLE_CELL_START, '')
                 .replaceAll(DataStreamTreeTokenType.TABLE_CELL_END, '')
+                .replaceAll(DataStreamTreeTokenType.BLOCK_START, '')
+                .replaceAll(DataStreamTreeTokenType.BLOCK_END, '')
                 // Replace `\r\n` in table cell to white space.
-                .replaceAll('\r\n', ' ');
+                .replaceAll('\r\n', ' ')
+                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
 
         let html = this._umdToHtml.convert(documentList);
+        let internalJson = '';
+        let internalDocData: Partial<IDocumentData> | null = null;
 
         // Only cache copy content when the range is 1.
         if (documentList.length === 1 && needCache) {
             html = html.replace(/(<[a-z]+)/, (_p0, p1) => `${p1} data-copy-id="${copyId}"`);
             const doc = documentList[0];
-            const cache: Partial<IDocumentData> = { body: doc.body };
-
-            if (doc.body?.customBlocks?.length) {
-                cache.drawings = {};
-
-                for (const block of doc.body.customBlocks) {
-                    const { blockId } = block;
-                    const drawing = doc.drawings?.[blockId];
-
-                    if (drawing) {
-                        const id = generateRandomId(6);
-
-                        block.blockId = id;
-
-                        cache.drawings[id] = {
-                            ...Tools.deepClone(drawing),
-                            drawingId: id,
-                        };
-                    }
-                }
-            }
+            const cache = createInternalClipboardDocData(doc);
 
             copyContentCache.set(copyId, cache);
+            internalDocData = cache;
+        } else {
+            internalDocData = createInternalClipboardDocDataList(documentList);
         }
 
-        return this._clipboardInterfaceService.write(text, html);
+        if (internalDocData) {
+            internalJson = createInternalClipboardFragment(internalDocData);
+            html = embedInternalClipboardFragment(html, internalJson);
+        }
+
+        html = wrapClipboardHtml(html);
+
+        return this._clipboardInterfaceService.write(text, html, internalJson ? { [DOC_INTERNAL_FRAGMENT_MIME]: internalJson } : undefined);
     }
 
     addClipboardHook(hook: IDocClipboardHook): IDisposable {
@@ -418,14 +443,7 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
             if (rangeType === DOC_RANGE_TYPE.RECT) {
                 needCache = false;
 
-                const { spanEntireRow } = range as IRectRangeWithStyle;
-                let bodySlice: IDocumentBody;
-
-                if (!spanEntireRow) {
-                    bodySlice = getTableSlice(body, startOffset, endOffset);
-                } else {
-                    bodySlice = getTableSlice(body, startOffset, endOffset);
-                }
+                const bodySlice = getTableClipboardBodySlice(body, range as IRectRangeWithStyle);
 
                 results.push(bodySlice);
 
@@ -453,10 +471,15 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
         try {
             let html = '';
             let text = '';
+            let internalJson = '';
             const files: File[] = [];
             for (const clipboardItem of items) {
                 for (const type of clipboardItem.types) {
                     switch (type) {
+                        case DOC_INTERNAL_FRAGMENT_MIME: {
+                            internalJson = await clipboardItem.getType(type).then((blob) => blob && blob.text());
+                            break;
+                        }
                         case PLAIN_TEXT_CLIPBOARD_MIME_TYPE: {
                             text = await clipboardItem.getType(type).then((blob) => blob && blob.text());
                             break;
@@ -480,14 +503,20 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
             if (!html && !text && files.length) {
                 html = await this._createImagePasteHtml(files);
             }
+            html = await this._uploadBase64ImagesInHtml(html) ?? '';
 
-            return this._genDocDataFromHtmlAndText(html, text);
+            return this._genDocDataFromHtmlAndText(html, text, undefined, internalJson);
         } catch (e) {
             return Promise.reject(e);
         }
     }
 
-    private _genDocDataFromHtmlAndText(html?: string, text?: string, _unitId?: string): Partial<IDocumentData> {
+    private _genDocDataFromHtmlAndText(html?: string, text?: string, _unitId?: string, internalJson?: string): Partial<IDocumentData> {
+        const internalDocData = parseInternalClipboardFragment(internalJson) ?? extractInternalClipboardFragmentFromHtml(html);
+        if (internalDocData?.body) {
+            return internalDocData;
+        }
+
         if (!html) {
             if (text) {
                 const body = BuildTextUtils.transform.fromPlainText(text);
@@ -518,6 +547,46 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
             copyContentCache.set(copyId, doc);
         }
         return doc;
+    }
+
+    private async _uploadBase64ImagesInHtml(html?: string): Promise<string | undefined> {
+        if (!html || !html.includes('data:image/')) {
+            return html;
+        }
+
+        const onBeforePasteImage = this._clipboardHooks.find((e) => e.onBeforePasteImage)?.onBeforePasteImage;
+        if (!onBeforePasteImage) {
+            return html;
+        }
+
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const images = Array.from(doc.querySelectorAll<HTMLImageElement>('img[src^="data:image/"]'));
+        if (images.length === 0) {
+            return html;
+        }
+
+        await Promise.all(images.map(async (image, index) => {
+            if (image.dataset.imageSourceType && image.dataset.imageSourceType !== ImageSourceType.BASE64) {
+                return;
+            }
+
+            const file = dataUrlToFile(image.getAttribute('src') || image.src, `pasted_image_${index}`);
+            const uploaded = await onBeforePasteImage(file);
+            if (!uploaded) {
+                return;
+            }
+
+            image.dataset.imageSourceType = uploaded.imageSourceType;
+            if (uploaded.imageSourceType === ImageSourceType.UUID) {
+                image.dataset.source = uploaded.source;
+                image.setAttribute('src', uploaded.source);
+            } else {
+                image.removeAttribute('data-source');
+                image.setAttribute('src', uploaded.source);
+            }
+        }));
+
+        return doc.documentElement.outerHTML;
     }
 
     private async _createImagePasteHtml(files: File[]) {
@@ -595,4 +664,19 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
         const html = this._umdToHtml.convert([doc]);
         return html;
     }
+}
+
+function dataUrlToFile(dataUrl: string, fallbackName: string): File {
+    const match = /^data:([^;,]+)(;base64)?,(.*)$/i.exec(dataUrl);
+    if (!match) {
+        throw new Error('[DocClipboardService] invalid image data url.');
+    }
+
+    const [, mimeType, base64Marker, payload] = match;
+    const bytes = base64Marker
+        ? Uint8Array.from(atob(payload), (char) => char.charCodeAt(0))
+        : new TextEncoder().encode(decodeURIComponent(payload));
+    const extension = mimeType.split('/')[1] || 'png';
+
+    return new File([bytes], `${fallbackName}.${extension}`, { type: mimeType });
 }

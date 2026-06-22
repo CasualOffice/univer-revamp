@@ -25,18 +25,12 @@ import { SortRangeAscCommand, SortRangeAscExtCommand, SortRangeAscExtInCtxMenuCo
 export const SHEETS_SORT_MENU_ID = 'sheet.menu.sheets-sort';
 export const SHEETS_SORT_CTX_MENU_ID = 'sheet.menu.sheets-sort-ctx';
 
-export const SHEETS_SORT_ASC_ICON = 'AscendingIcon';
-export const SHEETS_SORT_ASC_EXT_ICON = 'ExpandAscendingIcon';
-export const SHEETS_SORT_DESC_ICON = 'DescendingIcon';
-export const SHEETS_SORT_DESC_EXT_ICON = 'ExpandDescendingIcon';
-export const SHEETS_SORT_CUSTOM_ICON = 'CustomSortIcon';
-
 export function sortRangeMenuFactory(accessor: IAccessor): IMenuItem {
     return {
         id: SHEETS_SORT_MENU_ID,
         type: MenuItemType.SUBITEMS,
-        icon: SHEETS_SORT_ASC_ICON,
-        tooltip: 'sheets-sort.general.sort',
+        icon: 'AscendingIcon',
+        tooltip: 'sheets-sort-ui.general.sort',
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_SHEET),
         disabled$: getCurrentRangeDisable$(accessor, { workbookTypes: [WorkbookEditablePermission], worksheetTypes: [WorksheetSortPermission, WorksheetEditPermission], rangeTypes: [RangeProtectionPermissionEditPoint] }),
     };
@@ -45,8 +39,8 @@ export function sortRangeMenuFactory(accessor: IAccessor): IMenuItem {
 export function sortRangeAscMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeAscCommand.id,
-        icon: SHEETS_SORT_ASC_ICON,
-        title: 'sheets-sort.general.sort-asc-cur',
+        icon: 'AscendingIcon',
+        title: 'sheets-sort-ui.general.sort-asc-cur',
         type: MenuItemType.BUTTON,
         hidden$: getCurrentExclusiveRangeInterest$(_accessor),
     };
@@ -55,8 +49,8 @@ export function sortRangeAscMenuFactory(_accessor: IAccessor): IMenuItem {
 export function sortRangeAscExtMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeAscExtCommand.id,
-        title: 'sheets-sort.general.sort-asc-ext',
-        icon: SHEETS_SORT_ASC_EXT_ICON,
+        title: 'sheets-sort-ui.general.sort-asc-ext',
+        icon: 'ExpandAscendingIcon',
         type: MenuItemType.BUTTON,
     };
 }
@@ -64,8 +58,8 @@ export function sortRangeAscExtMenuFactory(_accessor: IAccessor): IMenuItem {
 export function sortRangeDescMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeDescCommand.id,
-        title: 'sheets-sort.general.sort-desc-cur',
-        icon: SHEETS_SORT_DESC_ICON,
+        title: 'sheets-sort-ui.general.sort-desc-cur',
+        icon: 'DescendingIcon',
         type: MenuItemType.BUTTON,
     };
 }
@@ -73,8 +67,8 @@ export function sortRangeDescMenuFactory(_accessor: IAccessor): IMenuItem {
 export function sortRangeDescExtMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeDescExtCommand.id,
-        title: 'sheets-sort.general.sort-desc-ext',
-        icon: SHEETS_SORT_DESC_EXT_ICON,
+        title: 'sheets-sort-ui.general.sort-desc-ext',
+        icon: 'ExpandDescendingIcon',
         type: MenuItemType.BUTTON,
     };
 }
@@ -82,18 +76,18 @@ export function sortRangeDescExtMenuFactory(_accessor: IAccessor): IMenuItem {
 export function sortRangeCustomMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeCustomCommand.id,
-        title: 'sheets-sort.general.sort-custom',
+        title: 'sheets-sort-ui.general.sort-custom',
         type: MenuItemType.BUTTON,
-        icon: SHEETS_SORT_CUSTOM_ICON,
+        icon: 'CustomSortIcon',
     };
 }
 
 export function sortRangeCtxMenuFactory(accessor: IAccessor): IMenuItem {
     return {
         id: SHEETS_SORT_CTX_MENU_ID,
-        title: 'sheets-sort.general.sort',
+        title: 'sheets-sort-ui.general.sort',
         type: MenuItemType.SUBITEMS,
-        icon: SHEETS_SORT_ASC_ICON,
+        icon: 'AscendingIcon',
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_SHEET),
         disabled$: getCurrentRangeDisable$(accessor, {
             workbookTypes: [WorkbookEditablePermission],
@@ -106,9 +100,9 @@ export function sortRangeCtxMenuFactory(accessor: IAccessor): IMenuItem {
 export function sortRangeAscCtxMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeAscInCtxMenuCommand.id,
-        title: 'sheets-sort.general.sort-asc-cur',
+        title: 'sheets-sort-ui.general.sort-asc-cur',
         type: MenuItemType.BUTTON,
-        icon: SHEETS_SORT_ASC_ICON,
+        icon: 'AscendingIcon',
         disabled$: getCurrentRangeDisable$(_accessor, { workbookTypes: [WorkbookEditablePermission], worksheetTypes: [WorksheetSortPermission, WorksheetEditPermission], rangeTypes: [RangeProtectionPermissionEditPoint] }),
     };
 }
@@ -116,9 +110,9 @@ export function sortRangeAscCtxMenuFactory(_accessor: IAccessor): IMenuItem {
 export function sortRangeAscExtCtxMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeAscExtInCtxMenuCommand.id,
-        title: 'sheets-sort.general.sort-asc-ext',
+        title: 'sheets-sort-ui.general.sort-asc-ext',
         type: MenuItemType.BUTTON,
-        icon: SHEETS_SORT_ASC_EXT_ICON,
+        icon: 'ExpandAscendingIcon',
         disabled$: getCurrentRangeDisable$(_accessor, { workbookTypes: [WorkbookEditablePermission], worksheetTypes: [WorksheetSortPermission, WorksheetEditPermission], rangeTypes: [RangeProtectionPermissionEditPoint] }),
     };
 }
@@ -126,9 +120,9 @@ export function sortRangeAscExtCtxMenuFactory(_accessor: IAccessor): IMenuItem {
 export function sortRangeDescCtxMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeDescInCtxMenuCommand.id,
-        title: 'sheets-sort.general.sort-desc-cur',
+        title: 'sheets-sort-ui.general.sort-desc-cur',
         type: MenuItemType.BUTTON,
-        icon: SHEETS_SORT_DESC_ICON,
+        icon: 'DescendingIcon',
         disabled$: getCurrentRangeDisable$(_accessor, { workbookTypes: [WorkbookEditablePermission], worksheetTypes: [WorksheetSortPermission, WorksheetEditPermission], rangeTypes: [RangeProtectionPermissionEditPoint] }),
     };
 }
@@ -136,9 +130,9 @@ export function sortRangeDescCtxMenuFactory(_accessor: IAccessor): IMenuItem {
 export function sortRangeDescExtCtxMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeDescExtInCtxMenuCommand.id,
-        title: 'sheets-sort.general.sort-desc-ext',
+        title: 'sheets-sort-ui.general.sort-desc-ext',
         type: MenuItemType.BUTTON,
-        icon: SHEETS_SORT_DESC_EXT_ICON,
+        icon: 'ExpandDescendingIcon',
         disabled$: getCurrentRangeDisable$(_accessor, { workbookTypes: [WorkbookEditablePermission], worksheetTypes: [WorksheetSortPermission, WorksheetEditPermission], rangeTypes: [RangeProtectionPermissionEditPoint] }),
     };
 }
@@ -146,9 +140,9 @@ export function sortRangeDescExtCtxMenuFactory(_accessor: IAccessor): IMenuItem 
 export function sortRangeCustomCtxMenuFactory(_accessor: IAccessor): IMenuItem {
     return {
         id: SortRangeCustomInCtxMenuCommand.id,
-        title: 'sheets-sort.general.sort-custom',
+        title: 'sheets-sort-ui.general.sort-custom',
         type: MenuItemType.BUTTON,
-        icon: SHEETS_SORT_CUSTOM_ICON,
+        icon: 'CustomSortIcon',
         disabled$: getCurrentRangeDisable$(_accessor, { workbookTypes: [WorkbookEditablePermission], worksheetTypes: [WorksheetSortPermission, WorksheetEditPermission], rangeTypes: [RangeProtectionPermissionEditPoint] }),
     };
 }

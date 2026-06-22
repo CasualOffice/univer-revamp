@@ -28,7 +28,8 @@ import {
 import { UniverSheetsSortPlugin } from '@univerjs/sheets-sort';
 import pkg from '../package.json';
 import { defaultPluginConfig, SHEETS_SORT_UI_PLUGIN_CONFIG_KEY } from './config/config';
-import { SheetsSortUIController } from './controllers/sheets-sort-ui.controller';
+import { ComponentsController } from './controllers/components.controller';
+import { SheetsSortUIController } from './controllers/ui.controller';
 import { SheetsSortUIService } from './services/sheets-sort-ui.service';
 
 @DependentOn(UniverSheetsSortPlugin)
@@ -55,6 +56,8 @@ export class UniverSheetsSortUIPlugin extends Plugin {
     }
 
     override onStarting(): void {
+        this._injector.add([ComponentsController]);
+        this._injector.get(ComponentsController);
         ([
             [SheetsSortUIService],
             [SheetsSortUIController],

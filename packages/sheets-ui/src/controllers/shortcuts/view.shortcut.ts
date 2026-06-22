@@ -22,9 +22,10 @@ import { whenSheetEditorFocused } from './utils';
 
 export const ZoomInShortcutItem: IShortcutItem = {
     id: ChangeZoomRatioCommand.id,
-    description: 'shortcut.sheet.zoom-in',
+    description: 'sheets-ui.shortcut.sheet.zoom-in',
     binding: KeyCode.EQUAL | MetaKeys.CTRL_COMMAND,
     group: '3_sheet-view',
+    groupTitle: 'sheets-ui.shortcut.sheet-view',
     preconditions: whenSheetEditorFocused,
     priority: 1,
     staticParameters: {
@@ -38,9 +39,10 @@ export const PreventDefaultZoomInShortcutItem: IShortcutItem = {
 
 export const ZoomOutShortcutItem: IShortcutItem = {
     id: ChangeZoomRatioCommand.id,
-    description: 'shortcut.sheet.zoom-out',
+    description: 'sheets-ui.shortcut.sheet.zoom-out',
     binding: KeyCode.MINUS | MetaKeys.CTRL_COMMAND,
     group: '3_sheet-view',
+    groupTitle: 'sheets-ui.shortcut.sheet-view',
     preconditions: whenSheetEditorFocused,
     priority: 1,
     staticParameters: {
@@ -54,10 +56,11 @@ export const PreventDefaultZoomOutShortcutItem: IShortcutItem = {
 
 export const ResetZoomShortcutItem: IShortcutItem = {
     id: ChangeZoomRatioCommand.id,
-    description: 'shortcut.sheet.reset-zoom',
+    description: 'sheets-ui.shortcut.sheet.reset-zoom',
     binding: KeyCode.Digit0 | MetaKeys.CTRL_COMMAND,
     preconditions: whenSheetEditorFocused,
     group: '3_sheet-view',
+    groupTitle: 'sheets-ui.shortcut.sheet-view',
     priority: 1,
     staticParameters: {
         reset: true,

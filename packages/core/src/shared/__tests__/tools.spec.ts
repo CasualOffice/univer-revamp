@@ -15,7 +15,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createREGEXFromWildChar, generateRandomId, Tools } from '../tools';
+import { createREGEXFromWildChar, Tools } from '../tools';
 
 class CustomProto {
     value = 1;
@@ -100,14 +100,20 @@ describe('Tools extra coverage', () => {
         expect(Tools.clamp(-1, 1, 10)).toBe(1);
     });
 
+    it('should reject prototype pollution keys in deepMerge', () => {
+        const payload = JSON.parse('{"startIndex":0,"__proto__":{"isAdmin":true,"polluted":true}}');
+        expect(({} as any).isAdmin).toBeUndefined();
+
+        Tools.deepMerge({}, payload);
+
+        expect(({} as any).isAdmin).toBeUndefined();
+        expect(({} as any).polluted).toBeUndefined();
+    });
+
     it('should read timing, ids and wildcard regex helpers', () => {
         vi.spyOn(globalThis.performance, 'now').mockReturnValue(123.456);
 
         expect(Tools.now()).toBe(123.456);
-
-        const customId = generateRandomId(6, 'ab');
-        expect(customId).toMatch(/^[ab]{6}$/);
-        expect(generateRandomId(5)).toHaveLength(5);
 
         const regex = createREGEXFromWildChar('file-??-*.ts');
         expect(regex.test('file-ab-index.ts')).toBe(true);

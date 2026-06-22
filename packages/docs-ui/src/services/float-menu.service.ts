@@ -16,10 +16,20 @@
 
 import type { DocumentDataModel, IDisposable, ITextRangeParam, Nullable } from '@univerjs/core';
 import type { INodePosition, IRenderContext, IRenderModule, ITextRangeWithStyle } from '@univerjs/engine-render';
-import { DataStreamTreeTokenType, deepCompare, Disposable, Inject, isInternalEditorID, IUniverInstanceService, toDisposable, UniverInstanceType } from '@univerjs/core';
+import {
+    DataStreamTreeTokenType,
+    deepCompare,
+    Disposable,
+    DocumentBlockRangeType,
+    Inject,
+    isInternalEditorID,
+    IUniverInstanceService,
+    toDisposable,
+    UniverInstanceType,
+} from '@univerjs/core';
 import { DocSelectionManagerService } from '@univerjs/docs';
 import { ComponentManager } from '@univerjs/ui';
-import { FloatToolbar } from '../components/float-toolbar/FloatToolbar';
+import { FloatToolbar } from '../views/float-toolbar/FloatToolbar';
 import { DocCanvasPopManagerService } from './doc-popup-manager.service';
 import { DocSelectionRenderService } from './selection/doc-selection-render.service';
 
@@ -108,6 +118,10 @@ export class DocFloatMenuService extends Disposable implements IRenderModule {
             return;
         }
 
+        if (isRangeInCodeBlock(documentDataModel, range)) {
+            return;
+        }
+
         const token = documentDataModel.getBody()?.dataStream[range.startOffset];
         if (range.endOffset - range.startOffset === 1 && token && SKIP_SYMBOLS.includes(token)) {
             return;
@@ -133,4 +147,13 @@ export class DocFloatMenuService extends Disposable implements IRenderModule {
 
         return toDisposable(() => this._hideFloatMenu());
     }
+}
+
+function isRangeInCodeBlock(documentDataModel: DocumentDataModel, range: ITextRangeParam): boolean {
+    const blockRanges = documentDataModel.getBody()?.blockRanges ?? [];
+
+    return blockRanges.some((blockRange) => (
+        blockRange.blockType === DocumentBlockRangeType.CODE &&
+        Math.max(range.startOffset, blockRange.startIndex) <= Math.min(range.endOffset, blockRange.endIndex)
+    ));
 }

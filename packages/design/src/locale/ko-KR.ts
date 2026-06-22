@@ -42,6 +42,12 @@ const locale: typeof enUS = {
                 '11월',
                 '12월',
             ],
+            ariaLabels: {
+                previousMonth: '이전 달',
+                nextMonth: '다음 달',
+                selectYear: '연도 선택',
+                selectMonth: '월 선택',
+            },
         },
         Select: {
             empty: '없음',
@@ -60,6 +66,7 @@ const locale: typeof enUS = {
             angle: '각도',
             flip: '뒤집기',
             delete: '삭제',
+            transparency: 'Transparency',
         },
     },
 };

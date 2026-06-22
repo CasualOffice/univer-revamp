@@ -23,8 +23,7 @@ import {
     RxDisposable,
     toDisposable,
 } from '@univerjs/core';
-import { SearchIcon } from '@univerjs/icons';
-import { ComponentManager, IDialogService, ILayoutService, IMenuManagerService, IShortcutService } from '@univerjs/ui';
+import { IDialogService, ILayoutService, IMenuManagerService, IShortcutService } from '@univerjs/ui';
 import { takeUntil } from 'rxjs';
 import { ReplaceAllMatchesCommand, ReplaceCurrentMatchCommand } from '../commands/commands/replace.command';
 import {
@@ -36,7 +35,6 @@ import {
 } from '../commands/operations/find-replace.operation';
 import { menuSchema } from '../menu/schema';
 import { IFindReplaceService } from '../services/find-replace.service';
-import { FindReplaceDialog } from '../views/dialog/FindReplaceDialog';
 import {
     FocusSelectionShortcutItem,
     GoToNextFindMatchShortcutItem,
@@ -61,8 +59,7 @@ export class FindReplaceController extends RxDisposable {
         @IFindReplaceService private readonly _findReplaceService: IFindReplaceService,
         @IDialogService private readonly _dialogService: IDialogService,
         @ILayoutService private readonly _layoutService: ILayoutService,
-        @Inject(LocaleService) private readonly _localeService: LocaleService,
-        @Inject(ComponentManager) private readonly _componentManager: ComponentManager
+        @Inject(LocaleService) private readonly _localeService: LocaleService
     ) {
         super();
 
@@ -104,15 +101,6 @@ export class FindReplaceController extends RxDisposable {
     }
 
     private _initUI(): void {
-        ([
-            ['FindReplaceDialog', FindReplaceDialog],
-            ['SearchIcon', SearchIcon],
-        ] as const).forEach(([key, comp]) => {
-            this.disposeWithMe(
-                this._componentManager.register(key, comp)
-            );
-        });
-
         this._menuManagerService.mergeMenu(menuSchema);
 
         // this controller is also responsible for toggling the FindReplaceDialog

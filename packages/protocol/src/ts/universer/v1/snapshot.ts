@@ -59,6 +59,24 @@ interface IGetUnitMetaResponse {
     updateTime: string;
 }
 
+export interface IMGetUnitMetaRequest {
+    unitIds: string[];
+}
+
+export interface IMGetUnitMetaResponse {
+    error: IError | undefined;
+    metas: { [key: string]: IUnitMeta };
+}
+
+export interface IUnitMeta {
+    unitId: string;
+    name: string;
+    creator: string;
+    type: UniverType;
+    createTime: string;
+    updateTime: string;
+}
+
 interface IGetSheetTableInfoRequest {
     unitID: string;
     type: UniverType;
@@ -93,6 +111,7 @@ export interface IForkUnitResponse {
 
 export interface ICopyFileMetaRequest {
     fileMetaId: string;
+    assign: string;
 }
 
 export interface ICopyFileMetaResponse {
@@ -206,6 +225,16 @@ export interface IFetchMissingChangesetsResponse {
     latestRevision?: number | undefined;
 }
 
+export interface IMGetChangesetsByRevisionRequest {
+    unitId: string;
+    revisions: number[];
+}
+
+export interface IMGetChangesetsByRevisionResponse {
+    error: IError | undefined;
+    changesets: IChangeset[];
+}
+
 export interface ISaveSnapshotRequest {
     unitID: string;
     type: UniverType;
@@ -305,11 +334,21 @@ interface IListUnitsResponse {
     nextCursor: string;
 }
 
-interface IDeleteUnitsRequest {
+export interface IDeleteUnitsRequest {
+    unitIds: string[];
+    /** if true, delete the unit permanently, otherwise just mark as deleted */
+    hardDelete: boolean;
+}
+
+export interface IDeleteUnitsResponse {
+    error: IError | undefined;
+}
+
+export interface IRecoverUnitsRequest {
     unitIds: string[];
 }
 
-interface IDeleteUnitsResponse {
+export interface IRecoverUnitsResponse {
     error: IError | undefined;
 }
 
@@ -340,6 +379,7 @@ export interface ISnapshotService {
     UpdateUnit(request: IUpdateUnitRequest, metadata?: Metadata): Observable<IUpdateUnitResponse>;
     ListUnits(request: IListUnitsRequest, metadata?: Metadata): Observable<IListUnitsResponse>;
     DeleteUnits(request: IDeleteUnitsRequest, metadata?: Metadata): Observable<IDeleteUnitsResponse>;
+    RecoverUnits(request: IRecoverUnitsRequest, metadata?: Metadata): Observable<IRecoverUnitsResponse>;
     SaveChangeset(request: ISaveChangesetRequest, metadata?: Metadata): Observable<ISaveChangesetResponse>;
     GetLatestCsReqIdBySid(
         request: IGetLatestCsReqIdBySidRequest,
@@ -385,4 +425,12 @@ export interface ISnapshotService {
         request: IReportUnitRoutingStatsRequest,
         metadata?: Metadata,
     ): Observable<IReportUnitRoutingStatsResponse>;
+    MGetChangesetsByRevision(
+        request: IMGetChangesetsByRevisionRequest,
+        metadata?: Metadata,
+    ): Observable<IMGetChangesetsByRevisionResponse>;
+    MGetUnitMeta(
+        request: IMGetUnitMetaRequest,
+        metadata?: Metadata,
+    ): Observable<IMGetUnitMetaResponse>;
 }

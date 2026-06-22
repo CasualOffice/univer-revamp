@@ -42,6 +42,12 @@ const locale: typeof enUS = {
                 'Novembre',
                 'Décembre',
             ],
+            ariaLabels: {
+                previousMonth: 'Mois précédent',
+                nextMonth: 'Mois suivant',
+                selectYear: 'Sélectionner l\'année',
+                selectMonth: 'Sélectionner le mois',
+            },
         },
         Select: {
             empty: 'Aucun',
@@ -60,6 +66,7 @@ const locale: typeof enUS = {
             angle: 'Angle',
             flip: 'Retourner',
             delete: 'Supprimer',
+            transparency: 'Transparency',
         },
     },
 };
