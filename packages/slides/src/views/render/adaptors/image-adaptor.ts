@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,6 +20,7 @@ import type { IPageElement } from '../../../types/interfaces/i-slide-data';
 import { Image } from '@univerjs/engine-render';
 import { PageElementType } from '../../../types/interfaces/i-slide-data';
 import { CanvasObjectProviderRegistry, ObjectAdaptor } from '../adaptor';
+import { buildImageAdjustments } from './image-style';
 
 export class ImageAdaptor extends ObjectAdaptor {
     override zIndex = 1;
@@ -55,6 +57,10 @@ export class ImageAdaptor extends ObjectAdaptor {
 
         const contentUrl = imageProperties?.contentUrl || '';
 
+        // brightness/contrast → canvas filter, transparency → opacity.
+        // (Crop via srcRect is not wired yet — see issue #11 follow-up.)
+        const { opacity, filter } = buildImageAdjustments(imageProperties);
+
         return new Image(id, {
             url: contentUrl,
             top,
@@ -70,6 +76,8 @@ export class ImageAdaptor extends ObjectAdaptor {
             flipX,
             flipY,
             forceRender: true,
+            ...(opacity !== undefined ? { opacity } : {}),
+            ...(filter ? { filter } : {}),
         });
     }
 }

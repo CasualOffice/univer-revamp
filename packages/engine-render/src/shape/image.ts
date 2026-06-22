@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -65,6 +66,13 @@ export interface IImageProps extends IShapeProps {
 
     opacity?: number;
 
+    /**
+     * Canvas filter string applied while drawing (e.g. brightness/contrast
+     * picture adjustments). Set as `ctx.filter` before draw and reset by the
+     * surrounding save/restore.
+     */
+    filter?: string;
+
     clipBounds?: Nullable<IShapeClipBounds>;
 }
 
@@ -126,6 +134,10 @@ export class Image extends Shape<IImageProps> {
 
     get opacity() {
         return this._props.opacity ?? 1;
+    }
+
+    get filter() {
+        return this._props.filter;
     }
 
     get clipBounds() {
@@ -370,6 +382,9 @@ export class Image extends Shape<IImageProps> {
         mainCtx.transform(m[0], m[1], m[2], m[3], centerX, centerY);
         if (this.opacity !== 1) {
             mainCtx.globalAlpha = this.opacity;
+        }
+        if (this.filter) {
+            mainCtx.filter = this.filter;
         }
         this._draw(mainCtx, undefined, realWidth, realHeight);
         mainCtx.restore();
