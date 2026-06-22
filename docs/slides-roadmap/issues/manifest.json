@@ -1,0 +1,206 @@
+{
+  "labels": [
+    { "name": "area:slides", "color": "1d76db", "description": "Univer slides / presentation editor" },
+    { "name": "fidelity:visual", "color": "5319e7", "description": "What the user sees: shapes, fills, effects, masters" },
+    { "name": "fidelity:editable", "color": "0e8a16", "description": "What the user can change: editing UX" },
+    { "name": "fidelity:tags", "color": "fbca04", "description": "Semantic structure: placeholders, a11y, links, metadata" },
+    { "name": "fidelity:roundtrip", "color": "b60205", "description": "Lossless import/export: PPTX, ODP, PDF" },
+    { "name": "fidelity:collab", "color": "006b75", "description": "Real-time multi-user (Yjs + Hocuspocus)" },
+    { "name": "phase:0", "color": "c5def5", "description": "Foundation" },
+    { "name": "phase:1", "color": "c5def5", "description": "Editing core + visual base" },
+    { "name": "phase:2", "color": "c5def5", "description": "Round-trip" },
+    { "name": "phase:3", "color": "c5def5", "description": "Collaboration + self-host" },
+    { "name": "phase:4", "color": "c5def5", "description": "Advanced fidelity" }
+  ],
+  "milestones": [
+    { "title": "Phase 0 — Foundation", "description": "Make every edit a real, collab-ready, undoable mutation." },
+    { "title": "Phase 1 — Editing core + visual base", "description": "Feels like a real editor: multi-select, copy/paste, group, align, rich text, shape styling, full shape geometry." },
+    { "title": "Phase 2 — Round-trip", "description": "Lossless PPTX import/export, ODP, PDF export, and the data-model extensions they require." },
+    { "title": "Phase 3 — Collaboration + self-host", "description": "Yjs CRDT over a self-hosted Hocuspocus server: presence, comments, persistence." },
+    { "title": "Phase 4 — Advanced fidelity", "description": "Animations/transitions, charts, SmartArt, media, accessibility." }
+  ],
+  "issues": [
+    {
+      "slug": "p0-mutation-coverage-audit",
+      "title": "[slides][p0] Close edit paths that bypass the mutation layer",
+      "milestone": "Phase 0 — Foundation",
+      "labels": ["area:slides", "fidelity:editable", "fidelity:collab", "phase:0"],
+      "body": "## Pillar\nEditable / Collab foundation.\n\n## Problem\nThe `slide/element-mutations` branch routed insert/update/delete element and page edits through `CommandType.MUTATION`, which is the precondition for undo/redo and (later) Yjs sync. But some edit paths still execute as plain `CommandType.OPERATION` and never touch the persisted snapshot:\n- `commands/operations/text-edit.operation.ts` — `SetTextEditArrowOperation` is a no-op stub (`handler: () => true`).\n- `commands/operations/set-thumb.operation.ts` — thumbnail writes.\n- In-place text editing in `controllers/slide-editing.render-controller.ts` — verify the doc text changes land as slide mutations, not transient editor state.\n\n## Scope\n- Inventory every command/operation under `packages/slides-ui/src/commands` and classify: mutates persisted `ISlideData`? → must be (or be wrapped by) a `MUTATION`.\n- Convert or wrap the offenders; ensure each has an inverse mutation for undo/redo.\n- Add a unit test asserting that executing each user-facing edit produces a mutation observable via `ICommandService` mutation hooks.\n\n## Acceptance criteria\n- No persisted-state edit runs purely as `OPERATION`.\n- Undo/redo covers text edits and thumbnail changes.\n- Test proves mutations are emitted for every edit type.\n\n## Key files\n`packages/slides-ui/src/commands/**`, `packages/slides-ui/src/controllers/slide-editing.render-controller.ts`, `packages/slides/src/data-model/slide-data-model.ts`"
+    },
+    {
+      "slug": "p0-snapshot-contract",
+      "title": "[slides][p0] Canonical ISlideData (de)serialization contract + schema version",
+      "milestone": "Phase 0 — Foundation",
+      "labels": ["area:slides", "fidelity:roundtrip", "phase:0"],
+      "body": "## Pillar\nRound-trip foundation.\n\n## Problem\nRound-trip (PPTX/ODP) and collab both need one canonical, versioned in-memory model. Today `ISlideData` has `@deprecated` fields (`spreadsheet`, `document`, `slide`) and commented-out future types (`video`, `line`, `table`, `chart`). There's no schema version and no documented (de)serialization invariant.\n\n## Scope\n- Add a `schemaVersion` to `ISlideData` and a migration shim.\n- Define and document the canonical JSON snapshot: round-tripping `toSnapshot()` → `fromSnapshot()` must be lossless and stable (key order, ids).\n- Remove/relocate deprecated element shapes; reserve namespaces for `table`/`chart`/`media`/`line` so later phases extend without breaking.\n- Property-based test: random valid `ISlideData` survives snapshot round-trip byte-stable.\n\n## Acceptance criteria\n- `schemaVersion` present; migration covered by tests.\n- Documented invariant + passing round-trip test.\n\n## Key files\n`packages/slides/src/types/interfaces/i-slide-data.ts`, `packages/slides/src/data-model/slide-data-model.ts`"
+    },
+    {
+      "slug": "p1-multi-select",
+      "title": "[slides][p1] Multi-select + marquee selection of page elements",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:editable", "phase:1"],
+      "body": "## Pillar\nEditable.\n\n## Problem\nOnly a single element can be selected. Every higher-order editing feature (group, align, distribute, batch style, multi-delete, multi-move) depends on multi-select, which does not exist.\n\n## Scope\n- Selection model holding N elements; shift/ctrl-click additive selection.\n- Marquee (drag-rectangle) selection on the page scene.\n- Combined bounding box + group transform handles for the selection.\n- Wire delete/move/resize to operate over the whole selection via batched mutations.\n\n## Acceptance criteria\n- Can select multiple elements, see a unified transform box, move/resize/delete them as one undoable action.\n\n## Key files\n`packages/slides-ui/src/controllers/**`, `packages/engine-render/src/scene.input-manager.ts`, selection services."
+    },
+    {
+      "slug": "p1-copy-paste",
+      "title": "[slides][p1] Copy / cut / paste / duplicate elements",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:editable", "phase:1"],
+      "body": "## Pillar\nEditable.\n\n## Problem\nNo clipboard support at all — no copy, cut, paste, or duplicate-element (only duplicate-slide exists on the branch). This is table-stakes for an editor.\n\n## Scope\n- Intra-app clipboard (in-memory) for element(s), incl. cross-slide paste with new ids + offset.\n- System clipboard integration: paste image/text from OS; copy rendered selection as image.\n- `Ctrl/Cmd+C/X/V/D` shortcuts.\n- All paste/duplicate flows go through insert mutations (undoable, collab-ready).\n\n## Acceptance criteria\n- Copy/cut/paste/duplicate work within and across slides; pasted elements get fresh ids; undoable.\n\n## Key files\n`packages/slides-ui/src/commands/**`, clipboard service, `controllers/shortcuts/**`."
+    },
+    {
+      "slug": "p1-group-ungroup",
+      "title": "[slides][p1] Group / ungroup elements",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:visual", "fidelity:editable", "phase:1"],
+      "body": "## Pillar\nEditable + Visual (groups are a real PPTX element type, `p:grpSp`).\n\n## Problem\nNo grouping. PPTX uses group shapes extensively; without a group element type, import/export will be lossy and editing nested structures is impossible.\n\n## Scope\n- Add a `group` page-element type to `ISlideData` with child elements + group transform.\n- Group/ungroup commands (mutation-backed).\n- Render adaptor for groups (nested transform composition) in `views/render/adaptors`.\n- Selecting a group selects/moves children together; double-click to enter group.\n\n## Acceptance criteria\n- Group/ungroup works, renders with correct nested transforms, and round-trips through the snapshot.\n\n## Key files\n`packages/slides/src/types/interfaces/i-slide-data.ts`, `packages/slides/src/views/render/adaptors/**`, `packages/slides-ui/src/commands/**`."
+    },
+    {
+      "slug": "p1-align-distribute",
+      "title": "[slides][p1] Align, distribute, smart guides & snapping",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:editable", "phase:1"],
+      "body": "## Pillar\nEditable.\n\n## Problem\nNo alignment tools, no distribute, no snap-to-guide. Precise layout is impossible today.\n\n## Scope\n- Align left/center/right/top/middle/bottom (to selection or to slide).\n- Distribute horizontal/vertical spacing.\n- Smart alignment guides + snapping during drag/resize (to other elements, slide center/edges).\n- Optional grid + snap-to-grid toggle.\n\n## Acceptance criteria\n- Alignment/distribution actions are mutation-backed and undoable; guides appear during drag.\n\n## Key files\n`packages/slides-ui/src/views/panels/**`, transform controllers, `engine-render` input manager."
+    },
+    {
+      "slug": "p1-rich-text-toolbar",
+      "title": "[slides][p1] Rich-text formatting toolbar for text frames",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:editable", "phase:1"],
+      "body": "## Pillar\nEditable.\n\n## Problem\nText formatting is hard-coded at insert time (`fs`, `cl`, `bl`). No UI for font family, size, B/I/U/strike, color/highlight, bullets/numbering, alignment, line/character spacing, sub/superscript.\n\n## Scope\n- Reuse the docs engine that already backs in-place text editing (`slide-editing.render-controller.ts`) and expose a formatting toolbar/sidebar bound to the text selection.\n- Wire each control to docs text mutations so formatting is undoable and (later) collab-safe.\n- Bullets/numbering + paragraph alignment + spacing.\n\n## Acceptance criteria\n- Selecting text in a frame and applying any of the above formats updates the render and is undoable.\n\n## Key files\n`packages/slides-ui/src/controllers/slide-editing.render-controller.ts`, `packages/slides-ui/src/views/**`, `packages/docs*`."
+    },
+    {
+      "slug": "p1-shape-styling",
+      "title": "[slides][p1] Shape styling UI: outline, opacity, radius, gradient, shadow",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:editable", "fidelity:visual", "phase:1"],
+      "body": "## Pillar\nEditable + Visual.\n\n## Problem\n`FillPanel.tsx` exposes only solid fill for rectangles. The data model already has `outline` (weight/dash/color) but there's no UI; no opacity, corner-radius, gradient, or shadow controls.\n\n## Scope\n- Outline panel: color, weight, dash style → maps `IOutline` + `BorderStyleTypes`.\n- Opacity/transparency slider.\n- Corner-radius control (model already supports `radius`).\n- Gradient fill editor (linear/radial) — pairs with the visual gradient render issue.\n- Shadow controls (color/blur/offset/opacity) — pairs with the visual shadow render issue.\n\n## Acceptance criteria\n- All controls produce mutation-backed, undoable updates reflected in the canvas.\n\n## Key files\n`packages/slides-ui/src/views/panels/FillPanel.tsx` (+ new panels), `commands/operations/update-element.operation.ts`."
+    },
+    {
+      "slug": "p1-shape-geometry",
+      "title": "[slides][p1] Render the full preset-shape geometry set (50+ shapes)",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:visual", "phase:1"],
+      "body": "## Pillar\nVisual.\n\n## Problem\nOnly `Rect`, `RoundRect`, `Ellipse` render (~6% of the geometries already enumerated in `prst-geom-type.ts`). PowerPoint's `prstGeom` preset library (lines, triangles, arrows, stars, callouts, banners, etc.) is unrendered, so most real decks degrade to nothing.\n\n## Scope\n- Add a preset-geometry → path system in `engine-render` (SVG-path / parametric guides per OOXML preset).\n- Extend `ShapeAdaptor` to dispatch all `BasicShapes`/`ArrowsAndMarkersShapes`/`OtherShapes`/`SpecialShapes` to the path renderer.\n- Support adjustable handles (the OOXML `avLst` adjust values) where feasible.\n- Shape-picker UI exposing the catalog.\n\n## Acceptance criteria\n- All enumerated preset shapes render with correct geometry, fill, and outline; insertable from the picker.\n\n## Key files\n`packages/slides/src/views/render/adaptors/shape-adaptor.ts`, `packages/slides/src/types/enum/prst-geom-type.ts`, `packages/engine-render/src/shape/**`."
+    },
+    {
+      "slug": "p1-gradient-shadow-fills",
+      "title": "[slides][p1] Gradient / pattern / picture fills + shadow & effect rendering",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:visual", "phase:1"],
+      "body": "## Pillar\nVisual.\n\n## Problem\n`IColorStyle` is solid-RGB-or-theme only. No gradient, pattern, or picture fills. Shape shadows exist in `engine-render` but the slide adaptor never passes them. No reflection/glow/soft-edge.\n\n## Scope\n- Extend the fill model to a discriminated union: solid | gradient (linear/radial w/ stops) | pattern | picture.\n- Map gradient/pattern/picture fills to `engine-render` paint.\n- Pass shadow props (`shadowColor/Blur/Offset/Opacity`) from `IShapeProperties` through the adaptor.\n- Convert `IOutline.dashStyle` → `strokeDashArray`.\n\n## Acceptance criteria\n- Gradient/picture fills and shadows render; dash styles render; covered by visual/snapshot tests.\n\n## Key files\n`packages/core/src/types/interfaces/i-color-style.ts`, `packages/slides/src/views/render/adaptors/shape-adaptor.ts`, `packages/engine-render/src/shape/**`."
+    },
+    {
+      "slug": "p1-image-adjust-crop",
+      "title": "[slides][p1] Wire image brightness/contrast/transparency/crop to the renderer",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:visual", "phase:1"],
+      "body": "## Pillar\nVisual.\n\n## Problem\n`IImageProperties` models `brightness`, `contrast`, `transparency`, and `cropProperties`, but `ImageAdaptor` never passes them to the `Image` engine object — they're silently dropped, so imported images lose adjustments/crop.\n\n## Scope\n- Apply brightness/contrast/transparency as canvas filters in the image render path.\n- Implement crop (offsetLeft/Right/Top/Bottom + angle) in the adaptor.\n- Add minimal crop UI in the image popup menu.\n\n## Acceptance criteria\n- Adjustments and crop render correctly and survive snapshot round-trip.\n\n## Key files\n`packages/slides/src/views/render/adaptors/image-adaptor.ts`, `packages/core/src/types/interfaces/i-image-properties.ts`, `packages/slides-ui/src/views/image-popup-menu/**`."
+    },
+    {
+      "slug": "p1-slide-management",
+      "title": "[slides][p1] Slide reorder + slide background styling",
+      "milestone": "Phase 1 — Editing core + visual base",
+      "labels": ["area:slides", "fidelity:editable", "phase:1"],
+      "body": "## Pillar\nEditable.\n\n## Problem\nThe branch adds add/duplicate/delete slide, but there's no reorder (drag in the slide bar) and no per-slide background styling (solid/gradient/picture).\n\n## Scope\n- Drag-to-reorder in `SlideBar.tsx`, mutation-backed.\n- Slide background fill (solid/gradient/picture) using the fill model from the gradient issue.\n- 'Apply to all slides' option.\n\n## Acceptance criteria\n- Reordering and background changes are undoable and reflected in thumbnails + canvas.\n\n## Key files\n`packages/slides-ui/src/views/slide-bar/SlideBar.tsx`, `commands/mutations/element.mutation.ts` (page mutations)."
+    },
+    {
+      "slug": "p2-pptx-import",
+      "title": "[slides][p2] PPTX import (OOXML → ISlideData)",
+      "milestone": "Phase 2 — Round-trip",
+      "labels": ["area:slides", "fidelity:roundtrip", "phase:2"],
+      "body": "## Pillar\nRound-trip — the headline feature vs OnlyOffice/Collabora.\n\n## Problem\nNo PPTX import exists anywhere in the repo. This is the single most important capability for a PowerPoint alternative.\n\n## Scope\n- New package (e.g. `@univerjs/slides-exchange`) with a zip reader (JSZip/fflate) for the OPC/OOXML container.\n- Parse `ppt/presentation.xml`, slides, slide layouts & masters, theme (`theme1.xml`), and relationships.\n- Map to `ISlideData`: shapes (`p:sp` + `prstGeom`), text bodies/runs/paragraph props, pictures + media, group shapes, tables (`a:tbl`), connectors, placeholders, hyperlinks.\n- Preserve unknown/unsupported parts as opaque blobs for lossless export.\n\n## Acceptance criteria\n- A corpus of real `.pptx` files imports without throwing; supported elements render; unsupported parts preserved.\n\n## Dependencies\nNeeds: masters/layouts/theme (#p2-masters-layouts-theme), tables (#p2-tables), group (#p1-group-ungroup), shape geometry (#p1-shape-geometry), hyperlinks/metadata (#p2-tags-hyperlinks-metadata-notes).\n\n## Key files\nnew `packages/slides-exchange/**`, `packages/slides/src/types/interfaces/i-slide-data.ts`."
+    },
+    {
+      "slug": "p2-pptx-export",
+      "title": "[slides][p2] PPTX export (ISlideData → OOXML)",
+      "milestone": "Phase 2 — Round-trip",
+      "labels": ["area:slides", "fidelity:roundtrip", "phase:2"],
+      "body": "## Pillar\nRound-trip.\n\n## Problem\nNo export path. Users must be able to hand a valid `.pptx` to PowerPoint/Google Slides.\n\n## Scope\n- OOXML writer producing a valid OPC package (presentation, slides, layouts, masters, theme, media, rels, content types).\n- Serialize every modeled element type back to `prstGeom`/`p:sp`/`p:pic`/`a:tbl`/`p:grpSp` with text runs and styling.\n- Re-emit preserved opaque parts from import to maximize losslessness.\n- Validate output opens cleanly in PowerPoint and LibreOffice Impress.\n\n## Acceptance criteria\n- Exported files open without repair in PowerPoint + Impress; modeled content matches.\n\n## Dependencies\n#p2-pptx-import (shared OOXML mapping), #p2-roundtrip-harness.\n\n## Key files\nnew `packages/slides-exchange/**`."
+    },
+    {
+      "slug": "p2-roundtrip-harness",
+      "title": "[slides][p2] Round-trip fidelity test harness",
+      "milestone": "Phase 2 — Round-trip",
+      "labels": ["area:slides", "fidelity:roundtrip", "phase:2"],
+      "body": "## Pillar\nRound-trip.\n\n## Problem\nFidelity claims are meaningless without measurement. We need automated regression on import→export→re-import.\n\n## Scope\n- Test corpus of representative `.pptx` (and later `.odp`) files (text-heavy, shape-heavy, image/table/master-heavy).\n- Harness: import → snapshot A → export → re-import → snapshot B; assert semantic equality (normalized), report a fidelity score + diff.\n- Optional pixel-diff of rendered first slide.\n- Wire into CI as a gating check with a tracked fidelity metric.\n\n## Acceptance criteria\n- Harness runs in CI, produces a fidelity score, and fails on regressions.\n\n## Key files\nnew `packages/slides-exchange/__tests__/**`, fixtures."
+    },
+    {
+      "slug": "p2-masters-layouts-theme",
+      "title": "[slides][p2] Slide masters, layouts, placeholders & theme color resolution",
+      "milestone": "Phase 2 — Round-trip",
+      "labels": ["area:slides", "fidelity:visual", "fidelity:tags", "phase:2"],
+      "body": "## Pillar\nVisual + Tags.\n\n## Problem\n`IReferenceSource` already carries `master`, `layouts`, `notesMaster`, `handoutMaster` and elements carry a `placeholder` field — but none of it is rendered or resolved. Theme colors (`IColorStyle.th`) aren't resolved either. Without this, PPTX import is hollow (most deck content lives on layouts/masters).\n\n## Scope\n- Render pipeline resolves placeholder inheritance: element → layout placeholder → master placeholder.\n- Resolve theme color references to concrete RGB via the presentation theme.\n- Master/layout editing surface (at least selection of a layout per slide).\n\n## Acceptance criteria\n- Slides inherit text/shape defaults from layout+master; theme colors resolve; switching layout updates the slide.\n\n## Key files\n`packages/slides/src/types/interfaces/i-slide-data.ts`, `packages/slides/src/views/render/**`."
+    },
+    {
+      "slug": "p2-tables",
+      "title": "[slides][p2] Table element: model, render & edit",
+      "milestone": "Phase 2 — Round-trip",
+      "labels": ["area:slides", "fidelity:visual", "fidelity:editable", "phase:2"],
+      "body": "## Pillar\nVisual + Editable (required for PPTX round-trip).\n\n## Problem\nTables are commented out in `i-slide-data.ts`. PPTX `a:tbl` is common; without tables, import is lossy.\n\n## Scope\n- Add a `table` page-element type (rows/cols, cell spans, per-cell fill/border/text, column widths/row heights).\n- Render adaptor for tables.\n- Basic editing: add/remove row/col, edit cell text, cell styling.\n- Map to/from OOXML `a:tbl`.\n\n## Acceptance criteria\n- Tables render, are minimally editable, and round-trip through PPTX.\n\n## Key files\n`packages/slides/src/types/interfaces/i-slide-data.ts`, `packages/slides/src/views/render/adaptors/**`."
+    },
+    {
+      "slug": "p2-tags-hyperlinks-metadata-notes",
+      "title": "[slides][p2] Semantic tags: hyperlinks, alt text, metadata & speaker notes",
+      "milestone": "Phase 2 — Round-trip",
+      "labels": ["area:slides", "fidelity:tags", "phase:2"],
+      "body": "## Pillar\nTags (semantic structure that must round-trip).\n\n## Problem\n`ILink` exists for navigation but isn't rendered/clickable; there's no alt-text, no document metadata (title/author/created), and no speaker-notes UI even though `notesMaster` exists. All are required for a faithful and accessible PPTX/ODP round-trip.\n\n## Scope\n- Hyperlinks: model on elements + text runs, render as clickable, editable in UI, round-trip.\n- Alt text/description per element (the `description`/`title` fields are currently dead metadata).\n- Presentation metadata (core/app properties): title, author, company, created/modified.\n- Speaker notes: per-slide notes model + a notes editing pane; round-trip to PPTX notes slides.\n\n## Acceptance criteria\n- Links clickable + editable; alt text + metadata + notes editable and preserved through round-trip.\n\n## Key files\n`packages/slides/src/types/interfaces/i-slide-data.ts`, `packages/slides-ui/src/views/**`."
+    },
+    {
+      "slug": "p2-odp",
+      "title": "[slides][p2] ODP (OpenDocument Presentation) import/export",
+      "milestone": "Phase 2 — Round-trip",
+      "labels": ["area:slides", "fidelity:roundtrip", "phase:2"],
+      "body": "## Pillar\nRound-trip — the open-format pillar (parity with OnlyOffice/Collabora's native ODF support).\n\n## Problem\nNo OpenDocument support. ODP is the open, ISO-standard presentation format and the natural 'open-source extension' alongside PPTX.\n\n## Scope\n- ODF package reader/writer (zip + `content.xml`, `styles.xml`, `meta.xml`, manifest).\n- Map `draw:page`/`draw:frame`/`draw:custom-shape`/text/tables/images to `ISlideData` and back.\n- Reuse the import/export abstractions from the PPTX work so both formats share the model mapping.\n\n## Acceptance criteria\n- `.odp` import/export works for the supported element set; files open in LibreOffice Impress; included in the round-trip harness.\n\n## Dependencies\n#p2-pptx-import / #p2-pptx-export (shared mapping layer), #p2-roundtrip-harness.\n\n## Key files\n`packages/slides-exchange/**`."
+    },
+    {
+      "slug": "p2-pdf-export",
+      "title": "[slides][p2] PDF export",
+      "milestone": "Phase 2 — Round-trip",
+      "labels": ["area:slides", "fidelity:roundtrip", "phase:2"],
+      "body": "## Pillar\nRound-trip (export-only; user: 'pdf only if possible').\n\n## Problem\nNo PDF export. Needed for sharing/printing read-only decks.\n\n## Scope\n- Render each slide page to PDF — prefer vector output (shapes/text/lines as PDF primitives) for crisp, small files; rasterize only what must be (filters, complex fills).\n- One page per slide; embedded fonts; correct page size/orientation.\n- Library options: `pdf-lib` or `jsPDF` (+ `svg2pdf`) — evaluate vector fidelity vs bundle size.\n- Optionally include speaker notes / handout layouts as an export option.\n\n## Acceptance criteria\n- Export produces a valid multi-page PDF whose pages visually match the rendered slides.\n\n## Key files\n`packages/slides-exchange/**` (or a dedicated `slides-export-pdf`), `packages/engine-render`."
+    },
+    {
+      "slug": "p3-yjs-binding",
+      "title": "[slides][p3] Bind SlideDataModel to a Yjs document (CRDT)",
+      "milestone": "Phase 3 — Collaboration + self-host",
+      "labels": ["area:slides", "fidelity:collab", "phase:3"],
+      "body": "## Pillar\nCollab — transport decision: **Yjs CRDT** (synced via Hocuspocus).\n\n## Problem\nThere is no shared document representation. `getRev/incrementRev` now exist (the precondition), but real-time multi-user needs a CRDT so concurrent edits merge without a central OT server.\n\n## Scope\n- Model `ISlideData` as Yjs shared types (`Y.Map`/`Y.Array`, `Y.Text` for rich text) — a `Y.Doc` binding for `SlideDataModel`.\n- Apply local slide mutations to the `Y.Doc`; apply remote Yjs updates back into the model + re-render.\n- Define how each mutation (insert/update/delete element & page) maps to Yjs ops so merges are intent-preserving.\n- Conflict/merge tests for concurrent edits (move vs delete, two text edits, reorder vs insert).\n\n## Acceptance criteria\n- Two in-process `Y.Doc`s editing concurrently converge to the same `ISlideData`; mutations and Yjs updates are isomorphic.\n\n## Dependencies\nDepends on #p0-mutation-coverage-audit (all edits must be mutations first).\n\n## Key files\n`packages/slides/src/data-model/slide-data-model.ts`, `packages/slides-ui/src/commands/mutations/element.mutation.ts`, new collab binding module."
+    },
+    {
+      "slug": "p3-hocuspocus-provider-contract",
+      "title": "[slides][p3] Hocuspocus provider integration contract (engine ↔ existing collab server)",
+      "milestone": "Phase 3 — Collaboration + self-host",
+      "labels": ["area:slides", "fidelity:collab", "phase:3"],
+      "body": "## Pillar\nCollab. **Note:** the Hocuspocus collab server already exists in our infra — this issue is NOT about standing one up. It defines how the *engine* (this repo) connects to it.\n\n## Problem\nThe core engine must expose a clean way for the product slides repo to attach a `@hocuspocus/provider` to the Yjs binding (#p3-yjs-binding) and feed updates into `SlideDataModel` — without the engine owning the server, auth, or persistence (all handled by the existing server).\n\n## Scope\n- Define the engine-side collab provider interface: connect/disconnect, document id ↔ unitId mapping, apply remote Yjs updates → model, emit local updates.\n- Reference adapter for `@hocuspocus/provider` (peer-dependency / optional) so the product repo wires the existing server URL + auth token in.\n- Awareness channel passthrough for presence (consumed by #p3-presence-comments).\n- Document the integration contract for the product repo; no server, persistence, or Docker here (the existing server owns those).\n\n## Acceptance criteria\n- The product repo can attach the existing Hocuspocus server with a few lines; two clients co-edit via that server; remote updates land in the model.\n\n## Dependencies\n#p3-yjs-binding.\n\n## Key files\nnew engine-side collab binding module + optional `@hocuspocus/provider` adapter."
+    },
+    {
+      "slug": "p3-presence-comments",
+      "title": "[slides][p3] Presence (cursors/selection) + comments/threads",
+      "milestone": "Phase 3 — Collaboration + self-host",
+      "labels": ["area:slides", "fidelity:collab", "fidelity:tags", "phase:3"],
+      "body": "## Pillar\nCollab (+ Tags: comments are anchored semantic data that must round-trip).\n\n## Problem\nNo presence and no comments. Real collaboration needs to show who's editing where, and review workflows need threaded comments anchored to slides/elements.\n\n## Scope\n- Presence via **Yjs awareness**: remote selection/cursor + user badges; transported over the existing Hocuspocus server.\n- Comment threads anchored to a slide or element id; reuse the existing `thread-comment` packages if possible.\n- Comments persist with the document and round-trip to PPTX comments where feasible.\n\n## Acceptance criteria\n- Live cursors/selection of peers; create/reply/resolve comments anchored to elements; persisted.\n\n## Dependencies\n#p3-hocuspocus-provider-contract.\n\n## Key files\n`packages/thread-comment*`, slides-ui views, awareness wiring."
+    },
+    {
+      "slug": "p4-animations-transitions",
+      "title": "[slides][p4] Animations & slide transitions: model, author UI, playback, round-trip",
+      "milestone": "Phase 4 — Advanced fidelity",
+      "labels": ["area:slides", "fidelity:visual", "fidelity:editable", "fidelity:roundtrip", "phase:4"],
+      "body": "## Pillar\nVisual + Editable + Round-trip.\n\n## Problem\nNo animations or transitions are modeled. PowerPoint decks rely heavily on entrance/emphasis/exit effects and slide transitions; today they're dropped entirely.\n\n## Scope\n- Animation/transition data model (timing tree akin to OOXML `p:timing`).\n- Authoring UI (animation pane: add/order/trigger/duration).\n- Playback engine in slideshow mode.\n- Import/export mapping to OOXML timing (and ODP equivalents) — at minimum preserve on round-trip.\n\n## Acceptance criteria\n- Can add/preview basic animations + transitions; they play in slideshow mode and survive round-trip (at least preserved).\n\n## Key files\nnew animation model in `packages/slides`, slideshow controller, exchange mapping."
+    },
+    {
+      "slug": "p4-charts-smartart-media",
+      "title": "[slides][p4] Charts, SmartArt & embedded media",
+      "milestone": "Phase 4 — Advanced fidelity",
+      "labels": ["area:slides", "fidelity:visual", "phase:4"],
+      "body": "## Pillar\nVisual.\n\n## Problem\nCharts and video are commented-out future types; SmartArt is unsupported. These are common in real decks and currently lost on import.\n\n## Scope\n- Charts: at minimum preserve the chart part on round-trip; ideally render natively (could leverage Univer sheets/chart infra) and allow data edit.\n- SmartArt (`dgm:` diagrams): preserve on round-trip; render the cached drawing.\n- Embedded media (video/audio): model + render placeholder + playback in slideshow.\n\n## Acceptance criteria\n- Charts/SmartArt/media survive round-trip; charts render; media plays in slideshow.\n\n## Key files\n`packages/slides/src/types/interfaces/i-slide-data.ts`, exchange package, render adaptors."
+    },
+    {
+      "slug": "p4-accessibility",
+      "title": "[slides][p4] Accessibility: reading order, alt-text enforcement, tagged export",
+      "milestone": "Phase 4 — Advanced fidelity",
+      "labels": ["area:slides", "fidelity:tags", "phase:4"],
+      "body": "## Pillar\nTags (accessibility).\n\n## Problem\nNo accessibility story: no reading order, no alt-text enforcement, no tagged/accessible export. Required for institutional/government adoption (a key self-hosted-office market).\n\n## Scope\n- Per-slide reading order editor.\n- Alt-text enforcement + an accessibility checker (flag images/shapes missing alt text, low contrast).\n- Accessible PDF export (tagged PDF) building on #p2-pdf-export.\n- Keyboard navigation audit of the editor itself.\n\n## Acceptance criteria\n- Accessibility checker reports issues; reading order editable; tagged PDF export available.\n\n## Key files\nslides-ui views, pdf export, `i-slide-data.ts`."
+    }
+  ]
+}

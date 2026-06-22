@@ -8,6 +8,14 @@ open ODF format (`.odp`), plus PDF export.
 > Working branch: `slides/fidelity-roadmap` (forked from `slide/element-mutations`, which
 > introduces the mutation/undo-redo/rev-tracking foundation we build on).
 
+> **Scope of THIS repo — the core engine.** This repository ships the engine packages
+> (`@univerjs/slides`, `@univerjs/slides-ui`, render adaptors, an import/export "exchange"
+> package, and a Yjs collab *binding*). The **product slides app already exists in a
+> separate repo** and integrates these packages, and a **Hocuspocus collab server already
+> exists** in our infra. So nothing here stands up a server, deployment, or Docker — the
+> collab work here is the *engine-side Yjs binding + integration contract* the product repo
+> and existing server consume.
+
 ---
 
 ## Why this matters — the competitive landscape
@@ -39,8 +47,9 @@ We track every gap under one of five pillars (these are the GitHub labels too):
    text/accessibility, hyperlinks, comments, document metadata, speaker notes anchoring.
 4. **`fidelity:roundtrip`** — **import/export without loss**: `.pptx` (OOXML), `.odp`
    (OpenDocument), and **PDF export**. This is the headline feature vs. OnlyOffice/Collabora.
-5. **`fidelity:collab`** — real-time multi-user: mutation-based architecture, OT/CRDT sync,
-   presence, comments, a self-hostable sync server.
+5. **`fidelity:collab`** — real-time multi-user: mutation-based architecture, **Yjs CRDT
+   synced through a self-hosted [Hocuspocus](https://tiptap.dev/docs/hocuspocus) server**,
+   presence, comments. (Decision: CRDT/Yjs + Hocuspocus, **not** OT.)
 
 ---
 
@@ -77,7 +86,8 @@ Audited on the `slide/element-mutations` branch.
 
 ### Collaboration (`fidelity:collab`)
 - `getRev()` was a stub returning `0`; the branch now increments rev on mutations — the
-  *precondition* for collab. No OT/CRDT, no sync server, no presence, no comments yet.
+  *precondition* for collab. No Yjs binding, no Hocuspocus server, no presence, no comments
+  yet. **Transport decision: Yjs CRDT over a self-hosted Hocuspocus server.**
 
 ---
 
@@ -115,11 +125,16 @@ The "feels like a real editor" phase.
 - **ODP import/export** (OpenDocument Presentation) — the open-format pillar.
 - **PDF export** (render pages → PDF; vector where possible).
 
-### Phase 3 — Collaboration + self-host
-- OT or CRDT transform layer over slide mutations.
-- Self-hostable sync server (WebSocket) + document persistence.
-- Presence (cursors/selection), comments/threads, basic permissions.
-- Conflict resolution + offline reconcile.
+### Phase 3 — Collaboration (engine-side Yjs binding for the existing Hocuspocus server)
+The server and product app already exist — this phase is the engine binding only.
+- Bind `SlideDataModel` to a **Yjs document** (`Y.Doc`); map slide mutations ↔ Yjs shared
+  types so CRDT merge replaces hand-written conflict resolution.
+- **Integration contract** so the product repo attaches a `@hocuspocus/provider` to the
+  existing collab server (URL + auth token supplied by the product); remote Yjs updates flow
+  into the model. *No server / persistence / Docker here — the existing server owns those.*
+- Presence (cursors/selection) via Yjs awareness passthrough; comments/threads anchored to
+  slide/element ids.
+- Offline edit + CRDT reconcile on reconnect (free with Yjs).
 
 ### Phase 4 — Advanced fidelity
 - Animations + slide transitions (model, author UI, playback, round-trip).
