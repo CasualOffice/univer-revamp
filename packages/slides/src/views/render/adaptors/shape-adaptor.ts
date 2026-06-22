@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +18,11 @@
 import type { Injector } from '@univerjs/core';
 import type { IPageElement } from '../../../types/interfaces/i-slide-data';
 import { getColorStyle } from '@univerjs/core';
-import { Circle, Rect } from '@univerjs/engine-render';
+import { Circle, Path, Rect } from '@univerjs/engine-render';
 import { BasicShapes } from '../../../types/enum/prst-geom-type';
 import { PageElementType } from '../../../types/interfaces/i-slide-data';
 import { CanvasObjectProviderRegistry, ObjectAdaptor } from '../adaptor';
+import { getPresetGeometryPath, isStrokeOnlyPreset } from './preset-geometry';
 
 export class ShapeAdaptor extends ObjectAdaptor {
     override zIndex = 2;
@@ -107,7 +109,6 @@ export class ShapeAdaptor extends ObjectAdaptor {
             });
         }
         if (shapeType === BasicShapes.Ellipse) {
-            console.warn(shapeProperties?.radius);
             const radius = shapeProperties?.radius || 0;
             return new Circle(id, {
                 fill,
@@ -125,6 +126,32 @@ export class ShapeAdaptor extends ObjectAdaptor {
                 flipY,
                 forceRender: true,
                 radius,
+                ...strokeStyle,
+            });
+        }
+
+        // Every other preset geometry renders through an SVG path. Path
+        // rescales the unit-box data to width/height itself (it overrides
+        // scaleX/scaleY in _setFixBoundingBox), so we don't forward scale/skew.
+        const presetPath = getPresetGeometryPath(shapeType);
+        if (presetPath) {
+            const strokeOnly = isStrokeOnlyPreset(shapeType);
+            // A line with no explicit outline still needs a visible stroke.
+            const lineDefaultStroke =
+                strokeOnly && outline == null ? { strokeWidth: 1, stroke: 'rgba(0,0,0,1)' } : {};
+            return new Path(id, {
+                data: presetPath,
+                fill: strokeOnly ? 'rgba(0,0,0,0)' : fill,
+                top,
+                left,
+                width,
+                height,
+                zIndex,
+                angle,
+                flipX,
+                flipY,
+                forceRender: true,
+                ...lineDefaultStroke,
                 ...strokeStyle,
             });
         }
