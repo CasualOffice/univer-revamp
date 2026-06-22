@@ -200,11 +200,24 @@ export class SlideEditingRenderController extends Disposable implements IRenderM
         return this._renderManagerService.getRenderById(editorId)?.with(DocSkeletonManagerService).getViewModel();
     }
 
+    /**
+     * The hidden doc editor's selection service, but only if its render unit is
+     * still live. These subscriptions can fire during/after a unit swap, when
+     * `getCurrentTypeOfRenderer` still resolves a doc renderer that is mid-
+     * disposal — `RenderUnit.with()` does `injector.get()`, which throws once
+     * the injector is disposed (Gap 1.6: stale activate after disposeUnit).
+     */
+    private _getLiveDocSelectionRenderService(): Nullable<DocSelectionRenderService> {
+        const renderer = getCurrentTypeOfRenderer(UniverInstanceType.UNIVER_DOC, this._instanceSrv, this._renderManagerService);
+        if (!renderer || renderer.isDisposed()) {
+            return null;
+        }
+        return renderer.with(DocSelectionRenderService);
+    }
+
     private _initialCursorSync(d: DisposableCollection) {
         d.add(this._cellEditorManagerService.focus$.pipe(filter((f) => !!f)).subscribe(() => {
-            getCurrentTypeOfRenderer(UniverInstanceType.UNIVER_DOC, this._instanceSrv, this._renderManagerService)
-                ?.with(DocSelectionRenderService)
-                .sync();
+            this._getLiveDocSelectionRenderService()?.sync();
         }));
     }
 
@@ -253,9 +266,7 @@ export class SlideEditingRenderController extends Disposable implements IRenderM
             // ---> _focus$.next --> editingRenderController
             // _textSelectionRenderManager.sync() --> _updateInputPosition --> activate(left, top)
 
-            getCurrentTypeOfRenderer(UniverInstanceType.UNIVER_DOC, this._instanceSrv, this._renderManagerService)
-                ?.with(DocSelectionRenderService)
-                .activate(HIDDEN_EDITOR_POSITION, HIDDEN_EDITOR_POSITION);
+            this._getLiveDocSelectionRenderService()?.activate(HIDDEN_EDITOR_POSITION, HIDDEN_EDITOR_POSITION);
         }));
     }
 
