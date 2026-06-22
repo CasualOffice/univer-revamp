@@ -16,9 +16,11 @@
 
 import type { ICommand } from '@univerjs/core';
 import type { IPageElement, SlideDataModel } from '@univerjs/slides';
-import { CommandType, generateRandomId, ICommandService, IUniverInstanceService } from '@univerjs/core';
+import type { ISlideDeleteElementMutationParams, ISlideInsertElementMutationParams } from '../mutations/element.mutation';
+import { CommandType, generateRandomId, ICommandService, IUndoRedoService, IUniverInstanceService } from '@univerjs/core';
 import { PageElementType } from '@univerjs/slides';
 import { CanvasView } from '../../controllers/canvas-view';
+import { SlideDeleteElementMutation, SlideInsertElementMutation } from '../mutations/element.mutation';
 
 export interface ISlideAddTextParam {
     text: string;
@@ -37,36 +39,39 @@ export const SlideAddTextCommand: ICommand = {
 
 };
 
+// Inserting a text frame is a persisted snapshot change, so it must route
+// through SlideInsertElementMutation (CommandType.MUTATION) — not mutate
+// pageElements directly. This mirrors insertShape(): dispatch the mutation,
+// optimistically paint on the originator's canvas, then push the
+// (delete, insert) pair to undo/redo. See element.mutation.ts for why.
 export const SlideAddTextOperation: ICommand<ISlideAddTextParam> = {
     id: 'slide.operation.add-text',
-    type: CommandType.OPERATION,
-    handler: async (accessor, params: ISlideAddTextParam) => {
-        const unitId = params.unitId;
+    type: CommandType.COMMAND,
+    handler: (accessor, params) => {
+        const unitId = params?.unitId;
+        if (!unitId) return false;
 
-        const elementId = generateRandomId(6);
-        const defaultWidth = 220;
-        const defaultheight = 40;
-        const left = 230;
-        const top = 142;
-        const textContent = params?.text || 'A New Text';
-
+        const commandService = accessor.get(ICommandService);
+        const undoRedoService = accessor.get(IUndoRedoService);
         const univerInstanceService = accessor.get(IUniverInstanceService);
-        // const slideData = univerInstanceService.getCurrentUnitOfType<SlideDataModel>(UniverInstanceType.UNIVER_SLIDE);
 
         const slideData = univerInstanceService.getUnit<SlideDataModel>(unitId);
         if (!slideData) return false;
 
-        const activePage = slideData.getActivePage()!;
+        const activePage = slideData.getActivePage();
+        if (!activePage) return false;
 
+        const elementId = generateRandomId(6);
         const elements = Object.values(activePage.pageElements);
-        const maxIndex = (elements?.length) ? Math.max(...elements.map((element) => element.zIndex)) : 21;
-        const elementData: IPageElement = {
+        const maxIndex = elements.length ? Math.max(...elements.map((element) => element.zIndex)) : 21;
+        const textContent = params?.text || 'A New Text';
+        const element: IPageElement = {
             id: elementId,
             zIndex: maxIndex + 1,
-            left,
-            top,
-            width: defaultWidth,
-            height: defaultheight,
+            left: 230,
+            top: 142,
+            width: 220,
+            height: 40,
             title: 'text',
             description: '',
             type: PageElementType.TEXT,
@@ -80,15 +85,31 @@ export const SlideAddTextOperation: ICommand<ISlideAddTextParam> = {
             },
         };
 
-        activePage.pageElements[elementId] = elementData;
-        slideData.updatePage(activePage.id, activePage);
+        const insertParams: ISlideInsertElementMutationParams = {
+            unitId,
+            pageId: activePage.id,
+            element,
+        };
+        const ok = commandService.syncExecuteCommand(SlideInsertElementMutation.id, insertParams);
+        if (!ok) return false;
 
         const canvasview = accessor.get(CanvasView);
-        const sceneObject = canvasview.createObjectToPage(elementData, activePage.id, unitId);
+        const sceneObject = canvasview.createObjectToPage(element, activePage.id, unitId);
         // make object active: a control rect wrap the object.
         if (sceneObject) {
             canvasview.setObjectActiveByPage(sceneObject, activePage.id, unitId);
         }
+
+        const deleteParams: ISlideDeleteElementMutationParams = {
+            unitId,
+            pageId: activePage.id,
+            elementId,
+        };
+        undoRedoService.pushUndoRedo({
+            unitID: unitId,
+            undoMutations: [{ id: SlideDeleteElementMutation.id, params: deleteParams }],
+            redoMutations: [{ id: SlideInsertElementMutation.id, params: insertParams }],
+        });
 
         return true;
     },

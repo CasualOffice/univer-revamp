@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+import type { ICommandInfo } from '@univerjs/core';
 import type { IPageElement, ISlideData, ISlidePage, SlideDataModel } from '@univerjs/slides';
-import { ICommandService, IUniverInstanceService, LocaleService, Univer, UniverInstanceType } from '@univerjs/core';
+import { CommandType, ICommandService, IUniverInstanceService, LocaleService, Univer, UniverInstanceType } from '@univerjs/core';
 import { IImageIoService, ImageSourceType, ImageUploadStatusType } from '@univerjs/drawing';
 import { ObjectType } from '@univerjs/engine-render';
 import { BasicShapes, PageElementType, PageType, UniverSlidesPlugin } from '@univerjs/slides';
@@ -34,6 +35,14 @@ import {
     ToggleSlideEditSidebarOperation,
 } from '../insert-shape.operation';
 import { SlideAddTextCommand, SlideAddTextOperation } from '../insert-text.operation';
+import {
+    SlideDeleteElementMutation,
+    SlideDeletePageMutation,
+    SlideInsertElementMutation,
+    SlideInsertPageMutation,
+    SlideUpdateElementMutation,
+    SlideUpdatePageMutation,
+} from '../../mutations/element.mutation';
 import { SetSlidePageThumbOperation } from '../set-thumb.operation';
 import { SetTextEditArrowOperation } from '../text-edit.operation';
 import { UpdateSlideElementOperation } from '../update-element.operation';
@@ -56,6 +65,7 @@ class TestCanvasView {
         this.activeObjectIds = [];
         this.clearedControls = 0;
         this.activateCreatedObject = false;
+        this.appendedUnitIds = [];
     }
 
     createObjectToPage() {
@@ -74,12 +84,14 @@ class TestCanvasView {
         // render boundary is not part of the data-model behavior under test
     }
 
+    static appendedUnitIds: string[] = [];
+
+    // Render-only hint. Since the mutation layer landed, AppendSlideOperation
+    // inserts the page into the model via SlideInsertPageMutation; the real
+    // CanvasView.appendPage only creates the scene for the already-inserted
+    // page. The double must NOT append again or it double-counts pages.
     appendPage(unitId: string) {
-        const slide = this._instanceService.getUnit<SlideDataModel>(unitId);
-        const page = slide?.getBlankPage();
-        if (page) {
-            slide?.appendPage(page);
-        }
+        TestCanvasView.appendedUnitIds.push(unitId);
     }
 
     activePage(pageId: string, unitId: string) {
@@ -246,6 +258,15 @@ describe('slide element operations', () => {
         TestLocalFileService.reset();
         originalImage = globalThis.Image;
         (globalThis as unknown as { Image: typeof Image }).Image = TestImage as unknown as typeof Image;
+        // happy-dom in this runner doesn't expose requestAnimationFrame, which
+        // the sidebar service schedules its open/close on. Polyfill it so the
+        // sidebar operation test isn't testing the environment.
+        if (typeof globalThis.requestAnimationFrame !== 'function') {
+            (globalThis as unknown as { requestAnimationFrame: (cb: FrameRequestCallback) => number })
+                .requestAnimationFrame = (cb) => { cb(0); return 0; };
+            (globalThis as unknown as { cancelAnimationFrame: (id: number) => void })
+                .cancelAnimationFrame = () => {};
+        }
 
         const injector = univer.__getInjector();
         injector.add([CanvasView, { useClass: TestCanvasView as never }]);
@@ -256,6 +277,15 @@ describe('slide element operations', () => {
         slide = univer.createUnit<ISlideData, SlideDataModel>(UniverInstanceType.UNIVER_SLIDE, createSlideSnapshot());
         injector.get(IUniverInstanceService).focusUnit(unitId);
         commandService = injector.get(ICommandService);
+        // The collab/undo-redo wire format: every persisted edit routes through
+        // one of these MUTATION commands, so they must be registered for the
+        // operation handlers (insert-text/shape/image, append-slide, …) to work.
+        commandService.registerCommand(SlideInsertElementMutation);
+        commandService.registerCommand(SlideDeleteElementMutation);
+        commandService.registerCommand(SlideUpdateElementMutation);
+        commandService.registerCommand(SlideInsertPageMutation);
+        commandService.registerCommand(SlideDeletePageMutation);
+        commandService.registerCommand(SlideUpdatePageMutation);
         commandService.registerCommand(SlideAddTextOperation);
         commandService.registerCommand(SlideAddTextCommand);
         commandService.registerCommand(InsertSlideShapeRectangleOperation);
@@ -297,6 +327,38 @@ describe('slide element operations', () => {
                 fs: 30,
             },
         });
+    });
+
+    it('routes persisted edits through MUTATION commands (collab/undo-redo wire format)', async () => {
+        // Capture every MUTATION-type command that fires while we perform one
+        // of each user-facing edit. Anything that changes the persisted
+        // ISlideData snapshot must surface here, or it silently fails to
+        // broadcast to collab peers and to land in undo/redo.
+        const firedMutations: string[] = [];
+        const subscription = commandService.onCommandExecuted((info: ICommandInfo) => {
+            if (info.type === CommandType.MUTATION) {
+                firedMutations.push(info.id);
+            }
+        });
+
+        try {
+            await commandService.executeCommand(SlideAddTextOperation.id, { unitId, text: 'Mutation text' });
+            await commandService.executeCommand(InsertSlideShapeRectangleCommand.id);
+            await commandService.executeCommand(UpdateSlideElementOperation.id, {
+                unitId,
+                oKey: 'title-text',
+                props: { left: 200 },
+            });
+            await commandService.executeCommand(DeleteSlideElementOperation.id, { unitId, id: 'old-shape' });
+            await commandService.executeCommand(AppendSlideOperation.id, { unitId });
+        } finally {
+            subscription.dispose();
+        }
+
+        expect(firedMutations).toContain(SlideInsertElementMutation.id);
+        expect(firedMutations).toContain(SlideUpdateElementMutation.id);
+        expect(firedMutations).toContain(SlideDeleteElementMutation.id);
+        expect(firedMutations).toContain(SlideInsertPageMutation.id);
     });
 
     it('adds rectangle and ellipse shapes to the active slide', async () => {

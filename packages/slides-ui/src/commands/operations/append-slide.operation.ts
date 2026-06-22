@@ -48,11 +48,18 @@ export const AppendSlideOperation: ICommand<IAppendSlideOperationParams> = {
         // shape the rest of slides-ui already produces.
         const newPage = model.getBlankPage();
 
+        // Insert directly after the active page (PowerPoint "New Slide"
+        // semantics) rather than at the very end. Fall back to append when
+        // there's no active page or it isn't found in the order.
+        const pageOrder = model.getPageOrder() ?? [];
+        const activeId = model.getActivePage()?.id;
+        const activeIdx = activeId ? pageOrder.indexOf(activeId) : -1;
+        const insertIndex = activeIdx >= 0 ? activeIdx + 1 : undefined;
+
         const insertParams: ISlideInsertPageMutationParams = {
             unitId: params.unitId,
             page: newPage,
-            // omit index — appends at end, which is what the previous
-            // operation semantics produced.
+            index: insertIndex,
         };
         const deleteParams: ISlideDeletePageMutationParams = {
             unitId: params.unitId,
