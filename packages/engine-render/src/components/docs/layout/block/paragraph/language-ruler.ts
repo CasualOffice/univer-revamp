@@ -15,11 +15,17 @@
  */
 
 import type { IParagraph } from '@univerjs/core';
-
 import type { ISectionBreakConfig } from '../../../../../basics/interfaces';
 import type { DataStreamTreeNode } from '../../../view-model/data-stream-tree-node';
 import type { DocumentViewModel } from '../../../view-model/document-view-model';
-import { getFirstGrapheme, hasArabic, hasSpace, hasThai, hasTibetan, startWithEmoji } from '../../../../../basics/tools';
+import {
+    getFirstGrapheme,
+    hasArabic,
+    hasSpace,
+    hasThai,
+    hasTibetan,
+    startWithEmoji,
+} from '../../../../../basics/tools';
 import { createSkeletonLetterGlyph, createSkeletonWordGlyph } from '../../model/glyph';
 import { getFontCreateConfig } from '../../tools';
 
@@ -80,7 +86,7 @@ export function ArabicHandler(
     for (let i = 0; i < charArray.length; i++) {
         const newChar = charArray[i];
         if (hasArabic(newChar)) {
-            glyph.unshift(newChar);
+            glyph.push(newChar);
             step++;
         } else {
             break;

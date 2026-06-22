@@ -15,8 +15,13 @@
  */
 
 import type { IDocumentRenderConfig, IScale, ITableCell, ITableCellBorder, Nullable } from '@univerjs/core';
-
-import type { IDocumentSkeletonGlyph, IDocumentSkeletonLine, IDocumentSkeletonPage, IDocumentSkeletonRow, IDocumentSkeletonTable } from '../../basics/i-document-skeleton-cached';
+import type {
+    IDocumentSkeletonGlyph,
+    IDocumentSkeletonLine,
+    IDocumentSkeletonPage,
+    IDocumentSkeletonRow,
+    IDocumentSkeletonTable,
+} from '../../basics/i-document-skeleton-cached';
 import type { Transform } from '../../basics/transform';
 import type { IBoundRectNoAngle, IViewportInfo } from '../../basics/vector2';
 import type { UniverRenderingContext } from '../../context';
@@ -1029,8 +1034,24 @@ export class Documents extends DocComponent {
         if (this._drawLiquid == null) {
             return;
         }
-        const { sections } = page;
+        const { sections, skeTables } = page;
         const { y: originY } = this._drawLiquid;
+
+        if (skeTables.size > 0) {
+            this._drawTable(
+                ctx,
+                page,
+                skeTables,
+                extensions,
+                backgroundExtension,
+                glyphExtensionsExcludeBackground,
+                alignOffsetNoAngle,
+                centerAngle,
+                vertexAngle,
+                renderConfig,
+                parentScale
+            );
+        }
 
         for (const section of sections) {
             const { columns } = section;
@@ -1072,12 +1093,7 @@ export class Documents extends DocComponent {
                         this._drawLiquid.translateLine(line, true, true);
                         const { y } = this._drawLiquid;
 
-                        if (isHeader) {
-                            if ((y - originY + alignOffset.y) > (parentPage.pageHeight - 100) / 2) {
-                                this._drawLiquid.translateRestore();
-                                continue;
-                            }
-                        } else {
+                        if (!isHeader) {
                             if ((y - originY + alignOffset.y + lineHeight) < (parentPage.pageHeight - 100) / 2 + 100) {
                                 this._drawLiquid.translateRestore();
                                 continue;

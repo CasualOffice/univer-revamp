@@ -17,7 +17,13 @@
 import type { ITable } from '@univerjs/core';
 import type { IParagraphList } from '../../../../../basics/i-document-skeleton-cached';
 import type { DataStreamTreeNode } from '../../../view-model/data-stream-tree-node';
-import { BooleanNumber, TableAlignmentType, TableRowHeightRule, TableSizeType, VerticalAlignmentType } from '@univerjs/core';
+import {
+    BooleanNumber,
+    TableAlignmentType,
+    TableRowHeightRule,
+    TableSizeType,
+    VerticalAlignmentType,
+} from '@univerjs/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     createTableSkeleton,
@@ -252,6 +258,25 @@ describe('table utilities', () => {
             } as DataStreamTreeNode;
 
             expect(() => rollbackListCache(listLevel, tableNode)).not.toThrow();
+        });
+
+        it('skips sparse paragraph list levels', () => {
+            const paragraphList: IParagraphList = {
+                bullet: {} as unknown as IParagraphList['bullet'],
+                paragraph: { startIndex: 25 } as unknown as IParagraphList['paragraph'],
+            };
+            const paragraphLists = [] as unknown as IParagraphList[][];
+            paragraphLists[2] = [paragraphList];
+            const listLevel = new Map<string, IParagraphList[][]>([
+                ['list1', paragraphLists],
+            ]);
+            const tableNode = {
+                startIndex: 10,
+                endIndex: 20,
+            } as DataStreamTreeNode;
+
+            expect(() => rollbackListCache(listLevel, tableNode)).not.toThrow();
+            expect(listLevel.get('list1')![2]).toHaveLength(1);
         });
     });
 });
