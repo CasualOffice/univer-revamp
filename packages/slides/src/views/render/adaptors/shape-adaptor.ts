@@ -23,6 +23,7 @@ import { BasicShapes } from '../../../types/enum/prst-geom-type';
 import { PageElementType } from '../../../types/interfaces/i-slide-data';
 import { CanvasObjectProviderRegistry, ObjectAdaptor } from '../adaptor';
 import { getPresetGeometryPath, isStrokeOnlyPreset } from './preset-geometry';
+import { buildShadowProps, dashStyleToArray } from './shape-style';
 
 export class ShapeAdaptor extends ObjectAdaptor {
     override zIndex = 2;
@@ -60,12 +61,24 @@ export class ShapeAdaptor extends ObjectAdaptor {
             shapeProperties == null ? '' : getColorStyle(shapeProperties.shapeBackgroundFill) || 'rgba(255,255,255,1)';
 
         const outline = shapeProperties?.outline;
-        const strokeStyle: { [key: string]: string | number } = {};
+        // strokeStyle carries every shared paint prop (stroke, dash, shadow) so
+        // each shape branch only needs `...strokeStyle`.
+        const strokeStyle: Record<string, unknown> = {};
         if (outline) {
-            const { outlineFill, weight } = outline;
+            const { outlineFill, weight, dashStyle } = outline;
 
             strokeStyle.strokeWidth = weight;
             strokeStyle.stroke = getColorStyle(outlineFill) || 'rgba(0,0,0,1)';
+
+            const dashArray = dashStyleToArray(dashStyle);
+            if (dashArray) {
+                strokeStyle.strokeDashArray = dashArray;
+            }
+        }
+
+        const shadowProps = buildShadowProps(shapeProperties?.shadow);
+        if (shadowProps) {
+            Object.assign(strokeStyle, shadowProps);
         }
 
         if (shapeType === BasicShapes.Rect) {

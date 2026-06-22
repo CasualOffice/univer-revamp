@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,10 +25,25 @@ export interface IShapeProperties {
     shapeBackgroundFill: IColorStyle;
     radius?: number;
     outline?: IOutline;
+    shadow?: IShapeShadow;
 }
 
 export interface IOutline {
     outlineFill: IColorStyle;
     weight: number;
     dashStyle?: BorderStyleTypes;
+}
+
+/**
+ * Drop shadow for a shape. Maps onto the engine-render Shape shadow props
+ * (shadowColor/Blur/OffsetX/OffsetY/Opacity). Offsets are in px; opacity is
+ * 0..1. Mirrors the OOXML `a:effectLst`/`a:outerShdw` subset we support.
+ */
+export interface IShapeShadow {
+    color?: IColorStyle;
+    blur?: number;
+    offsetX?: number;
+    offsetY?: number;
+    /** 0 (transparent) .. 1 (opaque). */
+    opacity?: number;
 }

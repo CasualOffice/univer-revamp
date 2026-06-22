@@ -15,12 +15,14 @@
  */
 
 import type { IPageElement } from '../../../../types/interfaces/i-slide-data';
+import { BorderStyleTypes } from '@univerjs/core';
 import { Circle, Path, Rect } from '@univerjs/engine-render';
 import { describe, expect, it } from 'vitest';
 import { ArrowsAndMarkersShapes, BasicShapes } from '../../../../types/enum/prst-geom-type';
 import { PageElementType } from '../../../../types/interfaces/i-slide-data';
 import { getPresetGeometryPath, isStrokeOnlyPreset } from '../preset-geometry';
 import { ShapeAdaptor } from '../shape-adaptor';
+import { buildShadowProps, dashStyleToArray } from '../shape-style';
 
 function shapeElement(shapeType: string): IPageElement {
     return {
@@ -105,5 +107,53 @@ describe('ShapeAdaptor preset geometry', () => {
             expect(data.startsWith('M'), shapeType).toBe(true);
             expect(Path.parsePathData(data).length, shapeType).toBeGreaterThan(2);
         }
+    });
+
+    it('maps outline dashStyle to a stroke dash array on the rendered shape', () => {
+        const el = shapeElement(BasicShapes.Rect);
+        el.shape!.shapeProperties!.outline = {
+            outlineFill: { rgb: 'rgb(0,0,0)' },
+            weight: 2,
+            dashStyle: BorderStyleTypes.DASHED,
+        };
+        const rect = adaptor.convert(el) as Rect;
+        expect(rect.strokeDashArray).toEqual([6, 4]);
+        expect(rect.strokeWidth).toBe(2);
+    });
+
+    it('applies a drop shadow to the rendered shape', () => {
+        const el = shapeElement(BasicShapes.Triangle);
+        el.shape!.shapeProperties!.shadow = {
+            color: { rgb: 'rgb(0,0,0)' },
+            blur: 8,
+            offsetX: 3,
+            offsetY: 4,
+            opacity: 0.5,
+        };
+        const path = adaptor.convert(el) as Path;
+        expect(path.shadowEnabled).toBe(true);
+        expect(path.shadowBlur).toBe(8);
+        expect(path.shadowColor).toBe('#000000');
+    });
+
+    it('dashStyleToArray: dashed/dotted/dash-dot patterns, solid → undefined', () => {
+        expect(dashStyleToArray(BorderStyleTypes.DOTTED)).toEqual([1, 3]);
+        expect(dashStyleToArray(BorderStyleTypes.DASHED)).toEqual([6, 4]);
+        expect(dashStyleToArray(BorderStyleTypes.DASH_DOT)).toEqual([6, 3, 1, 3]);
+        expect(dashStyleToArray(BorderStyleTypes.DASH_DOT_DOT)).toEqual([6, 3, 1, 3, 1, 3]);
+        expect(dashStyleToArray(BorderStyleTypes.THIN)).toBeUndefined();
+        expect(dashStyleToArray(BorderStyleTypes.NONE)).toBeUndefined();
+        expect(dashStyleToArray(undefined)).toBeUndefined();
+    });
+
+    it('buildShadowProps: undefined passes through, defaults fill in', () => {
+        expect(buildShadowProps(undefined)).toBeUndefined();
+        const props = buildShadowProps({ color: { rgb: 'rgb(1,2,3)' } })!;
+        expect(props.shadowEnabled).toBe(true);
+        expect(props.shadowColor).toBe('#010203');
+        // Defaults for omitted fields.
+        expect(props.shadowBlur).toBe(4);
+        expect(props.shadowOffsetX).toBe(2);
+        expect(props.shadowOpacity).toBe(1);
     });
 });
