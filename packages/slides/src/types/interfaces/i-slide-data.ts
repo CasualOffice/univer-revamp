@@ -267,6 +267,7 @@ export enum PageElementType {
     CHART,
     VIDEO,
     GROUP,
+    TABLE,
 }
 
 /**
