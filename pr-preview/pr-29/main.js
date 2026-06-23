@@ -233,11 +233,11 @@ if (true) {
     // eslint-disable-next-line node/prefer-global/process
     NODE_ENV: "production",
     // eslint-disable-next-line node/prefer-global/process
-    GIT_COMMIT_HASH: "27a9d03",
+    GIT_COMMIT_HASH: "646d4ab",
     // eslint-disable-next-line node/prefer-global/process
     GIT_REF_NAME: "slides/fidelity-roadmap",
     // eslint-disable-next-line node/prefer-global/process
-    BUILD_TIME: "2026-06-23T21:10:54.883Z"
+    BUILD_TIME: "2026-06-23T21:31:06.677Z"
   });
 }
 function DemoList({ items }) {
