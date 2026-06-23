@@ -50,7 +50,20 @@ export interface ISlideData extends IReferenceSource {
     title: string;
     pageSize: ISize;
     body?: ISlidePageBody;
+    /** Deck-level theme (color scheme, …) for resolving theme-color references. */
+    theme?: ISlideTheme;
 }
+
+/** A deck theme. Currently the color scheme; font scheme etc. can follow. */
+export interface ISlideTheme {
+    colorScheme?: IColorScheme;
+}
+
+/**
+ * Maps each theme color slot (ThemeColorType) to a concrete color string. An
+ * element's `IColorStyle.th` is resolved against this — see resolveThemeColor.
+ */
+export type IColorScheme = Partial<Record<ThemeColorType, string>>;
 
 interface IReferenceSource {
     master?: { [id: string]: ISlidePage };

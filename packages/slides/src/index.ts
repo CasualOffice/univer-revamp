@@ -16,6 +16,7 @@
  */
 
 export { DEFAULT_SLIDE } from './basics/const/default-slide';
+export { resolveThemeColor } from './basics/theme-color';
 export type { IUniverSlidesConfig } from './config/config';
 export { migrateSlideSnapshot, serializeSlideSnapshot, SLIDE_SCHEMA_VERSION } from './data-model/migrate';
 export { SlideDataModel } from './data-model/slide-data-model';
