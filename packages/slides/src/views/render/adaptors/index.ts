@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +17,7 @@
 
 export * from './docs-adaptor';
 export * from './image-adaptor';
+export * from './line-adaptor';
 export * from './rich-text-adaptor';
 export * from './shape-adaptor';
 export * from './slide-adaptor';

@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -97,9 +98,9 @@ export class Path extends Shape<IPathProps> {
                     fixY = (this.height as number) - preHeight;
                 }
 
-                const increaseScaleX = fixX / width;
+                const increaseScaleX = width === 0 ? 0 : fixX / width;
 
-                const increaseScaleY = fixY / height;
+                const increaseScaleY = height === 0 ? 0 : fixY / height;
 
                 this.scaleX += increaseScaleX;
                 this.scaleY += increaseScaleY;
@@ -938,8 +939,10 @@ export class Path extends Shape<IPathProps> {
 
         // this.left = (this.left as number) - left;
         // this.top = (this.top as number) - top;
-        const fixScaleX = (this.width as number) / width;
-        const fixScaleY = (this.height as number) / height;
+        // Guard against a zero-extent bounding box (e.g. an axis-aligned line
+        // has 0 natural width or height) — dividing would yield NaN/Infinity.
+        const fixScaleX = width === 0 ? 1 : (this.width as number) / width;
+        const fixScaleY = height === 0 ? 1 : (this.height as number) / height;
 
         this.left = (this.left as number) - left * fixScaleX;
         this.top = (this.top as number) - top * fixScaleY;
