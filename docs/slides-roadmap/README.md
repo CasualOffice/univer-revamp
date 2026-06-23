@@ -204,6 +204,11 @@ engine reaching the fidelity tier it needs.
 | **Charts** | chart element (render + preserve) | **engine #25** + `point` (chart-data edit, OOXML `c:chart` passthrough) | **#25** CHART element type + adaptor | pipeline — Phase 4 |
 | **Harness** | round-trip fidelity scoring (import→export→re-import diff) | `point` | — | planned, CI-gated |
 
+**Tracked (product repo `CasualOffice/slides`):** PPTX deepening (slides#1), ODP (slides#2),
+other open formats (slides#3), PDF vector/tagged (slides#4), chart data-edit + native render
+(slides#5), round-trip harness (slides#6). Engine prerequisites stay on this repo
+(univer-revamp #5/#16/#17/#25).
+
 **Sequencing:** engine element-types/render (**#5**, **#16**, **#17**, **#25**) raise the PPTX
 fidelity tier (T2→T3→T4); ODP and the other open formats reuse the same engine model mapping,
 so they follow PPTX rather than duplicating it. Charts are the one round-trip item with a hard
