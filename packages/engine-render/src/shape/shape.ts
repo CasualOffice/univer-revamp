@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +26,18 @@ export type LineJoin = 'round' | 'bevel' | 'miter';
 export type LineCap = 'butt' | 'round' | 'square';
 export type PaintFirst = 'fill' | 'stroke';
 
+/**
+ * Render-side gradient descriptor (colors already resolved to CSS strings). The
+ * CanvasGradient is built lazily at fill time from the shape's local box, so
+ * callers that can't reach a 2D context (e.g. data-model adaptors) can still
+ * request a gradient fill. `angle` is degrees for linear (0 = →, 90 = ↓).
+ */
+export interface IGradientFillProps {
+    type: 'linear' | 'radial';
+    angle?: number;
+    stops: Array<{ position: number; color: string }>;
+}
+
 const BASE_OBJECT_ARRAY_Set = new Set(BASE_OBJECT_ARRAY);
 export interface IShapeProps extends IObjectFullState, ISize, IOffset, IScale {
     rotateEnabled?: boolean;
@@ -41,6 +54,8 @@ export interface IShapeProps extends IObjectFullState, ISize, IOffset, IScale {
     stroke?: Nullable<string | CanvasGradient>;
     strokeScaleEnabled?: boolean; // strokeUniform: boolean;
     fill?: Nullable<string | CanvasGradient>;
+    /** Gradient fill descriptor; takes precedence over `fill` when set. */
+    gradientFill?: Nullable<IGradientFillProps>;
     fillAfterStrokeEnabled?: boolean;
     hitStrokeWidth?: number | string;
     strokeLineJoin?: LineJoin;
@@ -70,6 +85,7 @@ export const SHAPE_OBJECT_ARRAY = [
     'stroke',
     'strokeScaleEnabled',
     'fill',
+    'gradientFill',
     'fillAfterStrokeEnabled',
     'hitStrokeWidth',
     'strokeLineJoin',
@@ -87,6 +103,40 @@ export const SHAPE_OBJECT_ARRAY = [
     'strokeMiterLimit',
 ];
 
+/**
+ * Build a CanvasGradient for a shape's local box (path drawn at 0,0 → w,h).
+ * Returns null if the context can't create gradients or there are no stops.
+ */
+export function createCanvasGradient(
+    ctx: UniverRenderingContext,
+    descriptor: IGradientFillProps,
+    width: number,
+    height: number
+): Nullable<CanvasGradient> {
+    const { type, angle = 0, stops } = descriptor;
+    if (!stops || stops.length === 0 || typeof ctx.createLinearGradient !== 'function') {
+        return null;
+    }
+
+    let gradient: CanvasGradient;
+    if (type === 'radial') {
+        const cx = width / 2;
+        const cy = height / 2;
+        const r = Math.max(width, height) / 2;
+        gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    } else {
+        const rad = (angle * Math.PI) / 180;
+        const hx = (Math.cos(rad) * width) / 2;
+        const hy = (Math.sin(rad) * height) / 2;
+        gradient = ctx.createLinearGradient(width / 2 - hx, height / 2 - hy, width / 2 + hx, height / 2 + hy);
+    }
+
+    for (const stop of stops) {
+        gradient.addColorStop(Math.max(0, Math.min(1, stop.position)), stop.color);
+    }
+    return gradient;
+}
+
 export abstract class Shape<T extends IShapeProps> extends BaseObject {
     private _hoverCursor: Nullable<string>;
 
@@ -103,6 +153,8 @@ export abstract class Shape<T extends IShapeProps> extends BaseObject {
     private _strokeScaleEnabled: boolean = false; // strokeUniform: boolean;
 
     private _fill: Nullable<string | CanvasGradient>;
+
+    private _gradientFill: Nullable<IGradientFillProps>;
 
     private _fillAfterStrokeEnabled: boolean = false;
 
@@ -174,6 +226,10 @@ export abstract class Shape<T extends IShapeProps> extends BaseObject {
 
     get fill() {
         return this._fill;
+    }
+
+    get gradientFill() {
+        return this._gradientFill;
     }
 
     get fillAfterStrokeEnabled() {
@@ -302,6 +358,13 @@ export abstract class Shape<T extends IShapeProps> extends BaseObject {
     private static _removeShadow(ctx: UniverRenderingContext) { }
 
     private static _setFillStyles(ctx: UniverRenderingContext, props: IShapeProps) {
+        if (props.gradientFill) {
+            const gradient = createCanvasGradient(ctx, props.gradientFill, props.width ?? 0, props.height ?? 0);
+            if (gradient) {
+                ctx.fillStyle = gradient;
+                return;
+            }
+        }
         ctx.fillStyle = props.fill!;
     }
 

@@ -23,7 +23,7 @@ import { BasicShapes } from '../../../types/enum/prst-geom-type';
 import { PageElementType } from '../../../types/interfaces/i-slide-data';
 import { CanvasObjectProviderRegistry, ObjectAdaptor } from '../adaptor';
 import { getPresetGeometryPath, isStrokeOnlyPreset } from './preset-geometry';
-import { buildShadowProps, dashStyleToArray } from './shape-style';
+import { buildGradientFill, buildShadowProps, dashStyleToArray } from './shape-style';
 
 export class ShapeAdaptor extends ObjectAdaptor {
     override zIndex = 2;
@@ -79,6 +79,12 @@ export class ShapeAdaptor extends ObjectAdaptor {
         const shadowProps = buildShadowProps(shapeProperties?.shadow);
         if (shadowProps) {
             Object.assign(strokeStyle, shadowProps);
+        }
+
+        // Gradient fill takes precedence over the solid fill at render time.
+        const gradientFill = buildGradientFill(shapeProperties?.gradientFill);
+        if (gradientFill) {
+            strokeStyle.gradientFill = gradientFill;
         }
 
         if (shapeType === BasicShapes.Rect) {

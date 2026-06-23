@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import type { IShapeShadow } from '@univerjs/core';
+import type { IGradientFill, IShapeShadow } from '@univerjs/core';
+import type { IGradientFillProps } from '@univerjs/engine-render';
 import { BorderStyleTypes, getColorStyle } from '@univerjs/core';
 
 // Maps the slide shape style model (outline dash + drop shadow) onto the props
@@ -71,5 +72,22 @@ export function buildShadowProps(shadow?: IShapeShadow): IShadowRenderProps | un
         shadowOffsetX: shadow.offsetX ?? 2,
         shadowOffsetY: shadow.offsetY ?? 2,
         shadowOpacity: shadow.opacity ?? 1,
+    };
+}
+
+/**
+ * Resolve a slide gradient fill (IColorStyle stops) into the engine-render
+ * gradient descriptor (CSS string stops). Returns undefined when there's no
+ * usable gradient, so the caller falls back to the solid fill.
+ */
+export function buildGradientFill(gradient?: IGradientFill): IGradientFillProps | undefined {
+    if (!gradient || !gradient.stops || gradient.stops.length === 0) return undefined;
+    return {
+        type: gradient.type,
+        angle: gradient.angle,
+        stops: gradient.stops.map((stop) => ({
+            position: stop.position,
+            color: getColorStyle(stop.color) || 'rgba(0,0,0,1)',
+        })),
     };
 }

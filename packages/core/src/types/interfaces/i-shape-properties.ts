@@ -26,6 +26,28 @@ export interface IShapeProperties {
     radius?: number;
     outline?: IOutline;
     shadow?: IShapeShadow;
+    /**
+     * Gradient fill. When present it takes precedence over the solid
+     * `shapeBackgroundFill` at render time.
+     */
+    gradientFill?: IGradientFill;
+}
+
+export interface IGradientStop {
+    /** Position along the gradient, 0..1. */
+    position: number;
+    color: IColorStyle;
+}
+
+/**
+ * Linear or radial gradient fill. For `linear`, `angle` is the gradient
+ * direction in degrees (0 = left→right, 90 = top→bottom). For `radial`, the
+ * gradient runs from the shape center outward.
+ */
+export interface IGradientFill {
+    type: 'linear' | 'radial';
+    angle?: number;
+    stops: IGradientStop[];
 }
 
 export interface IOutline {

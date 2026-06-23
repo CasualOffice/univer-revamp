@@ -16,13 +16,13 @@
 
 import type { IPageElement } from '../../../../types/interfaces/i-slide-data';
 import { BorderStyleTypes } from '@univerjs/core';
-import { Circle, Path, Rect } from '@univerjs/engine-render';
+import { Circle, createCanvasGradient, Path, Rect } from '@univerjs/engine-render';
 import { describe, expect, it } from 'vitest';
 import { ArrowsAndMarkersShapes, BasicShapes } from '../../../../types/enum/prst-geom-type';
 import { PageElementType } from '../../../../types/interfaces/i-slide-data';
 import { getPresetGeometryPath, isStrokeOnlyPreset } from '../preset-geometry';
 import { ShapeAdaptor } from '../shape-adaptor';
-import { buildShadowProps, dashStyleToArray } from '../shape-style';
+import { buildGradientFill, buildShadowProps, dashStyleToArray } from '../shape-style';
 
 function shapeElement(shapeType: string): IPageElement {
     return {
@@ -155,5 +155,86 @@ describe('ShapeAdaptor preset geometry', () => {
         expect(props.shadowBlur).toBe(4);
         expect(props.shadowOffsetX).toBe(2);
         expect(props.shadowOpacity).toBe(1);
+    });
+
+    it('buildGradientFill: resolves IColorStyle stops to CSS strings', () => {
+        expect(buildGradientFill(undefined)).toBeUndefined();
+        expect(buildGradientFill({ type: 'linear', stops: [] })).toBeUndefined();
+        const g = buildGradientFill({
+            type: 'linear',
+            angle: 90,
+            stops: [
+                { position: 0, color: { rgb: 'rgb(255,0,0)' } },
+                { position: 1, color: { rgb: 'rgb(0,0,255)' } },
+            ],
+        })!;
+        expect(g.type).toBe('linear');
+        expect(g.angle).toBe(90);
+        expect(g.stops).toEqual([
+            { position: 0, color: '#ff0000' },
+            { position: 1, color: '#0000ff' },
+        ]);
+    });
+
+    it('forwards a gradient fill onto the rendered shape', () => {
+        const el = shapeElement(BasicShapes.Rect);
+        el.shape!.shapeProperties!.gradientFill = {
+            type: 'linear',
+            angle: 45,
+            stops: [
+                { position: 0, color: { rgb: 'rgb(0,0,0)' } },
+                { position: 1, color: { rgb: 'rgb(255,255,255)' } },
+            ],
+        };
+        const rect = adaptor.convert(el) as Rect;
+        expect(rect.gradientFill).toBeDefined();
+        expect(rect.gradientFill!.type).toBe('linear');
+        expect(rect.gradientFill!.stops[0].color).toBe('#000000');
+    });
+});
+
+describe('createCanvasGradient', () => {
+    function fakeCtx() {
+        const calls: { linear?: number[]; radial?: number[]; stops: Array<[number, string]> } = { stops: [] };
+        const gradient = { addColorStop: (p: number, c: string) => calls.stops.push([p, c]) };
+        const ctx = {
+            createLinearGradient: (x0: number, y0: number, x1: number, y1: number) => {
+                calls.linear = [x0, y0, x1, y1];
+                return gradient;
+            },
+            createRadialGradient: (x0: number, y0: number, r0: number, x1: number, y1: number, r1: number) => {
+                calls.radial = [x0, y0, r0, x1, y1, r1];
+                return gradient;
+            },
+        };
+        return { ctx, calls };
+    }
+
+    it('builds a linear gradient across the box for the given angle', () => {
+        const { ctx, calls } = fakeCtx();
+        const g = createCanvasGradient(ctx as never, {
+            type: 'linear',
+            angle: 0,
+            stops: [{ position: 0, color: '#000' }, { position: 1, color: '#fff' }],
+        }, 100, 50);
+        expect(g).toBeTruthy();
+        // angle 0 → horizontal across full width at vertical center.
+        expect(calls.linear).toEqual([0, 25, 100, 25]);
+        expect(calls.stops).toEqual([[0, '#000'], [1, '#fff']]);
+    });
+
+    it('builds a radial gradient from the box center', () => {
+        const { ctx, calls } = fakeCtx();
+        createCanvasGradient(ctx as never, {
+            type: 'radial',
+            stops: [{ position: 0, color: '#000' }],
+        }, 100, 50);
+        expect(calls.radial).toEqual([50, 25, 0, 50, 25, 50]);
+    });
+
+    it('returns null when the context cannot create gradients or there are no stops', () => {
+        const { ctx } = fakeCtx();
+        expect(createCanvasGradient(ctx as never, { type: 'linear', stops: [] }, 10, 10)).toBeNull();
+        expect(createCanvasGradient({} as never, { type: 'linear', stops: [{ position: 0, color: '#000' }] }, 10, 10)).toBeNull();
     });
 });
