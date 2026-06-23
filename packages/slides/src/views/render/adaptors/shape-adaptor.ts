@@ -83,7 +83,7 @@ export class ShapeAdaptor extends ObjectAdaptor {
         }
 
         // Gradient fill takes precedence over the solid fill at render time.
-        const gradientFill = buildGradientFill(shapeProperties?.gradientFill);
+        const gradientFill = buildGradientFill(shapeProperties?.gradientFill, colorScheme);
         if (gradientFill) {
             strokeStyle.gradientFill = gradientFill;
         }

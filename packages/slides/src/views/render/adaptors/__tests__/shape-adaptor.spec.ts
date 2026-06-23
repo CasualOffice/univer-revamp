@@ -189,6 +189,19 @@ describe('ShapeAdaptor preset geometry', () => {
         ]);
     });
 
+    it('buildGradientFill: resolves theme-color stops against the deck scheme', () => {
+        const scheme: IColorScheme = { [ThemeColorType.ACCENT1]: 'rgb(0,128,0)' };
+        const g = buildGradientFill({
+            type: 'linear',
+            stops: [
+                { position: 0, color: { th: ThemeColorType.ACCENT1 } },
+                { position: 1, color: { rgb: 'rgb(0,0,0)' } },
+            ],
+        }, scheme)!;
+        expect(g.stops[0].color).toBe('#008000');
+        expect(g.stops[1].color).toBe('#000000');
+    });
+
     it('forwards a gradient fill onto the rendered shape', () => {
         const el = shapeElement(BasicShapes.Rect);
         el.shape!.shapeProperties!.gradientFill = {

@@ -16,7 +16,9 @@
 
 import type { IGradientFill, IShapeShadow } from '@univerjs/core';
 import type { IGradientFillProps } from '@univerjs/engine-render';
+import type { IColorScheme } from '../../../types/interfaces/i-slide-data';
 import { BorderStyleTypes, getColorStyle } from '@univerjs/core';
+import { resolveThemeColor } from '../../../basics/theme-color';
 
 // Maps the slide shape style model (outline dash + drop shadow) onto the props
 // the engine-render Shape already understands (strokeDashArray, shadow*). Kept
@@ -80,14 +82,16 @@ export function buildShadowProps(shadow?: IShapeShadow): IShadowRenderProps | un
  * gradient descriptor (CSS string stops). Returns undefined when there's no
  * usable gradient, so the caller falls back to the solid fill.
  */
-export function buildGradientFill(gradient?: IGradientFill): IGradientFillProps | undefined {
+export function buildGradientFill(gradient?: IGradientFill, colorScheme?: IColorScheme): IGradientFillProps | undefined {
     if (!gradient || !gradient.stops || gradient.stops.length === 0) return undefined;
     return {
         type: gradient.type,
         angle: gradient.angle,
         stops: gradient.stops.map((stop) => ({
             position: stop.position,
-            color: getColorStyle(stop.color) || 'rgba(0,0,0,1)',
+            // theme-aware: resolves stop.color.th against the deck scheme,
+            // falling back to getColorStyle (Office default) when absent.
+            color: resolveThemeColor(stop.color, colorScheme) || 'rgba(0,0,0,1)',
         })),
     };
 }
