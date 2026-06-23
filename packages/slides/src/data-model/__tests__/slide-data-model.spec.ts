@@ -133,7 +133,7 @@ describe('SlideDataModel', () => {
         nameSubscription.unsubscribe();
     });
 
-    it('should keep empty slide snapshots stable when page collections are absent', () => {
+    it('normalizes an empty deck to a present-but-empty body (snapshot contract)', () => {
         slide = new SlideDataModel({
             id: 'empty-slide',
             title: 'Empty deck',
@@ -141,15 +141,18 @@ describe('SlideDataModel', () => {
 
         const blankPage = slide.getBlankPage();
 
+        // The migration guarantees a consistent body even when the input omitted
+        // page collections — collections are present and empty, not undefined.
         expect(slide.getActivePage()).toBeNull();
-        expect(slide.getPages()).toBeUndefined();
-        expect(slide.getPageOrder()).toBeUndefined();
+        expect(slide.getPages()).toEqual({});
+        expect(slide.getPageOrder()).toEqual([]);
         expect(slide.getPage(blankPage.id)).toBeUndefined();
+        expect(slide.getSnapshot().schemaVersion).toBe(1);
 
+        // With a real body, appendPage now persists (it was a no-op before).
         slide.appendPage(blankPage);
-        slide.updatePage(blankPage.id, blankPage);
-
-        expect(slide.getPages()).toBeUndefined();
+        expect(slide.getPageOrder()).toEqual([blankPage.id]);
+        expect(slide.getPage(blankPage.id)).toBeDefined();
         expect(slide.getSnapshot()).toMatchObject({
             id: 'empty-slide',
             title: 'Empty deck',

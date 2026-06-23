@@ -22,6 +22,7 @@ import { generateRandomId, UnitModel, UniverInstanceType } from '@univerjs/core'
 import { BehaviorSubject } from 'rxjs';
 import { DEFAULT_SLIDE } from '../basics/const/default-slide';
 import { PageType } from '../types/interfaces/i-slide-data';
+import { migrateSlideSnapshot, serializeSlideSnapshot } from './migrate';
 
 export class SlideDataModel extends UnitModel<ISlideData, UniverInstanceType.UNIVER_SLIDE> {
     override type: UniverInstanceType.UNIVER_SLIDE = UniverInstanceType.UNIVER_SLIDE;
@@ -53,7 +54,9 @@ export class SlideDataModel extends UnitModel<ISlideData, UniverInstanceType.UNI
     constructor(snapshot: Partial<ISlideData>) {
         super();
 
-        this._snapshot = { ...DEFAULT_SLIDE, ...snapshot };
+        // Migrate to the current canonical schema (stamps schemaVersion and
+        // guarantees a structurally consistent body/pageOrder).
+        this._snapshot = migrateSlideSnapshot({ ...DEFAULT_SLIDE, ...snapshot });
         this._unitId = this._snapshot.id ?? generateRandomId(6);
 
         this._name$ = new BehaviorSubject(this._snapshot.title);
@@ -80,6 +83,16 @@ export class SlideDataModel extends UnitModel<ISlideData, UniverInstanceType.UNI
 
     getSnapshot() {
         return this._snapshot;
+    }
+
+    /**
+     * Canonical, deeply-cloned snapshot for persistence/transport. Detached from
+     * the live model, so later edits don't mutate the serialized copy. Feeding
+     * it back through `migrateSlideSnapshot` (or `new SlideDataModel`) round-trips
+     * losslessly.
+     */
+    serialize(): ISlideData {
+        return serializeSlideSnapshot(this._snapshot);
     }
 
     getUnitId(): string {

@@ -37,6 +37,11 @@ import type { ShapeType } from '../enum/prst-geom-type';
 export interface ISlideData extends IReferenceSource {
     id: string; // unit id
     /**
+     * Canonical-snapshot schema version. Absent / 0 means a pre-versioned
+     * snapshot; `migrateSlideSnapshot` upgrades it to the current version.
+     */
+    schemaVersion?: number;
+    /**
      * Revision of this slide deck. Used in collaborative editing. Starts from one.
      * @ignore
      */

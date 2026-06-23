@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +17,7 @@
 
 export { DEFAULT_SLIDE } from './basics/const/default-slide';
 export type { IUniverSlidesConfig } from './config/config';
+export { migrateSlideSnapshot, serializeSlideSnapshot, SLIDE_SCHEMA_VERSION } from './data-model/migrate';
 export { SlideDataModel } from './data-model/slide-data-model';
 export { UniverSlidesPlugin } from './plugin';
 export * from './types/enum/prst-geom-type';
