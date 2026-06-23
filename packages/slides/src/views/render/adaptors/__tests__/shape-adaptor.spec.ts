@@ -15,7 +15,8 @@
  */
 
 import type { IPageElement } from '../../../../types/interfaces/i-slide-data';
-import { BorderStyleTypes } from '@univerjs/core';
+import type { IColorScheme } from '../../../../types/interfaces/i-slide-data';
+import { BorderStyleTypes, ThemeColorType } from '@univerjs/core';
 import { Circle, createCanvasGradient, Path, Rect } from '@univerjs/engine-render';
 import { describe, expect, it } from 'vitest';
 import { ArrowsAndMarkersShapes, BasicShapes } from '../../../../types/enum/prst-geom-type';
@@ -119,6 +120,18 @@ describe('ShapeAdaptor preset geometry', () => {
         const rect = adaptor.convert(el) as Rect;
         expect(rect.strokeDashArray).toEqual([6, 4]);
         expect(rect.strokeWidth).toBe(2);
+    });
+
+    it('resolves a theme-color fill against the deck color scheme', () => {
+        const scheme: IColorScheme = { [ThemeColorType.ACCENT1]: 'rgb(255,0,0)' };
+        const el = shapeElement(BasicShapes.Rect);
+        el.shape!.shapeProperties!.shapeBackgroundFill = { th: ThemeColorType.ACCENT1 };
+        // Without a scheme it falls back to the Office default; with the deck
+        // scheme it resolves to the scheme color.
+        const withScheme = adaptor.convert(el, undefined, scheme) as Rect;
+        expect(withScheme.fill).toBe('#ff0000');
+        const withoutScheme = adaptor.convert(el) as Rect;
+        expect(withoutScheme.fill).not.toBe('#ff0000'); // Office default, not the scheme
     });
 
     it('applies a drop shadow to the rendered shape', () => {

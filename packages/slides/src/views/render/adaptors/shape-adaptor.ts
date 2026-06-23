@@ -16,9 +16,10 @@
  */
 
 import type { Injector } from '@univerjs/core';
-import type { IPageElement } from '../../../types/interfaces/i-slide-data';
-import { getColorStyle } from '@univerjs/core';
+import type { Scene } from '@univerjs/engine-render';
+import type { IColorScheme, IPageElement } from '../../../types/interfaces/i-slide-data';
 import { Circle, Path, Rect } from '@univerjs/engine-render';
+import { resolveThemeColor } from '../../../basics/theme-color';
 import { BasicShapes } from '../../../types/enum/prst-geom-type';
 import { PageElementType } from '../../../types/interfaces/i-slide-data';
 import { CanvasObjectProviderRegistry, ObjectAdaptor } from '../adaptor';
@@ -37,7 +38,7 @@ export class ShapeAdaptor extends ObjectAdaptor {
         return this;
     }
 
-    override convert(pageElement: IPageElement) {
+    override convert(pageElement: IPageElement, _mainScene?: Scene, colorScheme?: IColorScheme) {
         const {
             id,
             zIndex,
@@ -58,7 +59,7 @@ export class ShapeAdaptor extends ObjectAdaptor {
         const { shapeType, text, shapeProperties, placeholder, link } = pageElement.shape || {};
 
         const fill =
-            shapeProperties == null ? '' : getColorStyle(shapeProperties.shapeBackgroundFill) || 'rgba(255,255,255,1)';
+            shapeProperties == null ? '' : resolveThemeColor(shapeProperties.shapeBackgroundFill, colorScheme) || 'rgba(255,255,255,1)';
 
         const outline = shapeProperties?.outline;
         // strokeStyle carries every shared paint prop (stroke, dash, shadow) so
@@ -68,7 +69,7 @@ export class ShapeAdaptor extends ObjectAdaptor {
             const { outlineFill, weight, dashStyle } = outline;
 
             strokeStyle.strokeWidth = weight;
-            strokeStyle.stroke = getColorStyle(outlineFill) || 'rgba(0,0,0,1)';
+            strokeStyle.stroke = resolveThemeColor(outlineFill, colorScheme) || 'rgba(0,0,0,1)';
 
             const dashArray = dashStyleToArray(dashStyle);
             if (dashArray) {

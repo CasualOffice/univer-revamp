@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +17,7 @@
 
 import type { Injector, Nullable } from '@univerjs/core';
 import type { BaseObject, Scene } from '@univerjs/engine-render';
-import type { IPageElement, PageElementType } from '../../types/interfaces/i-slide-data';
+import type { IColorScheme, IPageElement, PageElementType } from '../../types/interfaces/i-slide-data';
 import { Registry } from '@univerjs/core';
 
 export abstract class ObjectAdaptor {
@@ -31,7 +32,7 @@ export abstract class ObjectAdaptor {
         return this;
     }
 
-    abstract convert(pageElement: IPageElement, mainScene: Scene): Nullable<BaseObject>;
+    abstract convert(pageElement: IPageElement, mainScene: Scene, colorScheme?: IColorScheme): Nullable<BaseObject>;
 
     create(injector: Injector): void {
         // FIXME: should not be empty

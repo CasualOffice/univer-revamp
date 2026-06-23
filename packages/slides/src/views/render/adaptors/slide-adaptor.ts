@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -138,7 +139,7 @@ export class SlideAdaptor extends ObjectAdaptor {
 
         const { pageElements, pageBackgroundFill } = page;
 
-        const objects = this._ObjectProvider?.convertToRenderObjects(pageElements, mainScene);
+        const objects = this._ObjectProvider?.convertToRenderObjects(pageElements, mainScene, model.getSnapshot().theme?.colorScheme);
 
         this._addBackgroundRect(scene, pageBackgroundFill, model);
 

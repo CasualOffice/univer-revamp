@@ -410,7 +410,8 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
         const { pageElements, pageBackgroundFill } = page;
 
         // SceneViewers
-        const objects = this._objectProvider.convertToRenderObjects(pageElements, mainScene);
+        const colorScheme = (this._renderContext.unit as SlideDataModel)?.getSnapshot()?.theme?.colorScheme;
+        const objects = this._objectProvider.convertToRenderObjects(pageElements, mainScene, colorScheme);
         if (!objects || !slide) return;
 
         this._addBackgroundRect(pageScene, pageBackgroundFill);

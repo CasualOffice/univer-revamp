@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,7 @@
  */
 
 import type { BaseObject, Scene } from '@univerjs/engine-render';
-import type { IPageElement } from '../../types/interfaces/i-slide-data';
+import type { IColorScheme, IPageElement } from '../../types/interfaces/i-slide-data';
 import type { ObjectAdaptor } from './adaptor';
 import { Inject, Injector, sortRules } from '@univerjs/core';
 import { CanvasObjectProviderRegistry } from './adaptor';
@@ -28,12 +29,12 @@ export class ObjectProvider {
         this._adaptorLoader();
     }
 
-    convertToRenderObjects(pageElements: { [elementId: string]: IPageElement }, mainScene: Scene) {
+    convertToRenderObjects(pageElements: { [elementId: string]: IPageElement }, mainScene: Scene, colorScheme?: IColorScheme) {
         const pageKeys = Object.keys(pageElements);
         const objects: BaseObject[] = [];
         pageKeys.forEach((key) => {
             const pageElement = pageElements[key];
-            const o = this._executor(pageElement, mainScene);
+            const o = this._executor(pageElement, mainScene, colorScheme);
             if (o != null) {
                 objects.push(o);
             }
@@ -41,15 +42,15 @@ export class ObjectProvider {
         return objects;
     }
 
-    convertToRenderObject(pageElement: IPageElement, mainScene: Scene) {
-        return this._executor(pageElement, mainScene);
+    convertToRenderObject(pageElement: IPageElement, mainScene: Scene, colorScheme?: IColorScheme) {
+        return this._executor(pageElement, mainScene, colorScheme);
     }
 
-    private _executor(pageElement: IPageElement, mainScene: Scene) {
+    private _executor(pageElement: IPageElement, mainScene: Scene, colorScheme?: IColorScheme) {
         const { id: pageElementId, type } = pageElement;
 
         for (const adaptor of this._adaptors) {
-            const o = adaptor.check(type)?.convert(pageElement, mainScene);
+            const o = adaptor.check(type)?.convert(pageElement, mainScene, colorScheme);
             if (o != null) {
                 return o;
             }

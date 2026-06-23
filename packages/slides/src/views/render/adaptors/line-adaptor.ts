@@ -15,9 +15,10 @@
  */
 
 import type { Injector } from '@univerjs/core';
-import type { IPageElement } from '../../../types/interfaces/i-slide-data';
-import { getColorStyle } from '@univerjs/core';
+import type { Scene } from '@univerjs/engine-render';
+import type { IColorScheme, IPageElement } from '../../../types/interfaces/i-slide-data';
 import { Path } from '@univerjs/engine-render';
+import { resolveThemeColor } from '../../../basics/theme-color';
 import { PageElementType } from '../../../types/interfaces/i-slide-data';
 import { CanvasObjectProviderRegistry, ObjectAdaptor } from '../adaptor';
 import { dashStyleToArray } from './shape-style';
@@ -38,7 +39,7 @@ export class LineAdaptor extends ObjectAdaptor {
         return this;
     }
 
-    override convert(pageElement: IPageElement) {
+    override convert(pageElement: IPageElement, _mainScene?: Scene, colorScheme?: IColorScheme) {
         const { id, zIndex, left = 0, top = 0, width = 0, height = 0, angle, flipX, flipY } = pageElement;
         const { start, end, lineProperties } = pageElement.line || {};
 
@@ -50,7 +51,7 @@ export class LineAdaptor extends ObjectAdaptor {
 
         const outline = lineProperties?.outline;
         const strokeStyle: Record<string, unknown> = {
-            stroke: getColorStyle(outline?.outlineFill) || 'rgba(0,0,0,1)',
+            stroke: resolveThemeColor(outline?.outlineFill, colorScheme) || 'rgba(0,0,0,1)',
             strokeWidth: outline?.weight ?? 1,
         };
         const dashArray = dashStyleToArray(outline?.dashStyle);
