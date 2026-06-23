@@ -100,7 +100,11 @@ export class ZebraCrossingCacheController extends Disposable {
                     break;
             }
 
-            if (unitId && subUnitId) {
+            // Only refresh when a range-theme rule is actually applied. Without
+            // this guard, every row insert/remove/height change rebuilds the
+            // zebra-crossing row-visibility set across ALL rows — ~150 ms per op
+            // on a 1,048,576-row sheet, for striping that isn't in use.
+            if (unitId && subUnitId && this._sheetRangeThemeModel.hasRangeThemeRule(unitId)) {
                 this._sheetRangeThemeModel.refreshSheetRowVisibleFuncSet(unitId, subUnitId);
                 this._sheetRangeThemeModel.refreshZebraCrossingCacheBySheet(unitId, subUnitId);
             }

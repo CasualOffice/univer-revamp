@@ -123,6 +123,18 @@ export class SheetRangeThemeModel extends Disposable {
         return Boolean(this._rowVisibleFuncSet.has(unitId) && this._rowVisibleFuncSet.get(unitId)?.has(subUnitId));
     }
 
+    /**
+     * Whether any range-theme rule is applied in this unit. Used to skip the
+     * O(rowCount) zebra-crossing row-visibility refresh on row insert/remove/
+     * height mutations when no banded-row theme is in use — otherwise a single
+     * insert on a 1,048,576-row sheet spends ~150 ms here rebuilding visibility
+     * for striping that isn't applied. The visible-func set is only consumed by
+     * range-theme zebra crossing, so skipping it when there are no rules is safe.
+     */
+    public hasRangeThemeRule(unitId: string): boolean {
+        return (this._rangeThemeStyleRuleMap.get(unitId)?.size ?? 0) > 0;
+    }
+
     public refreshSheetRowVisibleFuncSet(unitId: string, subUnitId: string) {
         const set = this._getSheetRowVisibleFuncSet(unitId, subUnitId);
         set.clear();
