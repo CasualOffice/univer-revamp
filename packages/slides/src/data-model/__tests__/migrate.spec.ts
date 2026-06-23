@@ -16,7 +16,7 @@
 
 import type { ISlideData } from '../../types/interfaces/i-slide-data';
 import { describe, expect, it } from 'vitest';
-import { PageType } from '../../types/interfaces/i-slide-data';
+import { PageElementType, PageType } from '../../types/interfaces/i-slide-data';
 import { migrateSlideSnapshot, SLIDE_SCHEMA_VERSION, serializeSlideSnapshot } from '../migrate';
 
 function page(id: string) {
@@ -96,5 +96,33 @@ describe('serializeSlideSnapshot round-trip', () => {
         // Mutate the source; the serialized snapshot must be unaffected.
         migrated.body!.pages.a.title = 'changed';
         expect(serialized.body!.pages.a.title).toBe('a');
+    });
+
+    it('preserves line / chart / video elements losslessly (Gap 3 round-trip)', () => {
+        const d = deck();
+        d.body!.pages.a.pageElements = {
+            ln: {
+                id: 'ln', zIndex: 1, left: 0, top: 0, width: 100, height: 0,
+                title: 'connector', description: '', type: PageElementType.LINE,
+                line: { lineType: 'straightConnector1', start: { x: 0, y: 0 }, end: { x: 100, y: 50 } },
+            },
+            ch: {
+                id: 'ch', zIndex: 2, left: 10, top: 10, width: 300, height: 200,
+                title: 'chart', description: '', type: PageElementType.CHART,
+                chart: { chartType: 'bar', embeddedPart: '<c:chart/>', spec: { series: [1, 2, 3] } },
+            },
+            vid: {
+                id: 'vid', zIndex: 3, left: 20, top: 20, width: 320, height: 180,
+                title: 'video', description: '', type: PageElementType.VIDEO,
+                video: { sourceUrl: 'media/clip.mp4', posterUrl: 'media/poster.png', mimeType: 'video/mp4' },
+            },
+        };
+
+        const migrated = migrateSlideSnapshot(d);
+        const roundTripped = migrateSlideSnapshot(serializeSlideSnapshot(migrated));
+        expect(roundTripped).toEqual(migrated);
+        // The opaque chart part and media refs survive verbatim.
+        expect(roundTripped.body!.pages.a.pageElements.ch.chart!.embeddedPart).toBe('<c:chart/>');
+        expect(roundTripped.body!.pages.a.pageElements.vid.video!.sourceUrl).toBe('media/clip.mp4');
     });
 });

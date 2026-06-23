@@ -145,11 +145,56 @@ export interface IPageElement {
     document?: IDocumentData;
     /** @deprecated */
     slide?: ISlideData;
-    // video: IVideo;
-    // line: ILine;
-    // table: ITable;
-    // chart: IChartProperties;
+    line?: ILineElement;
+    chart?: IChartElement;
+    video?: IVideoElement;
+    // table: ITable; // tracked separately (#17)
     customBlock?: ICustomBlock; // customBlock block customized by user through plugin
+}
+
+/**
+ * Line / connector element (OOXML `p:cxnSp` / `cxnSpPr` + `prstGeom`).
+ * Endpoints are in the same coordinate space as the element transform; styling
+ * reuses IShapeProperties (outline weight/dash/color).
+ */
+export interface ILineElement {
+    /** prstGeom connector name, e.g. 'line', 'straightConnector1', 'bentConnector3'. */
+    lineType?: string;
+    start?: { x: number; y: number };
+    end?: { x: number; y: number };
+    lineProperties?: IShapeProperties;
+    placeholder?: IPlaceholder;
+    link?: ILink;
+}
+
+/**
+ * Chart element. The engine models it for preservation + future native render;
+ * `embeddedPart` carries the opaque OOXML `c:chart` XML so importers can
+ * round-trip charts losslessly before native rendering exists (#25).
+ */
+export interface IChartElement {
+    /** e.g. 'bar', 'line', 'pie', 'scatter' — best-effort from the source. */
+    chartType?: string;
+    /** Optional structured chart spec for native render/edit (when available). */
+    spec?: Record<string, unknown>;
+    /** Opaque source part (OOXML chart XML) preserved for lossless export. */
+    embeddedPart?: string;
+    /** Cached raster preview (data URL) until native chart render lands. */
+    previewUrl?: string;
+    placeholder?: IPlaceholder;
+    link?: ILink;
+}
+
+/**
+ * Embedded media (video/audio). `posterUrl` is the placeholder frame shown
+ * before playback; playback UI is product-owned.
+ */
+export interface IVideoElement {
+    sourceUrl?: string;
+    posterUrl?: string;
+    mimeType?: string;
+    placeholder?: IPlaceholder;
+    link?: ILink;
 }
 
 export enum PageType {
@@ -167,6 +212,10 @@ export enum PageElementType {
     SPREADSHEET,
     DOCUMENT,
     SLIDE,
+    // Appended (Gap 3) — numeric values of the above are preserved.
+    LINE,
+    CHART,
+    VIDEO,
 }
 
 /**
