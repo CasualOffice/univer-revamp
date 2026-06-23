@@ -186,6 +186,34 @@ The engine's only contribution is "every edit is a MUTATION" (**#1**), so nothin
 
 ---
 
+## Import / Export pipeline (charts · PDF · open formats)
+
+The full round-trip surface, with explicit ownership. **I/O code lives in `point`**
+(JSZip/fast-xml-parser readers, PptxGenJS/jsPDF writers); the **engine** supplies the
+data-model element types + rendering each format maps onto. Each I/O format is gated by the
+engine reaching the fidelity tier it needs.
+
+| Stage | Format / feature | Owner | Engine dependency | Status / phase |
+|-------|------------------|-------|-------------------|----------------|
+| **Import** | PPTX (`.pptx`, OOXML) | `point` | shapes/text/image (done), masters/theme **#16**, tables **#17**, group **#5**, chart/line/video **#25** | T1 done; T2+ as engine lands |
+| **Import** | ODP (`.odp`, OpenDocument) | `point` | shared model mapping w/ PPTX | planned — open-format pillar |
+| **Import** | Other open formats (`.fodp`/`.otp` flat-ODF; Google Slides export; best-effort `.key`) | `point` | same model mapping | backlog — after ODP |
+| **Export** | PPTX (`.pptx`) | `point` | serialize every modeled element | T1 done; deepen w/ engine |
+| **Export** | ODP (`.odp`) | `point` | shared serializer | planned |
+| **Export** | PDF | `point` | page render → vector/raster (engine render) | done (raster); vector + tagged/accessible PDF backlog |
+| **Charts** | chart element (render + preserve) | **engine #25** + `point` (chart-data edit, OOXML `c:chart` passthrough) | **#25** CHART element type + adaptor | pipeline — Phase 4 |
+| **Harness** | round-trip fidelity scoring (import→export→re-import diff) | `point` | — | planned, CI-gated |
+
+**Sequencing:** engine element-types/render (**#5**, **#16**, **#17**, **#25**) raise the PPTX
+fidelity tier (T2→T3→T4); ODP and the other open formats reuse the same engine model mapping,
+so they follow PPTX rather than duplicating it. Charts are the one round-trip item with a hard
+**engine** prerequisite (#25) — until the CHART element type exists, importers can only
+preserve the raw chart part, not render/edit it. PDF export is render-only (no model
+round-trip) and already works at raster fidelity; vector + accessible/tagged PDF is a later
+enhancement that builds on the engine's shape/text render path.
+
+---
+
 ## How to use this folder
 
 - `issues/` contains one Markdown spec per tracked issue, named
