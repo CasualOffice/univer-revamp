@@ -27,6 +27,12 @@ import {
 } from '../commands/mutations/element.mutation';
 import { ActivateSlidePageOperation } from '../commands/operations/activate.operation';
 import { AppendSlideOperation } from '../commands/operations/append-slide.operation';
+import {
+    SlideCopyElementCommand,
+    SlideCutElementCommand,
+    SlideDuplicateElementCommand,
+    SlidePasteElementCommand,
+} from '../commands/operations/clipboard.operation';
 import { DeleteSlideElementOperation } from '../commands/operations/delete-element.operation';
 import { SlideDeleteSlideCommand, SlideDuplicateSlideCommand } from '../commands/operations/duplicate-slide.operation';
 import { InsertSlideFloatImageCommand } from '../commands/operations/insert-image.operation';
@@ -100,6 +106,12 @@ export class SlidesUIController extends Disposable {
 
             // commands for editor
             SetTextEditArrowOperation,
+
+            // element clipboard
+            SlideCopyElementCommand,
+            SlideCutElementCommand,
+            SlidePasteElementCommand,
+            SlideDuplicateElementCommand,
 
         ].forEach((command) => this.disposeWithMe(this._commandService.registerCommand(command)));
     }

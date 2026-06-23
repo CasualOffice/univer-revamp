@@ -19,6 +19,14 @@ import './global.css';
 
 export { ActivateSlidePageOperation } from './commands/operations/activate.operation';
 export { AppendSlideOperation } from './commands/operations/append-slide.operation';
+export {
+    clearSlideClipboardBuffer,
+    getSlideClipboardBuffer,
+    SlideCopyElementCommand,
+    SlideCutElementCommand,
+    SlideDuplicateElementCommand,
+    SlidePasteElementCommand,
+} from './commands/operations/clipboard.operation';
 export { DeleteSlideElementOperation } from './commands/operations/delete-element.operation';
 export { InsertSlideFloatImageCommand } from './commands/operations/insert-image.operation';
 export { InsertSlideShapeEllipseCommand, InsertSlideShapeEllipseOperation, InsertSlideShapeRectangleCommand, InsertSlideShapeRectangleOperation } from './commands/operations/insert-shape.operation';
