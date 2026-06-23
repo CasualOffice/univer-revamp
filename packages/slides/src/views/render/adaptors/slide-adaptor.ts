@@ -20,6 +20,7 @@ import type { Engine } from '@univerjs/engine-render';
 import type { IPageElement, ISlidePage } from '../../../types/interfaces/i-slide-data';
 import { getColorStyle, Inject, Injector } from '@univerjs/core';
 import { Rect, Scene, Slide, Viewport } from '@univerjs/engine-render';
+import { resolvePlaceholders } from '../../../basics/placeholder';
 import { SlideDataModel } from '../../../data-model/slide-data-model';
 import { PageElementType } from '../../../types/interfaces/i-slide-data';
 import { CanvasObjectProviderRegistry, ObjectAdaptor } from '../adaptor';
@@ -137,9 +138,12 @@ export class SlideAdaptor extends ObjectAdaptor {
 
         viewMain.closeClip();
 
-        const { pageElements, pageBackgroundFill } = page;
+        const { pageBackgroundFill } = page;
 
-        const objects = this._ObjectProvider?.convertToRenderObjects(pageElements, mainScene, model.getSnapshot().theme?.colorScheme);
+        // Resolve placeholder inheritance (layout/master) before rendering.
+        const snapshot = model.getSnapshot();
+        const pageElements = resolvePlaceholders(page, snapshot);
+        const objects = this._ObjectProvider?.convertToRenderObjects(pageElements, mainScene, snapshot.theme?.colorScheme);
 
         this._addBackgroundRect(scene, pageBackgroundFill, model);
 

@@ -29,7 +29,7 @@ import {
     Slide,
     Viewport,
 } from '@univerjs/engine-render';
-import { ObjectProvider, SLIDE_KEY } from '@univerjs/slides';
+import { ObjectProvider, resolvePlaceholders, SLIDE_KEY } from '@univerjs/slides';
 
 export class SlideRenderController extends RxDisposable implements IRenderModule {
     private _objectProvider: ObjectProvider | null = null;
@@ -407,10 +407,12 @@ export class SlideRenderController extends RxDisposable implements IRenderModule
         });
         viewMain.closeClip();
 
-        const { pageElements, pageBackgroundFill } = page;
+        const { pageBackgroundFill } = page;
 
-        // SceneViewers
-        const colorScheme = (this._renderContext.unit as SlideDataModel)?.getSnapshot()?.theme?.colorScheme;
+        // SceneViewers — resolve placeholder inheritance + theme scheme first.
+        const snapshot = (this._renderContext.unit as SlideDataModel)?.getSnapshot();
+        const pageElements = resolvePlaceholders(page, snapshot ?? {} as never);
+        const colorScheme = snapshot?.theme?.colorScheme;
         const objects = this._objectProvider.convertToRenderObjects(pageElements, mainScene, colorScheme);
         if (!objects || !slide) return;
 
