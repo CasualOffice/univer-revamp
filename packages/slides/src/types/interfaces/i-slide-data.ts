@@ -161,8 +161,45 @@ export interface IPageElement {
     line?: ILineElement;
     chart?: IChartElement;
     video?: IVideoElement;
-    // table: ITable; // tracked separately (#17)
+    group?: IGroupElement;
+    table?: ITableElement;
     customBlock?: ICustomBlock; // customBlock block customized by user through plugin
+}
+
+/**
+ * A group of page elements (OOXML `p:grpSp`). Children use absolute page
+ * coordinates (the same space as the group's own transform); the group element
+ * itself is the selectable container + bounding box.
+ */
+export interface IGroupElement {
+    children: IPageElement[];
+}
+
+/**
+ * Table element (OOXML `a:tbl`). Column widths / row heights are in the page
+ * coordinate space; cells are row-major. A cell may span via rowSpan/colSpan
+ * (spanned-over cells set `merged: true` and render nothing).
+ */
+export interface ITableElement {
+    columnWidths: number[];
+    rowHeights: number[];
+    rows: ITableRow[];
+}
+
+export interface ITableRow {
+    cells: ITableCell[];
+}
+
+export interface ITableCell {
+    /** Cell text (rich text reuses the slide text-style model). */
+    text?: ISlideRichTextProps;
+    fill?: IColorStyle;
+    /** Per-cell outline/border (reuses shape outline styling). */
+    border?: IShapeProperties['outline'];
+    rowSpan?: number;
+    colSpan?: number;
+    /** True when this cell is covered by another cell's span — render nothing. */
+    merged?: boolean;
 }
 
 /**
@@ -229,6 +266,7 @@ export enum PageElementType {
     LINE,
     CHART,
     VIDEO,
+    GROUP,
 }
 
 /**
