@@ -77,7 +77,7 @@ export class ShapeAdaptor extends ObjectAdaptor {
             }
         }
 
-        const shadowProps = buildShadowProps(shapeProperties?.shadow);
+        const shadowProps = buildShadowProps(shapeProperties?.shadow, colorScheme);
         if (shadowProps) {
             Object.assign(strokeStyle, shadowProps);
         }

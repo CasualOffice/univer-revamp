@@ -170,6 +170,12 @@ describe('ShapeAdaptor preset geometry', () => {
         expect(props.shadowOpacity).toBe(1);
     });
 
+    it('buildShadowProps: resolves a theme-color shadow against the deck scheme', () => {
+        const scheme: IColorScheme = { [ThemeColorType.ACCENT1]: 'rgb(10,20,30)' };
+        const props = buildShadowProps({ color: { th: ThemeColorType.ACCENT1 } }, scheme)!;
+        expect(props.shadowColor).toBe('#0a141e');
+    });
+
     it('buildGradientFill: resolves IColorStyle stops to CSS strings', () => {
         expect(buildGradientFill(undefined)).toBeUndefined();
         expect(buildGradientFill({ type: 'linear', stops: [] })).toBeUndefined();

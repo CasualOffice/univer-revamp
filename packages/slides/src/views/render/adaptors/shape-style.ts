@@ -17,7 +17,7 @@
 import type { IGradientFill, IShapeShadow } from '@univerjs/core';
 import type { IGradientFillProps } from '@univerjs/engine-render';
 import type { IColorScheme } from '../../../types/interfaces/i-slide-data';
-import { BorderStyleTypes, getColorStyle } from '@univerjs/core';
+import { BorderStyleTypes } from '@univerjs/core';
 import { resolveThemeColor } from '../../../basics/theme-color';
 
 // Maps the slide shape style model (outline dash + drop shadow) onto the props
@@ -65,11 +65,11 @@ export interface IShadowRenderProps {
  * when there's no shadow (so the caller can spread nothing). Defaults match a
  * subtle PowerPoint-style outer shadow.
  */
-export function buildShadowProps(shadow?: IShapeShadow): IShadowRenderProps | undefined {
+export function buildShadowProps(shadow?: IShapeShadow, colorScheme?: IColorScheme): IShadowRenderProps | undefined {
     if (!shadow) return undefined;
     return {
         shadowEnabled: true,
-        shadowColor: getColorStyle(shadow.color) || 'rgba(0,0,0,0.4)',
+        shadowColor: resolveThemeColor(shadow.color, colorScheme) || 'rgba(0,0,0,0.4)',
         shadowBlur: shadow.blur ?? 4,
         shadowOffsetX: shadow.offsetX ?? 2,
         shadowOffsetY: shadow.offsetY ?? 2,
