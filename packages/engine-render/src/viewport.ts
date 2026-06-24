@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -753,31 +754,55 @@ export class Viewport {
         const tm = sceneTrans.getMatrix();
         mainCtx.save();// At this time, mainCtx transform is (dpr, 0, 0, dpr, 0, 0)
 
-        if (this._clipViewport) {
-            mainCtx.beginPath();
-            // DEPT: left is set by upper views but width and height is not
-            // this.left has handle scale already, no need to `this.width * scale`
-            // const { scaleX, scaleY } = this._getBoundScale(m[0], m[3]);
-            mainCtx.rect(this.left, this.top, (this.width || 0), (this.height || 0));
-            mainCtx.clip();
+        // Outer guard: the matching restore() lives in `finally` so the save
+        // stack ALWAYS rebalances. Without it, a throw anywhere in the frame
+        // body (viewport math, clip/transform setup, an object's paint) skips
+        // this restore, leaving the canvas context permanently unbalanced —
+        // which blanks the ENTIRE main canvas on this AND every subsequent
+        // frame, while the slide-rail thumbnails (a separate DOM-only render
+        // path, see shell/SlideTile) keep working. That is exactly the
+        // "renders in the slide list but not on the main canvas" failure.
+        try {
+            if (this._clipViewport) {
+                mainCtx.beginPath();
+                // DEPT: left is set by upper views but width and height is not
+                // this.left has handle scale already, no need to `this.width * scale`
+                // const { scaleX, scaleY } = this._getBoundScale(m[0], m[3]);
+                mainCtx.rect(this.left, this.top, (this.width || 0), (this.height || 0));
+                mainCtx.clip();
+            }
+
+            // set scrolling state for mainCtx,
+            mainCtx.transform(tm[0], tm[1], tm[2], tm[3], tm[4], tm[5]);
+            const viewPortInfo = this.calcViewportInfo();
+
+            for (let i = 0, length = objects.length; i < length; i++) {
+                // Inner guard: a single object that throws mid-render
+                // (malformed geometry, non-finite gradient/coords, a bad image,
+                // a doc-layout edge case) must NOT abort the whole frame — we
+                // skip ONLY the offending object and keep painting the rest.
+                mainCtx.save();
+                try {
+                    objects[i].render(mainCtx, viewPortInfo);
+                } catch (err) {
+                    console.error('[engine-render] object skipped after render error:', objects[i]?.oKey, err);
+                } finally {
+                    mainCtx.restore();
+                }
+            }
+
+            this.markDirty(false);
+            this.markForceDirty(false);
+
+            this._preViewBound = this._viewBound;
+            if (viewPortInfo.shouldCacheUpdate) {
+                this.preCacheBound = this._cacheBound;
+            }
+        } catch (err) {
+            console.error('[engine-render] viewport frame error (canvas kept alive):', err);
+        } finally {
+            mainCtx.restore();
         }
-
-        // set scrolling state for mainCtx,
-        mainCtx.transform(tm[0], tm[1], tm[2], tm[3], tm[4], tm[5]);
-        const viewPortInfo = this.calcViewportInfo();
-
-        for (let i = 0, length = objects.length; i < length; i++) {
-            objects[i].render(mainCtx, viewPortInfo);
-        }
-
-        this.markDirty(false);
-        this.markForceDirty(false);
-
-        this._preViewBound = this._viewBound;
-        if (viewPortInfo.shouldCacheUpdate) {
-            this.preCacheBound = this._cacheBound;
-        }
-        mainCtx.restore();
 
         if (this._scrollBar && isMaxLayer) {
             mainCtx.save();
