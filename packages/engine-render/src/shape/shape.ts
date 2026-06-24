@@ -117,24 +117,49 @@ export function createCanvasGradient(
     if (!stops || stops.length === 0 || typeof ctx.createLinearGradient !== 'function') {
         return null;
     }
-
-    let gradient: CanvasGradient;
-    if (type === 'radial') {
-        const cx = width / 2;
-        const cy = height / 2;
-        const r = Math.max(width, height) / 2;
-        gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-    } else {
-        const rad = (angle * Math.PI) / 180;
-        const hx = (Math.cos(rad) * width) / 2;
-        const hy = (Math.sin(rad) * height) / 2;
-        gradient = ctx.createLinearGradient(width / 2 - hx, height / 2 - hy, width / 2 + hx, height / 2 + hy);
+    // The browser's createLinear/RadialGradient throws "non-finite" if any
+    // geometry coordinate is NaN/Infinity. pptx decks routinely yield a
+    // zero/NaN box for a not-yet-laid-out shape, so bail to a solid fill
+    // rather than letting the throw escape into scene.render() (which would
+    // abort the whole main-canvas render loop and leave the canvas blank).
+    if (!Number.isFinite(width) || !Number.isFinite(height)) {
+        return null;
     }
 
-    for (const stop of stops) {
-        gradient.addColorStop(Math.max(0, Math.min(1, stop.position)), stop.color);
+    try {
+        let gradient: CanvasGradient;
+        if (type === 'radial') {
+            const cx = width / 2;
+            const cy = height / 2;
+            const r = Math.max(width, height) / 2;
+            gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        } else {
+            const rad = (angle * Math.PI) / 180;
+            const hx = (Math.cos(rad) * width) / 2;
+            const hy = (Math.sin(rad) * height) / 2;
+            gradient = ctx.createLinearGradient(width / 2 - hx, height / 2 - hy, width / 2 + hx, height / 2 + hy);
+        }
+
+        const n = stops.length;
+        stops.forEach((stop, i) => {
+            // addColorStop throws on a non-finite offset (NaN position from a
+            // malformed/percent-less gradient stop) — fall back to an even
+            // distribution by index so the gradient still renders.
+            let pos = stop.position;
+            if (!Number.isFinite(pos)) {
+                pos = n > 1 ? i / (n - 1) : 0;
+            }
+            pos = Math.max(0, Math.min(1, pos));
+            if (typeof stop.color === 'string' && stop.color) {
+                // ...and a SyntaxError on an unparseable color string.
+                gradient.addColorStop(pos, stop.color);
+            }
+        });
+        return gradient;
+    } catch {
+        // Any residual malformed-gradient case degrades to the solid fill.
+        return null;
     }
-    return gradient;
 }
 
 export abstract class Shape<T extends IShapeProps> extends BaseObject {
