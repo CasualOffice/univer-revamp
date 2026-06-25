@@ -1,4 +1,5 @@
 /**
+ * Copyright 2026-present CasualOffice.
  * Copyright 2023-present DreamNum Co., Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -74,11 +75,21 @@ export class RichTextAdaptor extends ObjectAdaptor {
             forceRender: true,
         };
         let isNotNull = false;
-        if (text != null) {
-            config = { ...config, text, ff, fs, it, bl, ul, st, ol, bg, bd, cl };
-            isNotNull = true;
-        } else if (rich != null) {
+        // Prefer the full `rich` IDocumentData over the flat `text` fallback.
+        // The importer emits BOTH: `rich` carries per-run formatting plus the
+        // document-level margins, vertical anchor and wrap strategy; `text` is
+        // only a single-run legacy fallback for the export round-trip. Taking
+        // `text` first (the previous order) discarded `rich` whenever both were
+        // present — which is always — so every imported text box rendered
+        // through `_convertToDocumentData`, a doc with NO margins and NO wrap
+        // strategy. With no wrap strategy the layout engine fills the column
+        // greedily and breaks mid-word ("Presenta/tions"), and all per-run
+        // bold/italic/colour is lost. Honour `rich` whenever it exists.
+        if (rich != null) {
             config = { ...config, richText: rich };
+            isNotNull = true;
+        } else if (text != null) {
+            config = { ...config, text, ff, fs, it, bl, ul, st, ol, bg, bd, cl };
             isNotNull = true;
         }
 
