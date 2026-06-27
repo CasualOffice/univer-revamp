@@ -391,63 +391,82 @@ export class FormulaDataModel extends Disposable {
     updateFormulaData(unitId: string, sheetId: string, cellValue: IObjectMatrixPrimitiveType<Nullable<ICellData>>) {
         const cellMatrix = new ObjectMatrix(cellValue);
 
-        const formulaIdMap = this._getSheetFormulaIdMap(unitId, sheetId); // Connect the formula and ID
-
         const deleteFormulaIdMap = new Map<string, string | IFormulaIdMap>();
 
-        const formulaData = this.getFormulaData();
-
-        if (formulaData[unitId] == null) {
-            formulaData[unitId] = {};
-        }
-
-        const workbookFormulaData = formulaData[unitId]!;
-
-        if (workbookFormulaData[sheetId] == null) {
-            workbookFormulaData[sheetId] = {};
-        }
-
-        const sheetFormulaDataMatrix = new ObjectMatrix<Nullable<IFormulaDataItem>>(workbookFormulaData[sheetId] || {});
+        // Seed from THIS sheet's formula data only. getFormulaData() rebuilds the
+        // formula data for every sheet of every unit (each O(cells)) on every
+        // edit; updateFormulaData only needs the edited sheet, so use the
+        // single-sheet builder.
+        const sheetFormulaDataMatrix = new ObjectMatrix<Nullable<IFormulaDataItem>>(
+            this.getSheetFormulaData(unitId, sheetId) || {}
+        );
         const newSheetFormulaDataMatrix = new ObjectMatrix<IFormulaDataItem | null>();
+
+        // Only mutations that touch a shared-formula (`si`) relationship need the
+        // whole-sheet formula-id map and the fix-up pass below — both of which are
+        // O(cells). Detect that from the CHANGED cells alone (a changed cell that
+        // has an `si`, or whose existing formula data has one), keeping the common
+        // value / individual-formula edit O(changed) instead of O(sheet).
+        let touchesSharing = false;
+        cellMatrix.forValue((r, c, cell) => {
+            if (isFormulaId(cell?.si)) {
+                touchesSharing = true;
+                return false;
+            }
+            const existing = sheetFormulaDataMatrix.getValue(r, c);
+            if (existing != null && isFormulaId(existing.si)) {
+                touchesSharing = true;
+                return false;
+            }
+            return true;
+        });
+
+        // Connect the formula and ID — only build the whole-sheet map when a
+        // shared-formula relationship is actually in play.
+        const formulaIdMap = touchesSharing ? (this._getSheetFormulaIdMap(unitId, sheetId) ?? {}) : {};
 
         cellMatrix.forValue((r, c, cell) => {
             updateFormulaDataByCellValue(sheetFormulaDataMatrix, newSheetFormulaDataMatrix, formulaIdMap, deleteFormulaIdMap, r, c, cell);
         });
 
-        // Convert the formula ID to formula string
-        sheetFormulaDataMatrix.forValue((r, c, cell) => {
-            const formulaString = cell?.f || '';
-            const formulaId = cell?.si || '';
+        // Re-resolve shared-formula cells (id → formula string). Skipped entirely
+        // when this mutation neither touched an `si` cell nor disassociated a
+        // master — the loop would be a whole-sheet no-op otherwise.
+        if (touchesSharing || deleteFormulaIdMap.size > 0) {
+            sheetFormulaDataMatrix.forValue((r, c, cell) => {
+                const formulaString = cell?.f || '';
+                const formulaId = cell?.si || '';
 
-            if (isFormulaId(formulaId)) {
-                const formulaInfo = formulaIdMap?.[formulaId];
-                const deleteFormula = deleteFormulaIdMap.get(formulaId);
+                if (isFormulaId(formulaId)) {
+                    const formulaInfo = formulaIdMap?.[formulaId];
+                    const deleteFormula = deleteFormulaIdMap.get(formulaId);
 
-                if (formulaInfo && !isFormulaString(formulaString)) {
-                    const f = formulaInfo.f;
-                    const x = c - formulaInfo.c;
-                    const y = r - formulaInfo.r;
+                    if (formulaInfo && !isFormulaString(formulaString)) {
+                        const f = formulaInfo.f;
+                        const x = c - formulaInfo.c;
+                        const y = r - formulaInfo.r;
 
-                    sheetFormulaDataMatrix.setValue(r, c, { f, si: formulaId, x, y });
-                    newSheetFormulaDataMatrix.setValue(r, c, { f, si: formulaId, x, y });
-                } else if (typeof deleteFormula === 'string') {
-                    const x = cell?.x || 0;
-                    const y = cell?.y || 0;
-                    const offsetFormula = this._lexerTreeBuilder.moveFormulaRefOffset(deleteFormula, x, y);
+                        sheetFormulaDataMatrix.setValue(r, c, { f, si: formulaId, x, y });
+                        newSheetFormulaDataMatrix.setValue(r, c, { f, si: formulaId, x, y });
+                    } else if (typeof deleteFormula === 'string') {
+                        const x = cell?.x || 0;
+                        const y = cell?.y || 0;
+                        const offsetFormula = this._lexerTreeBuilder.moveFormulaRefOffset(deleteFormula, x, y);
 
-                    deleteFormulaIdMap.set(formulaId, { r, c, f: offsetFormula });
+                        deleteFormulaIdMap.set(formulaId, { r, c, f: offsetFormula });
 
-                    sheetFormulaDataMatrix.setValue(r, c, { f: offsetFormula, si: formulaId });
-                    newSheetFormulaDataMatrix.setValue(r, c, { f: offsetFormula, si: formulaId });
-                } else if (typeof deleteFormula === 'object') {
-                    const x = c - deleteFormula.c;
-                    const y = r - deleteFormula.r;
+                        sheetFormulaDataMatrix.setValue(r, c, { f: offsetFormula, si: formulaId });
+                        newSheetFormulaDataMatrix.setValue(r, c, { f: offsetFormula, si: formulaId });
+                    } else if (typeof deleteFormula === 'object') {
+                        const x = c - deleteFormula.c;
+                        const y = r - deleteFormula.r;
 
-                    sheetFormulaDataMatrix.setValue(r, c, { f: deleteFormula.f, si: formulaId, x, y });
-                    newSheetFormulaDataMatrix.setValue(r, c, { f: deleteFormula.f, si: formulaId, x, y });
+                        sheetFormulaDataMatrix.setValue(r, c, { f: deleteFormula.f, si: formulaId, x, y });
+                        newSheetFormulaDataMatrix.setValue(r, c, { f: deleteFormula.f, si: formulaId, x, y });
+                    }
                 }
-            }
-        });
+            });
+        }
 
         return newSheetFormulaDataMatrix.getMatrix();
     }
