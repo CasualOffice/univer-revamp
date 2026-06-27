@@ -161,6 +161,27 @@ describe('LocalUndoRedoService', () => {
         expect(undoRedoService.pitchTopUndoElement()).toBeNull();
     });
 
+    it('caps the undo stack at 100 (Excel parity), evicting the oldest item', () => {
+        let status: { undos: number; redos: number } | undefined;
+        undoRedoService.undoRedoStatus$.subscribe((s) => {
+            status = s ?? undefined;
+        });
+
+        for (let i = 0; i < 105; i++) {
+            undoRedoService.pushUndoRedo({
+                unitID: 'unit-1',
+                undoMutations: [{ id: MUTATION_ID, params: { label: `u-${i}` } }],
+                redoMutations: [{ id: MUTATION_ID, params: { label: `r-${i}` } }],
+                id: `item-${i}`,
+            });
+        }
+
+        // The stack is bounded; the newest item is still on top and the count
+        // has settled at the capacity (the first five were evicted).
+        expect(undoRedoService.pitchTopUndoElement()?.id).toBe('item-104');
+        expect(status?.undos).toBe(100);
+    });
+
     it('should resolve focused unit id from sheet editor contexts and clear unit stacks', () => {
         contextService.setContextValue(FOCUSING_SHEET, true);
         contextService.setContextValue(FOCUSING_FX_BAR_EDITOR, true);

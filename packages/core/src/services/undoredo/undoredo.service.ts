@@ -98,7 +98,11 @@ export interface IUndoRedoStatus {
     redos: number;
 }
 
-const STACK_CAPACITY = 20;
+// Excel keeps 100 levels of undo; upstream's default of 20 is a frequent
+// papercut for power users (a few find-and-replaces or fill-downs exhaust it).
+// Each entry holds only mutation params (range refs + values), so a deeper
+// stack costs little for the common edit and matches the parity bar.
+const STACK_CAPACITY = 100;
 
 abstract class MultiImplementationCommand implements IDisposable {
     dispose(): void {
