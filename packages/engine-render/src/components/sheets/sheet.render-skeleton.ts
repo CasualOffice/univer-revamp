@@ -796,6 +796,36 @@ export class SpreadsheetSkeleton extends SheetSkeleton {
             }
         }
         const style = this.worksheet.getComposedCellStyleByCellData(row, column, cell);
+
+        // Fast path for the overwhelmingly common cell: a plain value (no rich
+        // text), not wrapped, not rotated. The slow path below builds a whole
+        // DocumentViewModel + DocumentSkeleton and lays it out for *every* cell —
+        // which dominates whole-sheet auto-fit (tens of thousands of layouts, the
+        // 10s+ freeze on a 20k-row column). For this shape the rendered content
+        // width is just the widest line measured by the LRU-cached FontCache —
+        // the exact primitive the renderer itself uses to size non-wrap content.
+        // We mirror the slow path's inputs precisely (text via
+        // extractPureTextFromCell, font via getFontFormat → getFontStyleString,
+        // padding via extractOtherStyle) so the result is pixel-identical.
+        if (!cell.p && cell.v != null && style?.tb !== WrapStrategy.WRAP) {
+            const otherStyle = extractOtherStyle(style);
+            const { vertexAngle, centerAngle } = convertTextRotation(otherStyle.textRotation ?? { a: 0 });
+            if (vertexAngle === 0 && centerAngle === 0) {
+                const text = extractPureTextFromCell(cell);
+                if (!text) return measuredWidth;
+                const fontString = getFontStyleString(getFontFormat(style)).fontCache;
+                const paddingData = otherStyle.paddingData ?? DEFAULT_PADDING_DATA;
+                const paddingLeft = paddingData.l ?? DEFAULT_PADDING_DATA.l;
+                const paddingRight = paddingData.r ?? DEFAULT_PADDING_DATA.r;
+                let widest = 0;
+                for (const line of text.split(/\r\n|\r|\n/)) {
+                    const w = FontCache.getMeasureText(line, fontString).width;
+                    if (w > widest) widest = w;
+                }
+                return widest + paddingLeft + paddingRight;
+            }
+        }
+
         const modelObject = this.worksheet.getCellDocumentModel(cell, style);
         if (modelObject == null) {
             return measuredWidth;
