@@ -32,6 +32,7 @@ import { defaultPluginConfig, SHEETS_DATA_VALIDATION_UI_PLUGIN_CONFIG_KEY } from
 import { DataValidationAlertController } from './controllers/dv-alert.controller';
 import { DataValidationAutoFillController } from './controllers/dv-auto-fill.controller';
 import { DataValidationCopyPasteController } from './controllers/dv-copy-paste.controller';
+import { DataValidationInputMessageController } from './controllers/dv-input-message.controller';
 import { DataValidationPermissionController } from './controllers/dv-permission.controller';
 import { DataValidationRejectInputController } from './controllers/dv-reject-input.controller';
 import { SheetsDataValidationRenderController } from './controllers/dv-render.controller';
@@ -72,6 +73,7 @@ export class UniverSheetsDataValidationUIPlugin extends Plugin {
             [DataValidationPanelService],
             [DataValidationDropdownManagerService],
             [DataValidationAlertController],
+            [DataValidationInputMessageController],
             [DataValidationAutoFillController],
             [SheetsDataValidationRenderController],
             [DataValidationPermissionController],
@@ -99,6 +101,7 @@ export class UniverSheetsDataValidationUIPlugin extends Plugin {
         this._injector.get(DataValidationPermissionController);
         this._injector.get(DataValidationRejectInputController);
         this._injector.get(DataValidationAlertController);
+        this._injector.get(DataValidationInputMessageController);
 
         const renderManager = this._injector.get(IRenderManagerService);
         renderManager.registerRenderModule<Workbook>(
