@@ -164,6 +164,19 @@ export class SheetPermissionInterceptorCanvasRenderController extends RxDisposab
                         return true;
                     }
 
+                    // Only cells inside a protected range can carry a permission
+                    // veto. If the fill range overlaps no protection rule, skip the
+                    // per-cell scan entirely — otherwise filling from a whole-column
+                    // selection walks ~1,048,576 cells synchronously even on a sheet
+                    // with zero protection. (Mirrors the guard in the range-move
+                    // interceptor below.)
+                    const ruleRanges = this._rangeProtectionRuleModel.getSubunitRuleList(unitId, subUnitId).reduce((p, c) => {
+                        return [...p, ...c.ranges];
+                    }, [] as IRange[]);
+                    if (!ruleRanges.some((ruleRange) => Rectangle.intersects(ruleRange, selectionRange))) {
+                        return true;
+                    }
+
                     const { startRow, endRow, startColumn, endColumn } = selectionRange;
 
                     for (let row = startRow; row <= endRow; row++) {
