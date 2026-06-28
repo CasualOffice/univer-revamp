@@ -255,19 +255,26 @@ export class StatusBarController extends Disposable {
     }
 
     getRangeStartEndInfo(range: IRange, sheet: Worksheet): IRange {
+        // Bound full-sheet (ALL), whole-column and whole-row selections to the
+        // used range instead of the sheet's nominal row/column count. Empty
+        // cells past the last-with-content row/column add nothing to Sum / Avg
+        // / Count / Min / Max, so this is exact — and it turns an O(1,048,576)
+        // scan per column click into O(used range).
+        const lastContentRow = Math.min(sheet.getRowCount() - 1, sheet.getLastRowWithContent());
+        const lastContentColumn = Math.min(sheet.getColumnCount() - 1, sheet.getLastColumnWithContent());
         if (range.rangeType === RANGE_TYPE.ALL) {
             return {
                 startRow: 0,
                 startColumn: 0,
-                endRow: sheet.getRowCount() - 1,
-                endColumn: sheet.getColumnCount() - 1,
+                endRow: lastContentRow,
+                endColumn: lastContentColumn,
             };
         }
         if (range.rangeType === RANGE_TYPE.COLUMN) {
             return {
                 startRow: 0,
                 startColumn: range.startColumn,
-                endRow: sheet.getRowCount() - 1,
+                endRow: lastContentRow,
                 endColumn: range.endColumn,
 
             };
@@ -277,7 +284,7 @@ export class StatusBarController extends Disposable {
                 startRow: range.startRow,
                 startColumn: 0,
                 endRow: range.endRow,
-                endColumn: sheet.getColumnCount() - 1,
+                endColumn: lastContentColumn,
             };
         }
         return {
@@ -336,9 +343,18 @@ export class StatusBarController extends Disposable {
             });
 
         if (selections?.length) {
+            // Clamp every scan to the last row/column that actually holds
+            // content. A full-column/row selection arrives spanning the whole
+            // sheet (up to ~1,048,576 rows); walking all of it on the main
+            // thread is what made selecting a column lag. Empty cells beyond
+            // the used range contribute nothing to any statistic, so bounding
+            // to the used range is exact — and matches Excel, which computes
+            // column stats instantly.
+            const lastContentRow = sheet.getLastRowWithContent();
             const realSelections: IRange[] = [];
             selections.forEach((selection) => {
-                const { startRow: start, endRow: end } = selection;
+                const { startRow: start } = selection;
+                const end = Math.min(selection.endRow, Math.max(lastContentRow, start));
                 let prev = null;
                 for (let r = start; r <= end; r++) {
                     if (sheet.getRowVisible(r)) {

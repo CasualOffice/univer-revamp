@@ -183,4 +183,67 @@ describe('StatusBarController', () => {
         // Business sanity: workbook data actually updated.
         expect(workbook.getActiveSheet()!.getCellRaw(0, 0)?.v).toBe(10);
     });
+
+    // Heavy-Excel-user hot path: clicking a column/row header selects the whole
+    // column/row. The status-bar scan must bound to the used range (content in
+    // rows 0-1, column 0 only) instead of the sheet's nominal 10x10 — otherwise
+    // a real sheet's 1,048,576-row column is walked synchronously on every
+    // click, which is the selection lag this guards against.
+    it('bounds whole-column / whole-row statistics to the used range', () => {
+        const controller = get(StatusBarController);
+        const worksheet = get(IUniverInstanceService)
+            .getCurrentUnitOfType<Workbook>(UniverInstanceType.UNIVER_SHEET)!
+            .getActiveSheet()!;
+
+        // Whole column: endRow clamps to the last row with content (1), not 9.
+        const colInfo = controller.getRangeStartEndInfo(
+            { startRow: 0, startColumn: 0, endRow: 9, endColumn: 0, rangeType: RANGE_TYPE.COLUMN },
+            worksheet
+        );
+        expect(colInfo.endRow).toBe(1);
+        expect(colInfo.startRow).toBe(0);
+
+        // Whole row: endColumn clamps to the last column with content (0), not 9.
+        const rowInfo = controller.getRangeStartEndInfo(
+            { startRow: 0, startColumn: 0, endRow: 0, endColumn: 9, rangeType: RANGE_TYPE.ROW },
+            worksheet
+        );
+        expect(rowInfo.endColumn).toBe(0);
+
+        // ALL (select-all) clamps both dimensions to the used range.
+        const allInfo = controller.getRangeStartEndInfo(
+            { startRow: 0, startColumn: 0, endRow: 9, endColumn: 9, rangeType: RANGE_TYPE.ALL },
+            worksheet
+        );
+        expect(allInfo.endRow).toBe(1);
+        expect(allInfo.endColumn).toBe(0);
+    });
+
+    it('computes correct stats for a whole-column selection (over the used range)', () => {
+        const workbook = get(IUniverInstanceService).getCurrentUnitOfType<Workbook>(UniverInstanceType.UNIVER_SHEET)!;
+        const worksheet = workbook.getActiveSheet()!;
+        const statusBarService = get(IStatusBarService);
+
+        const selection: ISelectionWithStyle = {
+            range: { startRow: 0, startColumn: 0, endRow: 9, endColumn: 0, rangeType: RANGE_TYPE.COLUMN },
+            primary: null,
+            style: null,
+        };
+
+        expect(commandService.syncExecuteCommand(SetSelectionsOperation.id, {
+            unitId: workbook.getUnitId(),
+            subUnitId: worksheet.getSheetId(),
+            selections: [selection],
+        })).toBeTruthy();
+
+        vi.advanceTimersByTime(150);
+        vi.runOnlyPendingTimers();
+
+        const state = statusBarService.getState();
+        // Only rows 0-1 hold values; the empty rest of the column is skipped, so
+        // the count is the two populated cells — not 1,048,576. (Count is used
+        // rather than Sum because the shared fixture's values are mutated by an
+        // earlier test in this file; the cell *count* is stable regardless.)
+        expect(state?.values.find((v) => v.func === FUNCTION_NAMES_STATISTICAL.COUNT)?.value).toBe(2);
+    });
 });
