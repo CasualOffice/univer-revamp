@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'Mostrar texto de ajuda para uma célula selecionada',
             rangeError: 'Os intervalos não são válidos',
             allowBlank: 'Permitir valores em branco',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'Qualquer valor',

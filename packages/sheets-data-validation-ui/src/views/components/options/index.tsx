@@ -91,6 +91,41 @@ export function DataValidationOptions(props: IDataValidationOptionsParams) {
                             </FormLayout>
                         )
                         : null}
+                    <FormLayout>
+                        <Checkbox
+                            checked={value.showInputMessage}
+                            onChange={() => onChange({
+                                ...value,
+                                showInputMessage: !value.showInputMessage,
+                            })}
+                        >
+                            <span data-testid="dv-show-input-message">
+                                {localeService.t('sheets-data-validation-ui.panel.showInputMessage')}
+                            </span>
+                        </Checkbox>
+                    </FormLayout>
+                    {value.showInputMessage
+                        ? (
+                            <>
+                                <FormLayout>
+                                    <Input
+                                        data-testid="dv-input-message-title"
+                                        placeholder={localeService.t('sheets-data-validation-ui.panel.inputMessageTitle')}
+                                        value={value.promptTitle}
+                                        onChange={(promptTitle) => onChange({ ...value, promptTitle })}
+                                    />
+                                </FormLayout>
+                                <FormLayout>
+                                    <Input
+                                        data-testid="dv-input-message-prompt"
+                                        placeholder={localeService.t('sheets-data-validation-ui.panel.inputMessagePrompt')}
+                                        value={value.prompt}
+                                        onChange={(prompt) => onChange({ ...value, prompt })}
+                                    />
+                                </FormLayout>
+                            </>
+                        )
+                        : null}
                 </>
             )}
         </>

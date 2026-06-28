@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'إظهار نص المساعدة للخلية المحددة',
             rangeError: 'النطاقات غير قانونية',
             allowBlank: 'السماح بالقيم الفارغة',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'أي قيمة',

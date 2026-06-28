@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'نمایش متن راهنما برای یک سلول انتخاب شده',
             rangeError: 'محدوده‌ها نامعتبر هستند',
             allowBlank: 'رد سلول خالی',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'هر مقدار',

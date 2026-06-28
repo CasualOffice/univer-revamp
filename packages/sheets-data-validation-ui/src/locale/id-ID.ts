@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'Tampilkan teks bantuan untuk sel yang dipilih',
             rangeError: 'Rentang tidak sah',
             allowBlank: 'Izinkan nilai kosong',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'Nilai apa saja',

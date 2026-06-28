@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'Zobraziť pomocný text pre vybranú bunku',
             rangeError: 'Rozsahy nie sú platné',
             allowBlank: 'Povoliť prázdne hodnoty',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'Ľubovoľná hodnota',

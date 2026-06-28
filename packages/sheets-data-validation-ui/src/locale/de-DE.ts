@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'Hilfetext für ausgewählte Zelle anzeigen',
             rangeError: 'Bereiche sind ungültig',
             allowBlank: 'Leere Werte zulassen',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'Beliebiger Wert',

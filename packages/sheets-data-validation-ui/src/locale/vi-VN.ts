@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             messageInfo: 'Thông báo',
             showInfo: 'Hiển thị thông báo cho ô đã chọn',
             allowBlank: 'Bỏ qua giá trị rỗng',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'Bất kỳ giá trị',

@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'セルを選択したときに入力時メッセージを表示する',
             rangeError: '範囲が正しくありません',
             allowBlank: '空白を無視する',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'すべての値',

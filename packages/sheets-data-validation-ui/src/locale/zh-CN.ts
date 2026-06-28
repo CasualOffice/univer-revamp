@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             messageInfo: '文字提示',
             showInfo: '显示所选单元格的提示文字',
             allowBlank: '忽略空值',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: '任意值',

@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'Afficher le texte d\'aide pour une cellule sélectionnée',
             rangeError: 'Les plages ne sont pas légales',
             allowBlank: 'Autoriser les valeurs vides',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'N\'importe quelle valeur',

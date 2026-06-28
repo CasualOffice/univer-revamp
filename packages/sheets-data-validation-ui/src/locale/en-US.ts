@@ -52,6 +52,9 @@ const locale = {
             showInfo: 'Show help text for a selected cell',
             rangeError: 'Ranges are not legal',
             allowBlank: 'Allow blank values',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'Any value',

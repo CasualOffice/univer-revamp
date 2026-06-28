@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: '선택한 셀에 도움말 표시',
             rangeError: '범위가 올바르지 않습니다',
             allowBlank: '빈 셀 허용',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: '모든 값',

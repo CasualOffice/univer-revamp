@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             messageInfo: 'Сообщение помощи',
             showInfo: 'Показать текст помощи для выбранной ячейки',
             allowBlank: 'Игнорировать пустые значения',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'Любое значение',

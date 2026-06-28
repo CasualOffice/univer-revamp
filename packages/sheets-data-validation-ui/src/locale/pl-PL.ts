@@ -54,6 +54,9 @@ const locale: typeof enUS = {
             showInfo: 'Pokaż tekst pomocy dla zaznaczonej komórki',
             rangeError: 'Zakresy są nieprawidłowe',
             allowBlank: 'Zezwalaj na puste wartości',
+            showInputMessage: 'Show input message when cell is selected',
+            inputMessageTitle: 'Input message title',
+            inputMessagePrompt: 'Input message text',
         },
         any: {
             title: 'Dowolna wartość',
