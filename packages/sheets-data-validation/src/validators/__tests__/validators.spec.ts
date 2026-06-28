@@ -29,6 +29,7 @@ import { DecimalValidator, getCellValueNumber } from '../decimal-validator';
 import { ListMultipleValidator } from '../list-multiple-validator';
 import { ListValidator } from '../list-validator';
 import { TextLengthValidator } from '../text-length-validator';
+import { TimeValidator } from '../time-validator';
 import { WholeValidator } from '../whole-validator';
 
 function createContext() {
@@ -171,6 +172,39 @@ describe('validators', () => {
         expect(date.transform({ value: '2024-01-02' } as never, {} as never, {} as never).value).toBeTypeOf('number');
         expect(date.generateRuleName({ operator: DataValidationOperator.EQUAL, formula1: '2024-01-02' } as never)).toContain('sheets-data-validation.date.title');
         expect(date.generateRuleErrorMessage({ operator: DataValidationOperator.EQUAL, formula1: '=A1', ranges: [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 0 }] } as never, { row: 0, col: 0 } as never)).toBe('sheets-data-validation.date.errorMsg.equal');
+        expect(lexerTreeBuilder.moveFormulaRefOffset).toHaveBeenCalled();
+    });
+
+    it('covers time validation parsing, normalization, and messages', async () => {
+        const { localeService, injector, customFormulaService, lexerTreeBuilder } = createContext();
+        const time = new TimeValidator(localeService, injector);
+
+        customFormulaService.getCellFormulaValue.mockResolvedValueOnce({ v: '09:00:00' });
+        customFormulaService.getCellFormula2Value.mockResolvedValueOnce({ v: '17:00:00' });
+
+        // Times parse to the fractional part of a serial number (0 ≤ t < 1).
+        const parsed = await time.parseFormula({ uid: 'rule-1', formula1: '=A1', formula2: '=B1' } as never, 'u', 's', 0, 0);
+        expect(parsed.formula1).toBeTypeOf('number');
+        expect(parsed.formula1).toBeGreaterThanOrEqual(0);
+        expect(parsed.formula1).toBeLessThan(1);
+        expect(parsed.formula2).toBeTypeOf('number');
+        expect(parsed.isFormulaValid).toBe(true);
+
+        expect(await time.isValidType({ value: 0.5, interceptValue: '13:30' } as never)).toBe(true);
+        expect(await time.isValidType({ value: 'ignored', interceptValue: 'not-a-time' } as never)).toBe(false);
+        expect(time.validatorFormula({ operator: DataValidationOperator.BETWEEN, formula1: '09:00', formula2: '' } as never, 'u', 's')).toEqual({
+            success: false,
+            formula1: undefined,
+            formula2: 'sheets-data-validation.validFail.time',
+        });
+        // Serial 0.5 is noon; an unparseable time normalizes to an empty string.
+        expect(time.normalizeFormula({ formula1: '0.5', formula2: 'invalid' } as never, 'u', 's')).toEqual({
+            formula1: '12:00:00',
+            formula2: '',
+        });
+        expect(time.transform({ value: '13:30' } as never, {} as never, {} as never).value).toBeTypeOf('number');
+        expect(time.generateRuleName({ operator: DataValidationOperator.EQUAL, formula1: '13:30' } as never)).toContain('sheets-data-validation.time.title');
+        expect(time.generateRuleErrorMessage({ operator: DataValidationOperator.EQUAL, formula1: '=A1', ranges: [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 0 }] } as never, { row: 0, col: 0 } as never)).toBe('sheets-data-validation.time.errorMsg.equal');
         expect(lexerTreeBuilder.moveFormulaRefOffset).toHaveBeenCalled();
     });
 

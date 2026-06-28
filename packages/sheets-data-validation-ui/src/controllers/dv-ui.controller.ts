@@ -32,6 +32,7 @@ import { DecimalValidatorView } from '../views/validator-views/decimal-validator
 import { ListMultipleValidatorView } from '../views/validator-views/list-multiple-view';
 import { ListValidatorView } from '../views/validator-views/list-validator-view';
 import { TextLengthValidatorView } from '../views/validator-views/text-length-validator.view';
+import { TimeValidatorView } from '../views/validator-views/time-validator-view';
 import { WholeValidatorView } from '../views/validator-views/whole-validator-view';
 
 export class SheetsDataValidationUIController extends RxDisposable {
@@ -67,6 +68,7 @@ export class SheetsDataValidationUIController extends RxDisposable {
             WholeValidatorView,
             TextLengthValidatorView,
             DateValidatorView,
+            TimeValidatorView,
             CheckboxValidatorView,
             ListValidatorView,
             ListMultipleValidatorView,

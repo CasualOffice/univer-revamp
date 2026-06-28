@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
-export { CHECKBOX_FORMULA_1, CHECKBOX_FORMULA_2, CheckboxValidator } from './checkbox-validator';
-export { DateValidator } from './date-validator';
-export { DecimalValidator } from './decimal-validator';
-export { ListValidator } from './list-validator';
-export { TextLengthValidator } from './text-length-validator';
-export { TimeValidator } from './time-validator';
+import { DataValidationType } from '@univerjs/core';
+import { DataValidatorDropdownType } from '@univerjs/data-validation';
+import { BASE_FORMULA_INPUT_NAME } from '../components/formula-input/formula-input';
+import { BaseSheetDataValidatorView } from './sheet-validator-view';
+
+export class TimeValidatorView extends BaseSheetDataValidatorView {
+    override id = DataValidationType.TIME;
+    override formulaInput: string = BASE_FORMULA_INPUT_NAME;
+    override dropdownType = DataValidatorDropdownType.TIME;
+}

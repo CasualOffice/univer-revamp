@@ -20,7 +20,7 @@ import { DataValidatorRegistryService } from '@univerjs/data-validation';
 import { ClearSelectionAllCommand, SheetInterceptorService, SheetsSelectionsService } from '@univerjs/sheets';
 import { getDataValidationDiffMutations } from '../commands/commands/data-validation.command';
 import { SheetDataValidationModel } from '../models/sheet-data-validation-model';
-import { CheckboxValidator, DateValidator, DecimalValidator, ListValidator, TextLengthValidator } from '../validators';
+import { CheckboxValidator, DateValidator, DecimalValidator, ListValidator, TextLengthValidator, TimeValidator } from '../validators';
 import { AnyValidator } from '../validators/any-validator';
 import { CustomFormulaValidator } from '../validators/custom-validator';
 import { ListMultipleValidator } from '../validators/list-multiple-validator';
@@ -51,6 +51,7 @@ export class DataValidationController extends RxDisposable {
             WholeValidator,
             TextLengthValidator,
             DateValidator,
+            TimeValidator,
             CheckboxValidator,
             ListValidator,
             ListMultipleValidator,
